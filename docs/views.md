@@ -696,15 +696,19 @@ Every constant used by the views. Changing one changes view output and needs a n
 
 The set is the closure of these rules:
 
-1. **Product records**: every member of every product, listing, and review chain with product key `key`; every `observation` with `product = key` or with `listing` resolving to one of those listings.
+1. **Product records**: every member of every product, listing, and review chain with product key `key`; every `observation` with `product = key` or with `listing` resolving to one of those listings; every `redact` record with `product = key`.
 2. **Chains**: for every included record of a replaceable kind, every member of its chain. For every reference field (`target`, `listing`, `receipt.listing`) in an included record, the referenced record and its chain.
 3. **Targets**: for every member of an included listing, review, product, or profile chain: `flag`, `appeal`, `retract`, and `redact` records whose `target` is that member. For every included record: `retract` and `redact` records targeting it.
 4. **Involved authors**: authors of included records; authors of receipt listings.
 5. **Author data**, for every involved author: all `profile` chains; all `retire` records; fork evidence; all `attest.identity`, `attest.domain`, and `attest.revoke` records with that subject.
 6. **Attestors**: for every trusted attestor and every author of an included attestation: `retire` records and fork evidence.
 7. **Persons**: for every pair `(A, p)` with `A` trusted for `attest.identity` in an included `attest.identity`, every `attest.identity` by `A` with `person = p`. Their subjects are involved authors. This rule ignores expiry and retraction, so the set does not depend on `now`.
-8. **Restriction**: for every person of a listing author for `key`, every listing chain of every key of that person, with its flags.
+8. **Restriction**: for every person of a listing author for `key`, every flagged listing chain of every key of that person, with its flags. Unflagged listings cannot be hidden (§6), so they are left out.
 9. Rules 3 to 7 apply to the flaggers found in rules 3 and 8, so their verification and persons are known.
+
+perch-views computes the set by running `product_view` with a recording store accessor: every record ID that a lookup returns is added. Because a sparse store returns a subset of what the full store returns for each lookup, and every returned ID is in the set, each lookup gives the same result over the sparse store. Tests check byte equality for 54 products of the Small and Medium demo datasets.
+
+Measured sizes: 1 to 79 records on Small; 14 to 133 records on Medium; 193 to 262 records for the 3 most-reviewed products on Large.
 
 Rule 7 follows only trusted attestors. Untrusted keys could otherwise attest each other and link any key to millions of others, which makes the set unbounded. A client whose policy adds attestors that the node's policy lacks can get an incomplete set (threat-model R11).
 
@@ -784,6 +788,23 @@ RecordStatus { semantic_valid, reason|null, root, versions: [id], ignored|null }
 
 `Views::new(store, policy)` memoizes intermediate results for one batch of queries. `Views::into_cache()` returns them as a `ViewCache`. `Views::with_cache(store, policy, cache)` reuses them. A cache is valid only for unchanged store contents and an equal policy. Callers discard it after any insert, body fill, or body removal. As a safety net, `with_cache` discards a cache whose policy, record count, body-less count, or fork evidence differ. Results with and without a cache are byte-identical.
 
+### 15.7 Performance
+
+Measured on the Large demo dataset (99,457 records, 4,409 product keys), native release build, one thread, CPU time of the thread, minimum of 5 runs, 2026-10-18. Command: `cargo run --release -p perch-views --example bench -- large`.
+
+| Operation | Time | Target |
+|---|---|---|
+| `product_view`, 18 products (up to 102 reviews) | mean 1.05 ms, max 3.3 ms | 20 ms |
+| `search`, GTIN query (1 hit) | 70 ms | 200 ms |
+| `search`, two words (22 hits) | 81 ms | 200 ms |
+| `search`, one word (100 of 170–440 hits) | 132–191 ms | 200 ms |
+| `search`, empty query (100 of 4,409 hits) | 865 ms | 200 ms |
+| `search`, repeated narrow query with a kept `ViewCache` | 65 ms | — |
+| `stats` | 800 ms | — |
+| `related_records`, most-reviewed products | 4–10 ms | — |
+
+Cost per search is at least one pass over all product records (text matching), plus rating and price work for each hit that can reach the first `limit`. A profile of the empty query attributes 29% of instructions to body schema checks and 19% to receipt signature checks for the returned hits. Callers that list all products should keep a `ViewCache` (§15.6) or use a narrower query.
+
 ## 16. Research notes
 
 ### 16.1 Rating aggregation
@@ -841,3 +862,4 @@ Without a central identity authority, one entity can present many identities ([D
 | Source chain | A product chain whose values feed facts (§10.3). |
 | Sparse store | A store holding records without complete log prefixes (5.5). |
 | Union-find | A data structure that merges sets and finds a set's representative. |
+| ViewCache | Memoized view results kept between queries over an unchanged store (§15.6). |

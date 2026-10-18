@@ -784,6 +784,25 @@ fn redact_notice_only_when_body_missing() {
 }
 
 #[test]
+fn single_version_removal_shown_via_notice_product() {
+    let mut w = World::new();
+    let mut s = w.key("seller");
+    let key = w.product(&mut s, "P", G1);
+    let mut a = w.key("a");
+    let r = w.review(&mut a, &key, 1, None);
+    let mut node = w.key("node");
+    w.put(&mut node, "redact", json!({ "target": r.id().to_hex(), "reason": "illegal", "product": key.as_str() }));
+    perch_store::Store::remove_body(&mut w.store, &r.id()).unwrap();
+    let pv = w.views().product(key.as_str()).unwrap();
+    assert_eq!(pv.reviews.len(), 1);
+    let rv = &pv.reviews[0];
+    assert_eq!((rv.status, rv.counted), (Status::Unavailable, false));
+    let red = rv.redaction.as_ref().unwrap();
+    assert_eq!((red.by, red.product.as_ref()), (Some(node.id()), Some(&key)));
+    assert_eq!(pv.ratings.excluded.unavailable, 1);
+}
+
+#[test]
 fn view_json_is_canonical_and_stable() {
     let (w, l) = hidden_listing_world(3);
     let a = canonical_json(&w.views().listing(&l));
