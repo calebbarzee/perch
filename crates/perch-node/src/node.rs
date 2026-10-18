@@ -491,6 +491,7 @@ mod tests {
             imports: vec![],
             tiers: Default::default(),
             trust_proxy_header: None,
+            trust_proxy_hops: 1,
             ca_file: None,
         };
         let build = BuildInfo { version: "test", build_hash: "x".into() };

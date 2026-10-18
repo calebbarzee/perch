@@ -338,3 +338,37 @@ fn j_rate_limits_apply_to_loopback() {
     assert!(codes.iter().take(30).all(|c| *c == 200), "burst of 40 is allowed: {codes:?}");
     assert!((0..30).all(|_| n.get("/v1/status").status == 200));
 }
+
+/// Re-audit N4: with a trusted proxy header, the rightmost value is the
+/// client, and both rate limits and the per-address session cap use it.
+#[test]
+fn l_trusted_proxy_header_uses_rightmost_value() {
+    use std::io::{Read, Write};
+    let dir = tmpdir("proxy");
+    let n = spawn(&dir.join("a"), &["--trust-proxy-header".into(), "x-forwarded-for".into()]);
+    let post = |xff: &str| {
+        http_with(&n.addr, "POST", "/v1/records", Some(""), &[("Host", n.addr.as_str()), ("X-Forwarded-For", xff)]).status
+    };
+    // The client prepends a fake address each time; the proxy appended .50.
+    let codes: Vec<u16> = (0..14).map(|i| post(&format!("198.51.100.{i}, 203.0.113.50"))).collect();
+    assert!(codes.contains(&429), "spoofed left values do not escape the limit: {codes:?}");
+    assert_eq!(post("203.0.113.51"), 200, "another client has its own bucket");
+    // Session cap of 8 applies to the forwarded address.
+    let mut socks = Vec::new();
+    let mut statuses = Vec::new();
+    for _ in 0..9 {
+        let mut s = std::net::TcpStream::connect(&n.addr).unwrap();
+        s.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+        let req = format!(
+            "GET /v1/sync HTTP/1.1\r\nHost: {}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nX-Forwarded-For: 203.0.113.60\r\n\r\n",
+            n.addr
+        );
+        s.write_all(req.as_bytes()).unwrap();
+        let mut buf = [0u8; 12];
+        s.read_exact(&mut buf).unwrap();
+        statuses.push(String::from_utf8_lossy(&buf[9..12]).to_string());
+        socks.push(s);
+    }
+    assert_eq!(statuses[..8], vec!["101"; 8][..], "{statuses:?}");
+    assert_eq!(statuses[8], "503", "{statuses:?}");
+}

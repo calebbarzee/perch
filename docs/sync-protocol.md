@@ -110,6 +110,7 @@ The receiver checks that pages advance and that an exchange is finite:
 
 - every entry of a page is after the requested `after`, and `next`, when present, is the last entry of a non-empty page; otherwise `bad_message`;
 - one exchange (all pages from `after: null` to `next: null`) has at most the local author count plus 100,000 entries; otherwise `misbehavior`. A node that joins a network with more authors catches up over several exchanges.
+- each new exchange replaces what the previous one said about authors the receiver does not store, and the receiver closes the session (`misbehavior`) if its state about the peer ever exceeds the local author count plus 100,000 authors, from heads or from pushed records.
 
 Each page reflects the responder's store when the page is built. Records the responder accepts after the session starts reach the peer by push (5.2), so changes between pages are not lost.
 

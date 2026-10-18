@@ -29,6 +29,9 @@ pub struct ServeConfig {
     /// reverse proxy on the same host (for example `x-forwarded-for`).
     /// Used only for connections from loopback.
     pub trust_proxy_header: Option<String>,
+    /// Which value of the trusted header is the client, counted from the
+    /// right: 1 = the value the nearest proxy appended.
+    pub trust_proxy_hops: usize,
     /// Extra trust roots (PEM) for `wss://` peers.
     pub ca_file: Option<PathBuf>,
 }
@@ -67,6 +70,10 @@ pub mod limits {
     /// Concurrent view computations; more wait up to `VIEW_WAIT_SECS`, then get 503.
     pub const VIEW_WORKERS: usize = 4;
     pub const VIEW_WAIT_SECS: u64 = 10;
+    /// Heavy requests in flight per client IP; more wait up to `VIEW_WAIT_SECS`, then get 429.
+    pub const PER_IP_IN_FLIGHT: usize = 1;
+    /// Time budget of one lookup; checked between products.
+    pub const LOOKUP_BUDGET_MS: u64 = 5_000;
     /// Rate-limiter table size before idle entries are evicted.
     pub const LIMITER_ENTRIES: usize = 100_000;
     /// Lookup prefix length range (hex characters).

@@ -39,6 +39,7 @@ Every error has an HTTP status and this body:
 | 429 | `rate_limited` | Too many submissions or view requests from one address |
 | 503 | `too_many_sessions` | Sync session limits reached |
 | 503 | `busy` | All view workers were busy for 10 s |
+| 503 | `budget` | A lookup exceeded its 5 s time budget; use a longer prefix |
 | 500 | `internal` | Node failure, for example a disk write error |
 
 Admin endpoint errors (section 8): 401 `unauthorized`, 403 `cross_origin`, 403 `bad_host`, 415 `bad_content_type`.
@@ -210,6 +211,9 @@ WebSocket upgrade for the sync protocol ([`docs/sync-protocol.md`](sync-protocol
 | `POST /v1/records` rate per client address | 2 per second, burst 10 (loopback included) |
 | View endpoints, related sets, lookup, stats, export, per client address | 20 tokens per second, burst 40; export costs 5, lookup 2, others 1 |
 | Concurrent view computations | 4, on the blocking thread pool; others wait up to 10 s, then 503 `busy` |
+| Heavy requests in flight per client address | 1; another waits up to 10 s, then 429 `rate_limited` |
+| Time charge | A heavy request is charged 1 extra token per 50 ms of computation, so slow queries use up the address's budget |
+| Lookup time budget | 5 s, checked between products; then 503 `budget` |
 | Rate-limiter table | 100,000 addresses; when full, refilled entries are evicted first |
 | Record line | 131,072 bytes |
 | Log page | 1,000 records |
@@ -256,7 +260,7 @@ perch-node serve [--listen 127.0.0.1:7700] [--data ./data] [--peer ws://host:por
                  [--refresh-secs 600] [--max-outbound 8] [--import file.jsonl]...
                  [--tier1-records 1000000] [--tier2-records 1000] [--tier3-records 100]
                  [--tier3-budget 1073741824] [--trust-proxy-header x-forwarded-for]
-                 [--ca-file roots.pem]
+                 [--trust-proxy-hops 1] [--ca-file roots.pem]
 perch-node keygen [--out key.json]
 perch-node demo --out demo.jsonl [--policy-out policy.json] [--manifest-out manifest.json]
                 [--size small|medium|large] [--seed 1]
@@ -276,7 +280,8 @@ perch-node demo --out demo.jsonl [--policy-out policy.json] [--manifest-out mani
 | `--public-url` | Address announced to peers. Default `ws://<listen>/v1/sync`, or none when listening on all interfaces. |
 | `--import` | JSONL files inserted at startup (for example the demo dataset) |
 | `--ca-file` | Extra trusted CA certificates (PEM) for dialing `wss://` peers, added to the Mozilla roots (section 9) |
-| `--trust-proxy-header` | Header naming the client address (for example `x-forwarded-for`), trusted only on connections from loopback, for a reverse proxy on the same host |
+| `--trust-proxy-header` | Header naming the client address (for example `x-forwarded-for`), trusted only on connections from loopback, for a reverse proxy on the same host. Rate limits and the per-address session cap then use the forwarded address. |
+| `--trust-proxy-hops` | Which value of that header is the client, counted from the right (default 1: the value the nearest proxy appended). Values further left come from the client and are ignored. |
 
 Environment variables:
 
@@ -347,7 +352,7 @@ Reverse proxy setup for a public node:
 
 1. Run the node on loopback: `perch-node serve --listen 127.0.0.1:7700 --public-url wss://perch.example.org/v1/sync --trust-proxy-header x-forwarded-for`.
 2. Terminate TLS in the proxy and forward everything to `127.0.0.1:7700`, including WebSocket upgrades on `/v1/sync` (`Upgrade` and `Connection` headers), with a read timeout above 90 s.
-3. Set `X-Forwarded-For` to the client address, so rate limits apply per client and not to the proxy.
+3. Have the proxy append the client address to `X-Forwarded-For`, so rate limits and session caps apply per client and not to the proxy. The node uses the rightmost value (`--trust-proxy-hops 1`); with a chain of trusted proxies, set the hop count to the chain length.
 
 Example for [Caddy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy), which obtains certificates and forwards WebSocket upgrades by default:
 

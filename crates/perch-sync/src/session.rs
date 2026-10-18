@@ -304,6 +304,25 @@ impl Session {
     fn start_round<S: Store + ?Sized>(&mut self, store: &S) {
         self.round_entries = 0;
         self.round_cap = store.author_count().saturating_add(self.cfg.max_extra_authors);
+        // Replace, per exchange, what the peer claimed about authors this node
+        // does not store; the new heads rebuild it. Bounds state across refreshes.
+        self.peer_has.retain(|a, _| store.head(a).is_some());
+        self.peer_pair.retain(|a, _| store.head(a).is_some());
+        self.peer_hint.clear();
+        self.want_queue.clear();
+        self.evid_queue.clear();
+    }
+
+    /// Lifetime bound on per-peer state (audit #6): at most the local
+    /// author count plus `max_extra_authors` entries.
+    fn check_state_bound<S: Store + ?Sized>(&mut self, store: &S) -> Result<(), SyncError> {
+        let cap = store.author_count().saturating_add(self.cfg.max_extra_authors);
+        let size = self.peer_has.len().max(self.want_queue.len()).max(self.peer_pair.len());
+        if size > cap {
+            self.score = self.score.saturating_add(score::BAD_MESSAGE);
+            return Err(self.fail(ErrorCode::Misbehavior, format!("peer state of {size} authors exceeds {cap}")));
+        }
+        Ok(())
     }
 
     fn count_sent(&mut self, msgs: Vec<Message>) -> Vec<Message> {
@@ -356,6 +375,7 @@ impl Session {
         self.stats.records_received += msg.record_count() as u64;
         let mut out = Out::default();
         self.handle(store, msg, &mut out)?;
+        self.check_state_bound(store)?;
         if matches!(self.state, State::Syncing | State::Live) {
             self.pump(store, &mut out);
         }

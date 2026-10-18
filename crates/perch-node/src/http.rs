@@ -71,6 +71,15 @@ impl Limiter {
         }
     }
 
+    /// Charges `cost` tokens after the fact (for example for time used); the
+    /// bucket may go into debt down to minus one burst.
+    pub fn charge(&self, ip: IpAddr, cost: f64) {
+        let mut m = self.buckets.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(e) = m.get_mut(&ip) {
+            e.0 = (e.0 - cost).max(-self.burst);
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.buckets.lock().unwrap_or_else(|e| e.into_inner()).len()
     }
@@ -83,6 +92,39 @@ impl Limiter {
 #[cfg(test)]
 mod limiter_tests {
     use super::*;
+
+    #[test]
+    fn forwarded_ip_takes_the_trusted_hop() {
+        // The client wrote "1.1.1.1"; the proxy appended the real peer.
+        assert_eq!(forwarded_ip("1.1.1.1, 203.0.113.7", 1), Some("203.0.113.7".parse().unwrap()));
+        assert_eq!(forwarded_ip("1.1.1.1, 203.0.113.7, 10.0.0.2", 2), Some("203.0.113.7".parse().unwrap()));
+        assert_eq!(forwarded_ip("203.0.113.7", 3), Some("203.0.113.7".parse().unwrap()));
+        assert_eq!(forwarded_ip("[2001:db8::1]:443", 1), Some("2001:db8::1".parse().unwrap()));
+        assert_eq!(forwarded_ip("", 1), None);
+        assert_eq!(forwarded_ip("junk", 1), None);
+    }
+
+    #[tokio::test]
+    async fn one_heavy_request_in_flight_per_address() {
+        let f = InFlight::default();
+        let a: IpAddr = "203.0.113.1".parse().unwrap();
+        let b: IpAddr = "203.0.113.2".parse().unwrap();
+        let wait = std::time::Duration::from_millis(100);
+        let held = f.acquire(a, wait).await.expect("first slot");
+        assert!(f.acquire(a, wait).await.is_none(), "second request from the same address waits, then fails");
+        assert!(f.acquire(b, wait).await.is_some(), "other addresses are not blocked");
+        drop(held);
+        assert!(f.acquire(a, wait).await.is_some(), "slot released");
+    }
+
+    #[test]
+    fn slow_requests_are_charged() {
+        let l = Limiter::new(20.0, 40.0);
+        let ip: IpAddr = "203.0.113.3".parse().unwrap();
+        assert!(l.take(ip, 1.0));
+        l.charge(ip, 100.0);
+        assert!(!l.take(ip, 1.0), "debt blocks further requests");
+    }
 
     #[test]
     fn evicts_idle_entries_instead_of_resetting_all() {
@@ -98,6 +140,59 @@ mod limiter_tests {
     }
 }
 
+/// The client address in a proxy header: the `hops`-th value from the right
+/// (1 = the value the nearest trusted proxy appended). Values to its left
+/// come from the client and are not trusted. With fewer values, the leftmost.
+pub fn forwarded_ip(value: &str, hops: usize) -> Option<IpAddr> {
+    let parts: Vec<&str> = value.split(',').map(str::trim).filter(|p| !p.is_empty()).collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let i = parts.len().saturating_sub(hops.max(1));
+    let p = parts[i];
+    let p = p.strip_prefix('[').and_then(|x| x.split(']').next()).unwrap_or(p);
+    p.parse::<IpAddr>().ok().or_else(|| p.parse::<SocketAddr>().ok().map(|s| s.ip()))
+}
+
+/// Per-client-IP limit on heavy requests in flight (audit #10).
+#[derive(Default)]
+pub struct InFlight {
+    per_ip: Mutex<HashMap<IpAddr, Arc<tokio::sync::Semaphore>>>,
+}
+
+impl InFlight {
+    /// Waits up to `wait` for one of the IP's slots.
+    pub async fn acquire(&self, ip: IpAddr, wait: std::time::Duration) -> Option<tokio::sync::OwnedSemaphorePermit> {
+        let sem = {
+            let mut m = self.per_ip.lock().unwrap_or_else(|e| e.into_inner());
+            if m.len() >= limits::LIMITER_ENTRIES {
+                // Drop entries nobody holds or waits on.
+                m.retain(|_, s| Arc::strong_count(s) > 1);
+            }
+            m.entry(ip).or_insert_with(|| Arc::new(tokio::sync::Semaphore::new(limits::PER_IP_IN_FLIGHT))).clone()
+        };
+        tokio::time::timeout(wait, sem.acquire_owned()).await.ok()?.ok()
+    }
+}
+
+/// Held while a heavy request runs. On drop, charges the client one rate
+/// token per 50 ms of time used, so slow queries cost more.
+pub struct HeavyGuard {
+    limiter: Arc<Limiter>,
+    ip: IpAddr,
+    start: Instant,
+    _slot: tokio::sync::OwnedSemaphorePermit,
+}
+
+impl Drop for HeavyGuard {
+    fn drop(&mut self) {
+        let extra = self.start.elapsed().as_secs_f64() * limits::HEAVY_RATE;
+        if extra >= 1.0 {
+            self.limiter.charge(self.ip, extra - 1.0);
+        }
+    }
+}
+
 /// Shared state of the HTTP layer.
 #[derive(Clone)]
 pub struct Http {
@@ -105,6 +200,7 @@ pub struct Http {
     post_limit: Arc<Limiter>,
     heavy_limit: Arc<Limiter>,
     views: Arc<tokio::sync::Semaphore>,
+    in_flight: Arc<InFlight>,
 }
 
 /// An API error: `{ "error": { "code", "message" } }`.
@@ -207,6 +303,7 @@ pub fn router(node: Arc<Node>) -> Router {
         post_limit: Arc::new(Limiter::new(limits::POST_RATE, limits::POST_BURST)),
         heavy_limit: Arc::new(Limiter::new(limits::HEAVY_RATE, limits::HEAVY_BURST)),
         views: Arc::new(tokio::sync::Semaphore::new(limits::VIEW_WORKERS)),
+        in_flight: Arc::new(InFlight::default()),
     };
     let api = Router::new()
         .route("/v1/status", get(status))
@@ -288,23 +385,32 @@ async fn policy(State(h): State<Http>, RawQuery(raw): RawQuery) -> ApiResult {
 impl Http {
     /// The client address: the socket peer, or the trusted proxy header for
     /// connections from loopback when `--trust-proxy-header` is set.
-    fn client_ip(&self, addr: SocketAddr, headers: &HeaderMap) -> IpAddr {
+    pub fn client_ip(&self, addr: SocketAddr, headers: &HeaderMap) -> IpAddr {
         if addr.ip().is_loopback()
             && let Some(h) = &self.node.config.trust_proxy_header
-            && let Some(v) = headers.get(h.as_str()).and_then(|v| v.to_str().ok())
-            && let Some(ip) = v.split(',').next().and_then(|x| x.trim().parse::<IpAddr>().ok())
         {
-            return ip;
+            let joined: Vec<&str> = headers.get_all(h.as_str()).iter().filter_map(|v| v.to_str().ok()).collect();
+            if let Some(ip) = forwarded_ip(&joined.join(","), self.node.config.trust_proxy_hops) {
+                return ip;
+            }
         }
         addr.ip()
     }
 
-    fn heavy(&self, addr: SocketAddr, headers: &HeaderMap, cost: f64) -> Result<(), ApiError> {
-        if self.heavy_limit.take(self.client_ip(addr, headers), cost) {
-            Ok(())
-        } else {
-            Err(ApiError::new(StatusCode::TOO_MANY_REQUESTS, "rate_limited", "too many view requests from this address; retry later"))
+    /// Rate limit, then one in-flight slot per client IP (audit #10).
+    async fn heavy(&self, addr: SocketAddr, headers: &HeaderMap, cost: f64) -> Result<HeavyGuard, ApiError> {
+        let ip = self.client_ip(addr, headers);
+        if !self.heavy_limit.take(ip, cost) {
+            return Err(ApiError::new(StatusCode::TOO_MANY_REQUESTS, "rate_limited", "too many view requests from this address; retry later"));
         }
+        let slot = self
+            .in_flight
+            .acquire(ip, std::time::Duration::from_secs(limits::VIEW_WAIT_SECS))
+            .await
+            .ok_or_else(|| {
+                ApiError::new(StatusCode::TOO_MANY_REQUESTS, "rate_limited", "one view request at a time per address; retry later")
+            })?;
+        Ok(HeavyGuard { limiter: self.heavy_limit.clone(), ip, start: Instant::now(), _slot: slot })
     }
 
     /// Runs `f` on the blocking pool, at most `VIEW_WORKERS` at a time (audit #10).
@@ -402,7 +508,7 @@ async fn get_author(
 ) -> ApiResult {
     let a = parse_author(&id)?;
     let p = h.node.policy_at(q_u64(&query(&raw), "now")?);
-    h.heavy(addr, &headers, 1.0)?;
+    let _g = h.heavy(addr, &headers, 1.0).await?;
     let v = h.compute(move |n| perch_views::author_view(&*n.read(), &p, &a).map(|v| canonical_json(&v))).await?;
     let v = v.ok_or_else(|| ApiError::not_found(format!("author {a} is not known to this node")))?;
     Ok(view_text(&h.node, v))
@@ -444,7 +550,7 @@ async fn search(
         opts.limit = (l as usize).clamp(1, perch_views::MAX_LIMIT);
     }
     let text = q.get("q").cloned().unwrap_or_default();
-    h.heavy(addr, &headers, 1.0)?;
+    let _g = h.heavy(addr, &headers, 1.0).await?;
     let hits = h.compute(move |n| canonical_json(&perch_views::search(&*n.read(), &p, &text, &opts))).await?;
     Ok(view_text(&h.node, hits))
 }
@@ -457,21 +563,26 @@ async fn get_product(
     RawQuery(raw): RawQuery,
 ) -> ApiResult {
     let p = h.node.policy_at(q_u64(&query(&raw), "now")?);
-    h.heavy(addr, &headers, 1.0)?;
+    let _g = h.heavy(addr, &headers, 1.0).await?;
     let k = key.clone();
     let v = h.compute(move |n| perch_views::product_view(&*n.read(), &p, &k).map(|v| canonical_json(&v))).await?;
     let v = v.ok_or_else(|| ApiError::not_found(format!("product {key:?} is not known to this node")))?;
     Ok(view_text(&h.node, v))
 }
 
-fn related_lines(node: &Node, keys: &[String], now: Option<u64>) -> Vec<String> {
+/// Related sets of `keys` as JSONL lines. `None` if `deadline` passed
+/// between products (a per-request time budget).
+fn related_lines(node: &Node, keys: &[String], now: Option<u64>, deadline: Option<Instant>) -> Option<Vec<String>> {
     let p = node.policy_at(now);
     let st = node.read();
     let mut ids = std::collections::BTreeSet::new();
     for k in keys {
+        if deadline.is_some_and(|d| Instant::now() > d) {
+            return None;
+        }
         ids.extend(perch_views::related_records(&*st, k, &p));
     }
-    ids.into_iter().filter_map(|id| st.get(&id)).map(|r| r.to_json_string()).collect()
+    Some(ids.into_iter().filter_map(|id| st.get(&id)).map(|r| r.to_json_string()).collect())
 }
 
 async fn get_product_records(
@@ -482,8 +593,8 @@ async fn get_product_records(
     RawQuery(raw): RawQuery,
 ) -> ApiResult {
     let now = q_u64(&query(&raw), "now")?;
-    h.heavy(addr, &headers, 1.0)?;
-    let lines = h.compute(move |n| related_lines(n, &[key], now)).await?;
+    let _g = h.heavy(addr, &headers, 1.0).await?;
+    let lines = h.compute(move |n| related_lines(n, &[key], now, None)).await?.unwrap_or_default();
     Ok(jsonl_response(lines, Some(&h.node.policy_hash)))
 }
 
@@ -504,7 +615,7 @@ async fn lookup(
         ));
     }
     let now = q_u64(&query(&raw), "now")?;
-    h.heavy(addr, &headers, 2.0)?;
+    let _g = h.heavy(addr, &headers, 2.0).await?;
     let lines = h
         .compute(move |n| {
             let keys: Vec<String> = n
@@ -513,9 +624,13 @@ async fn lookup(
                 .into_iter()
                 .filter(|k| perch_core::ids::encode_hex(&perch_core::sha256(k.as_bytes())).starts_with(&prefix))
                 .collect();
-            related_lines(n, &keys, now)
+            let deadline = Instant::now() + std::time::Duration::from_millis(limits::LOOKUP_BUDGET_MS);
+            related_lines(n, &keys, now, Some(deadline))
         })
-        .await?;
+        .await?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "budget", "lookup exceeded its time budget; use a longer prefix")
+        })?;
     Ok(jsonl_response(lines, Some(&h.node.policy_hash)))
 }
 
@@ -528,14 +643,14 @@ async fn get_listing(
 ) -> ApiResult {
     let id = parse_id(&id)?;
     let p = h.node.policy_at(q_u64(&query(&raw), "now")?);
-    h.heavy(addr, &headers, 1.0)?;
+    let _g = h.heavy(addr, &headers, 1.0).await?;
     let v = h.compute(move |n| Views::new(&*n.read(), &p).listing(&id).map(|v| canonical_json(&v))).await?;
     let v = v.ok_or_else(|| ApiError::not_found(format!("listing {id} is not known to this node")))?;
     Ok(view_text(&h.node, v))
 }
 
 async fn stats(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap) -> ApiResult {
-    h.heavy(addr, &headers, 1.0)?;
+    let _g = h.heavy(addr, &headers, 1.0).await?;
     let s = h.compute(|n| canonical_json(&perch_views::stats(&*n.read()))).await?;
     Ok(view_text(&h.node, s))
 }
@@ -544,7 +659,7 @@ async fn stats(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<SocketAddr>
 /// the lock (no record content is copied), then lines are encoded 500 at a
 /// time as the client reads (audit #10).
 async fn export(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap) -> ApiResult {
-    h.heavy(addr, &headers, limits::EXPORT_COST)?;
+    let _g = h.heavy(addr, &headers, limits::EXPORT_COST).await?;
     let recs: Vec<Record> = h.compute(|n| n.read().export_records().collect()).await?;
     let stream = futures_util::stream::unfold((recs, 0usize), |(recs, i)| async move {
         if i >= recs.len() {
@@ -562,7 +677,14 @@ async fn export(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<SocketAddr
     Ok((StatusCode::OK, [(header::CONTENT_TYPE, "application/x-ndjson")], body).into_response())
 }
 
-async fn sync_ws(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<SocketAddr>, ws: WebSocketUpgrade) -> ApiResult {
+async fn sync_ws(
+    State(h): State<Http>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    ws: WebSocketUpgrade,
+) -> ApiResult {
+    // The per-address cap applies to the forwarded client when the proxy header is trusted.
+    let addr = SocketAddr::new(h.client_ip(addr, &headers), addr.port());
     // Check caps and register the session in one step (audit #14).
     let (id, kill) = h.node.reserve_inbound(addr).map_err(|m| ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "too_many_sessions", m))?;
     let node = h.node.clone();
