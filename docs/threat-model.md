@@ -105,6 +105,7 @@ The weakest boundary is between the user and the code that the browser runs. If 
 | T13 | Eclipse: one node hides records, fork evidence, or log tails from a client ([Heilman et al. 2015](https://www.usenix.org/conference/usenixsecurity15/technical-sessions/presentation/heilman)) | E4 | M | H | Client connects to ≥ 3 nodes when available and shows head disagreements (2.1, 10) | Signed head checkpoints from many nodes |
 | T14 | A peer strips bodies before relaying | E4 | M | M | Header-only records relayed; `want_bodies` fetch from other peers (6) | — |
 | T15 | Flood of authors or records exhausts storage; held gap records fill memory | E8 | H | M | Per-node admission policy; caps on held records and messages (9) | Admission defaults in `sync-protocol.md` |
+| T15a | Sybil storage flood: many free keys, each within the per-log limits A1 and A2 | E8 | H | H | Per-key limits only (A1, A2) | Admission tiers with a global budget for unverified authors (R13) |
 | T16 | Peer table poisoning: one operator fills a node's peer list | E4 | M | M | Capped and diverse address table (6) | — |
 | T17 | Self-fork: one node hides a user's last record, so the user publishes at an existing seq and forks | E4 | M | H | Publish guard from local head, backup head, and all nodes (8.2, 10) | — |
 | T18 | Node API returns altered view results to third-party clients | E4 | M | M | Policy hash header; `?now=` pinning; export for re-computation (8.1) | — |
@@ -176,7 +177,7 @@ Each guarantee in contract section 1 maps to the mechanism that enforces it and 
 | No one can silently edit or delete history | Per-author log with `prev`; fork evidence; truncation at fork seq (5.2) | `log.rs`: `same_seq_fork_detected_and_truncated`, `prev_mismatch_fork_detected`, `fork_state_independent_of_arrival_order`, `replayed_record_is_duplicate`, `ts_decrease_rejected`, `gap_is_held_not_stored`; `references.rs`: `replaces_other_author_ignored`, `replaces_other_kind_ignored`, `replacement_changing_fixed_field_ignored`, `retract_of_other_authors_record_ignored`, `retraction_is_final`, `flags_survive_price_update` |
 | No one controls the data | Complete-prefix sync; body fetch; convergence (6) | `sync.rs`: `out_of_order_delivery_converges`, `forked_author_from_peer_truncated`, `invalid_records_not_accepted_from_peer`, `two_nodes_converge_to_same_views` |
 | No one can buy ranking | Views computed locally; ranking from identity-verified reviews only; verified purchase rules (7.5, 7.8) | `ranking.rs`: `unverified_reviews_do_not_change_search_rating`, `many_keys_one_person_count_once`; `purchase.rs`: `receipt_by_non_seller_not_verified`, `review_citing_someone_elses_receipt_not_verified`, `receipt_for_other_product_not_verified`, `seller_review_with_own_receipt_not_verified`, `unverified_seller_receipt_not_verified`, `tampered_receipt_not_verified`, `receipt_survives_listing_retract`, `valid_receipt_is_verified_purchase`; `identity.rs`: `expired_attestation_not_verified`, `retracted_attestation_not_verified`, `self_issued_attestation_not_verified`, `untrusted_attestor_not_verified`, `attestor_trusted_for_other_kind_not_verified`, `not_after_seq_cuts_off_attestor`, `revoke_ignores_later_records`, `revoke_from_unrelated_attestor_ignored`; `time.rs`: `future_ts_ignored` |
-| Moderation is visible | Display-only hiding by published threshold; records never deleted (7.6) | `moderation.rs`: `verified_flags_hide_at_threshold`, `seller_self_flag_not_counted`, `unverified_sybil_flags_not_counted`, `one_person_many_keys_flags_count_once`, `flag_retraction_unhides`, `restriction_requires_distinct_flaggers`, `restriction_follows_person_to_new_key`, `hidden_listing_still_anchors_receipts` |
+| Moderation is visible | Display-only hiding by published threshold; records never deleted (7.6) | `moderation.rs`: `verified_flags_hide_at_threshold`, `seller_self_flag_not_counted`, `product_seller_flags_on_review_not_counted`, `unverified_sybil_flags_not_counted`, `one_person_many_keys_flags_count_once`, `flag_retraction_unhides`, `restriction_requires_distinct_flaggers`, `restriction_follows_person_to_new_key`, `hidden_listing_still_anchors_receipts` |
 | Legal removal is visible | Header kept; `redact` notice; control kinds keep bodies (5.3) | `redaction.rs`: `header_only_record_accepted`, `body_restored_when_hash_matches`, `body_with_wrong_hash_rejected` |
 
 Section 9 of this document lists which tests pass against the current crates.
@@ -290,6 +291,46 @@ Since contract D15 (amended in v3), the app keeps keys in IndexedDB by default. 
 
 - Guidance for users: create and use keys only in the signed static release or the official build. Do not import a key into an app served by an unknown node.
 - Planned: passphrase encryption. It protects copies of the browser profile, not keys in a live session, because altered code can capture the passphrase.
+
+### R13. Sybil storage flood (T15a)
+
+The admission limits in `sync-protocol.md` bound one key: A1 = 1,000,000 records per log and A2 = 10,000 records per author per 24 hours of claimed `ts`. Keys are free, so they do not bound an attacker.
+
+| Attacker keys | Records per day (A2 each) | Bytes per day at 66 KB per record (64 KiB body + header) |
+|---|---|---|
+| 1 | 10,000 | 0.66 GB |
+| 100 | 1,000,000 | 66 GB |
+| 10,000 | 100,000,000 | 6.6 TB |
+
+Claimed `ts` makes A2 weaker. A new key can start its log at `ts = 0` (1970) and claim 10,000 records per past day. It can then send up to A1 = 1,000,000 records at once, about 66 GB at the body limit. Counting by arrival time would close this gap, but arrival time differs per node and would break convergence. The tiers below bound it deterministically instead: an unverified key gets at most the tier-3 cap, and a verified person is accountable through restriction and the attestor.
+
+Proposed mitigation: **admission tiers**. Each node sorts authors into tiers using its own **admission attestor set**. The default admission set is the union of all attestors in the default policy.
+
+| Tier | Authors | Replication | Limits |
+|---|---|---|---|
+| 1 | Admission attestors, and authors with a counting `attest.identity` or `attest.domain` from one of them | Always, in full | A1, A2 per **person key**, not per key, so one person with many keys shares one budget |
+| 2 | Unverified authors whose records are referenced by tier-1 records: the target author of a tier-1 `flag` or `appeal`, or the seller of a listing cited in a tier-1 review's receipt | Always, up to a per-author cap (proposed: 1,000 records or 16 MiB) | The cap |
+| 3 | All other authors | Best effort, within a global budget B (proposed default: 1 GiB) and a per-author cap (proposed: 100 records or 1 MiB) | B and the cap |
+
+Rules that keep honest nodes convergent:
+
+1. Tier membership depends only on records and the admission set, so two honest nodes with the same records and the same admission set compute the same tiers.
+2. Tiers 1 and 2 are never evicted while their limits hold. Therefore honest nodes converge on every verified log and every log that verified authors point to.
+3. In tier 3, a node keeps authors in ascending order of `sha256(author || epoch)` until B is reached. `epoch` is the current UTC day divided by 30, so the order is the same on all nodes and changes monthly. An attacker cannot choose a low rank without grinding keys. Nodes with the same candidate set and the same B keep the same tier-3 authors. Nodes with different candidate sets may differ. That is acceptable, because tier-3 records do not feed ranking (7.8) or counted flags (7.6).
+4. Eviction removes a whole log, or truncates it to a shorter prefix. Both keep the complete-prefix rule (5.1).
+5. An author moves to tier 1 as soon as a counting attestation arrives. The node then fetches the full log from peers.
+
+Effect on views: verified-only results (ranking, counted flags, verified-purchase ratings) are identical on all honest nodes that share an admission set covering the user's `trusted_attestors`. The secondary all-reviews `RatingSummary` can differ between nodes. The app labels it as best effort.
+
+Weaker alternatives considered:
+
+| Alternative | Problem |
+|---|---|
+| Proof of work on a key's first record | [Hashcash](http://www.hashcash.org/papers/hashcash.pdf)-style costs are small for attackers with GPUs and large for honest phones. Needs a body field and a contract change. |
+| First come, first kept for unverified authors | Arrival order differs per node, so tier-3 contents would never converge, and an attacker who floods first wins. |
+| Reject all unverified authors | Blocks new users from posting their first records before they get verified. |
+
+Requested change (for `sync-protocol.md` and contract section 9): add the three tiers as deterministic admission rules, and apply A1 and A2 per person key in tier 1. Tier membership needs view logic (counting attestations), so `perch-views` should export the tier function for `perch-node` to call.
 
 ## 8. Legal exposure
 

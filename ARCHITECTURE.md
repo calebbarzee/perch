@@ -487,7 +487,17 @@ perch-node demo --out demo.jsonl     # writes a signed demo dataset
 | Sync message | 4 MiB |
 | Fork evidence per author | 1 pair |
 
-Each node applies a local admission policy. It may limit records per author per day, decline unverified authors, rate-limit peers, and cap held out-of-order records per peer. Admission never breaks the complete-prefix rule. Exact defaults are in [`docs/sync-protocol.md`](docs/sync-protocol.md).
+Each node applies a local admission policy. It may limit records per author per day, rate-limit peers, and cap held out-of-order records per peer. Admission never breaks the complete-prefix rule. Exact defaults are in [`docs/sync-protocol.md`](docs/sync-protocol.md).
+
+Admission uses three tiers, computed from records plus the node's admission attestor set (default: the attestors in the default policy). `perch-views` exports the tier function so nodes and clients share it.
+
+| Tier | Authors | Replication |
+|---|---|---|
+| 1 | Verified authors and attestors | In full. Per-log limits apply per person, not per key. |
+| 2 | Unverified authors referenced by tier-1 records (flag or appeal targets, receipt sellers, listing sellers reviewed by tier-1 authors) | Up to 1,000 records or 16 MiB per author |
+| 3 | All others | Up to 100 records or 1 MiB per author, within a node-wide budget (default 1 GiB). Authors are admitted in ascending `sha256(author ‖ floor(day / 30))` order until the budget is reached. Logs are kept or dropped as whole prefixes. |
+
+Honest nodes with the same admission set converge on tiers 1 and 2. Every counted flag, ranking input, and verified-purchase input comes from those tiers. Tier 3 can differ between nodes; it affects only the all-reviews `RatingSummary` numbers, which the app labels as best effort. Detail: [`docs/threat-model.md`](docs/threat-model.md) T15a.
 
 ## 10. Client requirements
 
