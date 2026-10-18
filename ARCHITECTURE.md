@@ -191,7 +191,7 @@ sig = ed25519_sign(seller_secret_key,
                    "perch/receipt/v1\n" || canonical_json({ listing, buyer, purchased_at, nonce }))
 ```
 
-The receipt is valid when `sig` verifies (strictly) under the author of the listing chain, and the listing's root record exists below the seller's fork seq and revoke cutoff. Later retraction, replacement, or hiding of the listing does not invalidate the receipt. A seller therefore cannot strip verified-purchase status by re-listing.
+The receipt is valid when `sig` verifies (strictly) under the author of the listing chain, and the listing's root record exists below the seller's fork seq and revoke cutoff. Later retraction, replacement, or hiding of the listing does not invalidate the receipt. A seller therefore cannot strip verified-purchase status by re-listing. If the listing root's body is missing on a node (removed or not yet received), the receipt cannot be checked there; views report `purchase: "listing_unavailable"`, not `receipt_invalid`, and the status returns when the body arrives.
 
 ### 4.8 Product keys
 
@@ -330,7 +330,7 @@ Only the latest review per (author, product) counts. Reviews by a product's sell
 
 ### 7.6 Moderation
 
-- A **product key** is hidden when at least one of its product chains is hidden and none of its visible product chains has a verified author. Product facts come from visible chains only. A new key cannot un-hide a product by publishing a fresh product record.
+- Hiding applies to product chains (descriptions), not to the product key as a whole. Hidden chains contribute no facts; `ProductView.excluded_sources.hidden` counts them and the app shows that count. A product key's `moderation.status` is `hidden` only when it has product chains and all of them are hidden. A new product record by any key is a new claim that must be flagged on its own; it does not un-hide the hidden text. Flags on one chain never hide another author's chain.
 - A record chain of kind `listing`, `review`, `product`, or `profile` is **hidden** when distinct, unretracted flags on its root reach the threshold for its kind. If `flags_require_verified` is true, only flags from verified authors count, once per person key. A flag never counts if its author's person (7.3) equals the person of the target's author, or, for reviews, the person of any author of a listing for the reviewed product.
 - Hiding affects display only, never semantics. A hidden record still counts for every rule that is not display: a hidden flag still counts, a hidden profile's author is still verified, and a hidden listing still anchors receipts. Flags on other kinds are recorded but hide nothing in v1. This also prevents cycles of flags hiding flags.
 - Display-only in practice: hidden reviews still count in ratings (otherwise a few hired flaggers could delete negative ratings); hidden listings do not feed `price_range` or `min_price`, because those show a listing's price. Only listings that are `in_stock` or `preorder` feed price figures.
@@ -387,7 +387,7 @@ ReviewView   { id (root id), latest, author, author_name|null, author_verified: 
                author_status: AuthorStatus,
                verified_purchase: bool,
                purchase: "verified"|"none"|"receipt_invalid"|"wrong_product"|
-                         "seller_unverified"|"buyer_unverified"|"self",
+                         "seller_unverified"|"buyer_unverified"|"self"|"listing_unavailable",
                counted: bool, excluded_reason: string|null,
                rating, title|null, text, ts, listing|null,
                status: "visible"|"hidden"|"retracted"|"unavailable",
@@ -406,7 +406,7 @@ ProductView  { key, moderation: Moderation,
                listings: [ListingView], reviews: [ReviewView], ratings: RatingSummary,
                price_range: { currency: { min, max, median, count, excluded_unverified_domain } } }
 
-SearchHit    { key, name, brand, category|null, score, why: [string], moderation_status,
+SearchHit    { key, name, brand, category|null, score, why: [string], moderation_status, verified_source: bool,
                rating_mean|null, rating_count,
                verified_purchase_count, verified_purchase_mean|null,
                min_price: { amount, currency }|null }
@@ -427,7 +427,7 @@ The canonical form of a view result is its RFC 8785 serialization (`perch_views:
 
 `mean` and `score` may be fractional numbers per 7.7. All other numbers are integers.
 
-Ranking inputs use only sybil-resistant signals. `SearchHit.rating_mean`, `SearchHit.rating_count`, and the rating part of `score` come from `verified_identity` reviews only. `RatingSummary.count`, `mean`, and `histogram` cover all counted reviews and are shown as secondary information. Creating keys therefore cannot change ranking. Search matches a query against every candidate value of a product's name, brand, and category from visible chains, not only the displayed value, so unverified keys cannot hide a product from search by renaming it.
+Ranking inputs use only sybil-resistant signals. `SearchHit.rating_mean`, `SearchHit.rating_count`, and the rating part of `score` come from `verified_identity` reviews only. `RatingSummary.count`, `mean`, and `histogram` cover all counted reviews and are shown as secondary information. Search ranks in two groups. Products with at least one visible product chain by a verified author come first; for them, query matching uses only values from verified authors' chains. Products without a verified source come after; for them, matching uses every candidate value from visible chains, so renaming by unverified keys cannot hide them, and the hit carries `verified_source: false`. Creating keys therefore cannot change the ranking of products that have a verified source, and cannot move a product above any product that has one.
 
 ## 8. Interfaces
 
