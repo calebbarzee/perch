@@ -206,7 +206,8 @@ async function boot() {
   });
 
   for (const url of configuredNodes()) {
-    app.client.connect(url).catch((e) => console.warn(`connect ${url}: ${e.message || e}`));
+    // Failures show on the Network screen; the client keeps retrying.
+    app.client.connect(url).catch(() => {});
   }
 
   renderBanner();
@@ -272,6 +273,14 @@ function updateNavStatus() {
 }
 
 function wireTopbar() {
+  // The hash is the router, so the skip link moves focus itself.
+  document.getElementById('skip-link')?.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    const main = document.getElementById('main');
+    const target = main.querySelector('h1') || main;
+    target.setAttribute('tabindex', '-1');
+    target.focus();
+  });
   const form = document.getElementById('topbar-search');
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();

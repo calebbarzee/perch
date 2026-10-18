@@ -131,12 +131,14 @@ export function stars(rating) {
 }
 
 const FLAG_EXCLUDED = {
-  own_record: 'by the author of the flagged record',
-  seller: 'by a seller of this product',
+  self: 'same person as the author of the flagged record',
+  product_seller: 'by a seller of this product',
   unverified: 'identity not verified',
-  same_person: 'same person as an earlier flag',
+  duplicate_person: 'same person as an earlier flag',
   forked: "flagger's log is forked",
-  revoked: 'after a key revocation',
+  retracted: 'withdrawn by the flagger',
+  unavailable: 'flag text removed by a node',
+  superseded: 'an older version of the same flag',
 };
 
 // Every flag on a record, with who flagged and whether it counts. Loaded
@@ -159,7 +161,7 @@ export function flagList(client, rootId) {
           h('li', { class: f.counted ? 'counted' : 'not-counted' },
             authorChip(f.author, f.author_name, { verified: f.author_verified }),
             ' ',
-            h('strong', { text: fmt.FLAG_REASONS[f.reason] || f.reason }),
+            f.reason ? h('strong', { text: fmt.FLAG_REASONS[f.reason] || f.reason }) : null,
             h('span', { class: 'muted', text: ` ${fmt.date(f.ts)}` }),
             ' ',
             recordLink(f.record, 'record'),
@@ -200,7 +202,11 @@ export function moderationNotice(view, kind, policy, client = null, rootId = nul
     } else if (view.appealed) {
       parts.push(h('p', { text: `The ${owner} appealed.` }));
     }
-    parts.push(h('p', { class: 'hint', text: 'Hidden records stay in the data. Moderation follows your policy on this device.' }));
+    parts.push(h('p', { class: 'hint', text: kind === 'review'
+      ? 'Hidden reviews stay in the data and still count in the rating. Only the text is collapsed. Moderation follows your policy on this device.'
+      : kind === 'listing'
+        ? 'Hidden listings stay in the data. Their prices are left out of price ranges. Moderation follows your policy on this device.'
+        : 'Hidden records stay in the data. Moderation follows your policy on this device.' }));
     const n = notice('hidden', `Hidden by moderation`, ...parts);
     n.dataset.status = 'hidden';
     return n;

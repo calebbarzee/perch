@@ -35,8 +35,9 @@ export function saveSettings(patch) {
 
 // Nodes from ?nodes=ws://a,ws://b override stored ones for this page load.
 export function urlNodes() {
-  const v = new URLSearchParams(location.search).get('nodes');
-  if (!v) return null;
+  const params = new URLSearchParams(location.search);
+  if (!params.has('nodes')) return null;
+  const v = params.get('nodes') || '';
   return v.split(',').map((s) => s.trim()).filter(Boolean);
 }
 

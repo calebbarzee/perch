@@ -604,3 +604,5 @@ h2.inline { display: inline; font-size: 1.125rem; }
 .flags li.not-counted { opacity: 0.8; }
 .flag-note { margin: 0.25rem 0 0; color: var(--ink-2); font-size: 0.875rem; }
 .ships { font-size: 0.8125rem; }
+.search-form:has(#search-currency) { grid-template-columns: minmax(0, 1fr) minmax(10rem, 14rem) minmax(7rem, 10rem) auto; }
+@media (max-width: 640px) { .search-form:has(#search-currency) { grid-template-columns: minmax(0, 1fr); } }

@@ -10,7 +10,9 @@ const moneyFormats = new Map();
 export function setCurrencyTable(list) {
   minorUnits.clear();
   moneyFormats.clear();
-  for (const c of list || []) minorUnits.set(c.code, c.minor_units);
+  // minor_units is null where ISO 4217 lists none (metals, testing codes);
+  // those codes are not valid prices and stay unknown here.
+  for (const c of list || []) if (Number.isInteger(c.minor_units)) minorUnits.set(c.code, c.minor_units);
 }
 
 export function knownCurrency(code) {

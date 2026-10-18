@@ -10,6 +10,7 @@ import { sha256Hex } from './sha256.js';
 const CMP = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const CONTROL_KINDS = new Set(['attest.identity', 'attest.domain', 'attest.revoke', 'retract', 'retire']);
 const HIDEABLE = new Set(['listing', 'review', 'product', 'profile']);
+const KNOWN_KINDS = new Set(['profile', 'attest.identity', 'attest.domain', 'attest.revoke', 'product', 'listing', 'observation', 'review', 'flag', 'appeal', 'retract', 'retire', 'redact']);
 
 // Exact half-to-even rounding of num/den to 2 decimals (ARCHITECTURE 7.7).
 export function meanOf(sum, count) {
@@ -341,10 +342,11 @@ export function computeState(store, policy) {
     const entries = [...m.entries()].sort((a, b) => a[1].r.ts - b[1].r.ts || CMP(a[1].id, b[1].id));
     for (const [flagger, e] of entries) {
       let reason = null;
-      if (flagger === targetAuthor) reason = 'own_record';
-      else if (sellersOfProduct && sellersOfProduct.has(flagger)) reason = 'seller';
+      if (store.forkSeq.has(flagger)) reason = 'forked';
+      else if (flagger === targetAuthor) reason = 'self';
+      else if (sellersOfProduct && sellersOfProduct.has(flagger)) reason = 'product_seller';
       else if (policy.flags_require_verified && !verified(flagger)) reason = 'unverified';
-      else if (seen.has(personKey(flagger))) reason = 'same_person';
+      else if (seen.has(personKey(flagger))) reason = 'duplicate_person';
       if (!reason) seen.add(personKey(flagger));
       out.push({
         record: e.id,
@@ -569,7 +571,6 @@ export function computeState(store, policy) {
       else if (rv.author_status === 'forked') reason = 'forked';
       else if (sellers.has(rv.author)) reason = 'seller';
       else if (latestByAuthor.get(rv.author) !== rv) reason = 'superseded';
-      else if (rv.status === 'hidden') reason = 'hidden';
       rv.excluded_reason = reason;
       rv.counted = reason === null;
       if (reason) excluded[reason]++;
@@ -597,7 +598,9 @@ export function computeState(store, policy) {
 
     const priceRange = {};
     for (const l of listings) {
+      // Hidden listings and listings not for sale do not feed price figures.
       if (l.status !== 'visible' || !l.price) continue;
+      if (l.availability !== 'in_stock' && l.availability !== 'preorder') continue;
       const c = l.price.currency;
       priceRange[c] ??= { amounts: [], excluded_unverified_domain: 0 };
       if (policy.price_requires_domain_verified && !l.domain_verified) {
@@ -677,9 +680,12 @@ export function computeState(store, policy) {
       appeal: mods.find((m) => m.appeal)?.appeal ?? null,
       redaction: null,
     };
+    const excluded_sources = { hidden: 0, retracted: 0, unavailable: 0, forked: 0, revoked: 0 };
+    for (const m of mods) if (m.status === 'hidden') excluded_sources.hidden++;
     const view = {
       key: k,
       moderation,
+      excluded_sources,
       name: fact('name'),
       brand: fact('brand'),
       category: fact('category'),
@@ -741,6 +747,7 @@ export function computeState(store, policy) {
     forks: store.forkSeq.size,
     invalid: store.rejectedCount,
     redacted: redactedCount,
+    unknown: logEntries.filter((e) => !KNOWN_KINDS.has(e.r.kind)).length,
   };
 
   // Chain summaries and flags, for authorRecords(), flags(), recordStatus().
@@ -772,78 +779,74 @@ export function computeState(store, policy) {
     const rt = root(id);
     const versions = (chains.get(rt) || []).map((x) => x.id);
     let reason = null;
-    if (!e.r.body) reason = 'body removed';
-    else if (store.forkSeq.has(e.author) && e.seq >= store.forkSeq.get(e.author)) reason = 'after fork';
-    else if (revokedAfterCutoff(e)) reason = 'after key revocation';
-    else if (retiredAt.has(e.author) && e.seq > retiredAt.get(e.author)) reason = 'after retire';
-    else if (e.r.ts > now + tolerance) reason = 'dated in the future';
-    else if (e.r.replaces && rt === id) reason = 'replaces a record it may not replace';
-    return { semantic_valid: reason === null, reason, root: rt, versions };
+    let ignored = null;
+    if (!e.r.body) reason = 'unavailable';
+    else if (!KNOWN_KINDS.has(e.r.kind)) reason = 'unknown_kind';
+    else if (e.r.replaces && rt === id) reason = 'bad_replaces';
+    if (store.forkSeq.has(e.author) && e.seq >= store.forkSeq.get(e.author)) ignored = 'forked';
+    else if (revokedAfterCutoff(e)) ignored = 'revoked';
+    else if (retiredAt.has(e.author) && e.seq > retiredAt.get(e.author)) ignored = 'retired';
+    else if (e.r.ts > now + tolerance) ignored = 'future';
+    return { semantic_valid: reason === null, reason, root: rt, versions, ignored };
   };
 
   return { productViews, listingViews, authorViews, stats, now, chains, chainSummary, flagsFor, recordStatus };
 }
 
-const STOP = new Set(['the', 'a', 'an', 'and', 'for', 'of', 'with']);
-
-export function searchState(state, q, { sort = 'relevance' } = {}) {
-  const terms = String(q || '')
-    .toLowerCase()
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((t) => t && !STOP.has(t));
+export function searchState(state, q, { sort = 'relevance', currency = null } = {}) {
+  // Query tokens per docs/views.md 11.1: alphanumeric runs, lowercased,
+  // deduplicated, at most 16.
+  const terms = [...new Set(String(q || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [])].slice(0, 16);
   const hits = [];
   for (const p of state.productViews.values()) {
     const name = p.name?.value ?? '';
     const brand = p.brand?.value ?? '';
     const category = p.category?.value ?? null;
+    const tokens = (t) => (String(t || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || []);
+    const fields = [
+      ['name', tokens(name), 30, 15],
+      ['mpn', tokens(p.mpn), 25, 10],
+      ['brand', tokens(brand), 20, 10],
+      ['category', tokens(category), 10, 5],
+    ];
     let score = 0;
     const why = [];
-    if (terms.length) {
-      const nameL = name.toLowerCase();
-      const brandL = brand.toLowerCase();
-      const catL = (category || '').toLowerCase();
-      let matched = 0;
-      for (const t of terms) {
-        if (p.gtin && p.gtin.replace(/^0+/, '') === t.replace(/^0+/, '')) {
-          score += 10;
-          why.push(`GTIN matches "${t}"`);
-          matched++;
-        } else if (nameL.split(/[^\p{L}\p{N}]+/u).includes(t)) {
-          score += 3;
-          why.push(`name contains "${t}"`);
-          matched++;
-        } else if (nameL.includes(t)) {
-          score += 2;
-          why.push(`name contains "${t}"`);
-          matched++;
-        } else if (brandL.includes(t)) {
-          score += 2;
-          why.push(`brand matches "${t}"`);
-          matched++;
-        } else if (catL.includes(t)) {
-          score += 1;
-          why.push(`category matches "${t}"`);
-          matched++;
+    let ok = true;
+    for (const t of terms) {
+      if (/^\d{8,14}$/.test(t) && p.gtin && t.padStart(14, '0') === p.gtin) {
+        score += 100;
+        why.push(`gtin exact "${t}" +100`);
+        continue;
+      }
+      let best = null;
+      for (const [f, toks, ex, pre] of fields) {
+        if (toks.includes(t)) {
+          if (!best || ex > best.pts) best = { f, kind: 'exact', pts: ex };
+        } else if (t.length >= 2 && toks.some((x) => x.startsWith(t) && x.length > t.length)) {
+          if (!best || pre > best.pts) best = { f, kind: 'prefix', pts: pre };
         }
       }
-      if (matched < terms.length) continue;
-    } else {
-      why.push('all products');
-    }
-    const vi = p.ratings.verified_identity;
-    if (vi.count) {
-      const bonus = Math.round(vi.mean * Math.log2(1 + vi.count) * 25) / 100;
-      score += bonus;
-      why.push(`${vi.count} identity-verified ${vi.count === 1 ? 'rating' : 'ratings'}, mean ${vi.mean}`);
-    }
-    let minPrice = null;
-    let best = -1;
-    for (const [c, r] of Object.entries(p.price_range)) {
-      if (r.count > best && r.min != null) {
-        best = r.count;
-        minPrice = { amount: r.min, currency: c };
+      if (!best) {
+        ok = false;
+        break;
       }
+      score += best.pts;
+      why.push(`${best.f} ${best.kind} "${t}" +${best.pts}`);
     }
+    if (!ok) continue;
+    const vi = p.ratings.verified_identity;
+    const sum = vi.histogram.reduce((acc, n, i) => acc + n * (i + 1), 0);
+    const smoothed = (15 + sum) / (vi.count + 5);
+    const ratingPoints = Math.round(1000 * (smoothed - 3)) / 100;
+    score += ratingPoints;
+    const r2 = (x) => String(Math.round(x * 100) / 100);
+    why.push(`rating ${r2(smoothed)} from ${vi.count} verified-identity reviews ${ratingPoints >= 0 ? '+' : '-'}${r2(Math.abs(ratingPoints))}`);
+    let minPrice = null;
+    const ranges = Object.entries(p.price_range).filter(([, r]) => r.count > 0);
+    const pick = (currency && ranges.find(([c]) => c === currency)) || [...ranges].sort((a, b) => b[1].count - a[1].count || (a[0] < b[0] ? -1 : 1))[0];
+    if (pick) minPrice = { amount: pick[1].min, currency: pick[0] };
+    score += minPrice ? 5 : 0;
+    why.push(minPrice ? 'has price +5' : 'no price +0');
     hits.push({
       key: p.key,
       name,
@@ -853,17 +856,22 @@ export function searchState(state, q, { sort = 'relevance' } = {}) {
       why,
       rating_mean: vi.mean,
       rating_count: vi.count,
+      rating_smoothed: Math.round(smoothed * 100) / 100,
       verified_purchase_count: p.ratings.verified_purchase.count,
       verified_purchase_mean: p.ratings.verified_purchase.mean,
       min_price: minPrice,
     });
   }
   const tie = (a, b) => CMP(a.key, b.key);
+  const counts = new Map();
+  for (const h of hits) if (h.min_price) counts.set(h.min_price.currency, (counts.get(h.min_price.currency) || 0) + 1);
+  const C = currency || [...counts.entries()].sort((a, b) => b[1] - a[1] || CMP(a[0], b[0]))[0]?.[0] || null;
+  const group = (h) => (!h.min_price ? 2 : h.min_price.currency === C ? 0 : 1);
   const sorters = {
     relevance: (a, b) => b.score - a.score || tie(a, b),
-    price: (a, b) => (a.min_price ? 0 : 1) - (b.min_price ? 0 : 1) || CMP(a.min_price?.currency ?? '', b.min_price?.currency ?? '') || (a.min_price?.amount ?? 0) - (b.min_price?.amount ?? 0) || tie(a, b),
-    rating_count: (a, b) => b.rating_count - a.rating_count || tie(a, b),
-    rating_mean: (a, b) => (b.rating_mean ?? -1) - (a.rating_mean ?? -1) || b.rating_count - a.rating_count || tie(a, b),
+    price: (a, b) => group(a) - group(b) || CMP(a.min_price?.currency ?? '', b.min_price?.currency ?? '') || (a.min_price?.amount ?? 0) - (b.min_price?.amount ?? 0) || tie(a, b),
+    rating_count: (a, b) => b.rating_count - a.rating_count || b.rating_smoothed - a.rating_smoothed || tie(a, b),
+    rating_mean: (a, b) => b.rating_smoothed - a.rating_smoothed || b.rating_count - a.rating_count || tie(a, b),
   };
   hits.sort(sorters[sort] || sorters.relevance);
   return hits;

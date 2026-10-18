@@ -16,8 +16,11 @@ export default {
     const { client, params } = ctx;
     const q = params.q || '';
     const sort = SORTS.some(([v]) => v === params.sort) ? params.sort : 'relevance';
+    const currency = fmt.knownCurrency(params.currency) ? params.currency : null;
     const stats = client.stats();
-    const hits = client.search(q, { sort });
+    const hits = client.search(q, currency ? { sort, currency } : { sort });
+    // Currencies present in the results, for the price sort.
+    const resultCurrencies = [...new Set(hits.filter((x) => x.min_price).map((x) => x.min_price.currency))].sort();
 
     const form = h('form', { class: 'search-form', role: 'search' },
       h('div', { class: 'field grow' },
@@ -28,15 +31,29 @@ export default {
         h('label', { for: 'search-sort', text: 'Sort by' }),
         h('select', { id: 'search-sort', name: 'sort' }, SORTS.map(([v, label]) => h('option', { value: v, selected: v === sort, text: label }))),
       ),
+      resultCurrencies.length > 1 || currency
+        ? h('div', { class: 'field' },
+            h('label', { for: 'search-currency', text: 'Currency' }),
+            h('select', { id: 'search-currency', name: 'currency' },
+              h('option', { value: '', text: 'Most common' }),
+              [...new Set([...resultCurrencies, ...(currency ? [currency] : [])])].sort().map((c) => h('option', { value: c, selected: c === currency, text: c })),
+            ),
+          )
+        : null,
       h('button', { type: 'submit', class: 'button primary', text: 'Search' }),
     );
+    const submit = () => {
+      let hash = routes.search(form.elements.q.value.trim(), form.elements.sort.value);
+      const cur = form.elements.currency?.value;
+      if (cur) hash += (hash.includes('?') ? '&' : '?') + `currency=${encodeURIComponent(cur)}`;
+      location.hash = hash;
+    };
     form.addEventListener('submit', (ev) => {
       ev.preventDefault();
-      location.hash = routes.search(form.elements.q.value.trim(), form.elements.sort.value);
+      submit();
     });
-    form.elements.sort.addEventListener('change', () => {
-      location.hash = routes.search(form.elements.q.value.trim(), form.elements.sort.value);
-    });
+    form.elements.sort.addEventListener('change', submit);
+    form.elements.currency?.addEventListener('change', submit);
 
     const section = h('section', { class: 'screen screen-search' },
       h('h1', { text: q ? `Results for “${q}”` : 'Products' }),
@@ -93,7 +110,11 @@ function resultItem(hit, sort) {
       h('details', { class: 'why' },
         h('summary', {}, `Why this result (score ${hit.score})`),
         h('ul', {}, hit.why.map((w) => h('li', {}, bdi(w)))),
-        sort !== 'relevance' ? h('p', { class: 'hint', text: 'Sorted by your choice, then by product key.' }) : null,
+        sort === 'rating_mean' || sort === 'rating_count'
+          ? h('p', { class: 'hint', text: `Ratings are sorted by a smoothed mean (${hit.rating_smoothed ?? '–'}): five neutral ratings are added, so a few reviews cannot outrank many.` })
+          : sort !== 'relevance'
+            ? h('p', { class: 'hint', text: 'Sorted by your choice, then by product key.' })
+            : null,
       ),
     ),
     h('div', { class: 'hit-side' },

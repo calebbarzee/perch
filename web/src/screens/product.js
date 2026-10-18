@@ -135,8 +135,7 @@ function pricePanel(p) {
   const panel = h('section', { class: 'panel price-panel', 'aria-labelledby': 'h-price' }, h('h2', { id: 'h-price', text: 'Price' }));
   const entries = Object.entries(p.price_range).sort((a, b) => b[1].count - a[1].count || (a[0] < b[0] ? -1 : 1));
   if (!entries.length) {
-    panel.append(h('p', { class: 'muted', text: 'No visible listings.' }));
-    return panel;
+    panel.append(h('p', { class: 'muted', text: 'No listing in stock or on preorder.' }));
   }
   for (const [cur, r] of entries) {
     const row = h('div', { class: 'price-range', dataset: { currency: cur } });
@@ -146,7 +145,7 @@ function pricePanel(p) {
           h('strong', { class: 'big', text: fmt.money(r.min, cur) }),
           r.max !== r.min ? [h('span', { class: 'to', text: ' to ' }), h('strong', { text: fmt.money(r.max, cur) })] : null,
         ),
-        h('p', { class: 'headline-sub', text: `Median ${fmt.money(r.median, cur)} across ${fmt.plural(r.count, 'listing')} on verified seller domains` }),
+        h('p', { class: 'headline-sub', text: `Median ${fmt.money(r.median, cur)} across ${fmt.plural(r.count, 'listing')} in stock or on preorder, on verified seller domains` }),
       );
     } else {
       row.append(h('p', { class: 'muted', text: `No ${cur} listings on verified seller domains.` }));
@@ -156,7 +155,8 @@ function pricePanel(p) {
     }
     panel.append(row);
   }
-  panel.append(h('p', { class: 'hint', text: `${fmt.plural(p.listings.length, 'listing')} in total, including hidden ones.` }));
+  const other = p.listings.filter((l) => l.status !== 'visible' || (l.availability !== 'in_stock' && l.availability !== 'preorder')).length;
+  if (other) panel.append(h('p', { class: 'hint', text: `${fmt.plural(other, 'listing')} not counted: hidden, withdrawn, or not for sale.` }));
   return panel;
 }
 
@@ -337,7 +337,12 @@ function detailsSection(p) {
     for (const img of p.images) g.append(productImage(img, p.name?.value));
     sec.append(h('h3', { text: 'Images' }), g);
   }
-  sec.append(h('p', { class: 'hint' }, 'Facts come from product records. When authors disagree, the value with the most identity-verified sources is shown first. ', h('a', { href: '#/data', text: 'Inspect records' }), '.'));
+  const ex = Object.entries(p.excluded_sources || {}).filter(([, n]) => n > 0);
+  if (ex.length) {
+    const label = { hidden: 'hidden by moderation', retracted: 'withdrawn', unavailable: 'text removed', forked: 'author log forked', revoked: 'after a key revocation' };
+    sec.append(h('p', { class: 'hint', text: `Product records not used as sources: ${ex.map(([k, n]) => `${n} ${label[k] || k}`).join('; ')}.` }));
+  }
+  sec.append(h('p', { class: 'hint' }, 'Facts come from product records. When authors disagree, the value backed by the most identity-verified people is shown first; ties go to more people, then alphabetical order. ', h('a', { href: '#/data', text: 'Inspect records' }), '.'));
   void hex;
   return sec;
 }
