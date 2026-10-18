@@ -160,17 +160,26 @@ function text(form, name) {
 }
 
 function productPicker(ctx, name, value, label = 'Product') {
+  // Suggestions come from a search on what the user typed (2 characters or
+  // more), never from an empty search over every product.
   const list = h('datalist', { id: `${name}-options` });
-  for (const hit of ctx.client.search('').slice(0, 200)) list.append(h('option', { value: hit.key, text: `${hit.name} (${hit.brand})` }));
+  let lastQuery = '';
+  const suggest = (text) => {
+    const q = text.trim();
+    if (q.length < 2 || q === lastQuery || /^(gtin|mpn|rec):/.test(q)) return;
+    lastQuery = q;
+    list.replaceChildren(...ctx.client.search(q, { limit: 20 }).map((hit) => h('option', { value: hit.key, text: `${hit.name} (${hit.brand})` })));
+  };
   const input = h('input', { name, id: `f-${name}`, value: value || '', list: `${name}-options`, autocomplete: 'off', spellcheck: 'false', class: 'mono', required: true });
   const shown = h('p', { class: 'hint picked' });
   const update = () => {
+    suggest(input.value);
     const p = ctx.client.product(input.value.trim());
     shown.replaceChildren(p ? h('span', {}, 'Selected: ', bdi(p.name?.value ?? p.key)) : input.value ? 'No product with this key in your local data.' : '');
   };
   input.addEventListener('input', update);
   requestAnimationFrame(update);
-  return h('div', {}, field({ id: `f-${name}`, label, hint: 'Product key, for example gtin:04006381333931. Type to choose from your local data.', control: input }), list, shown);
+  return h('div', {}, field({ id: `f-${name}`, label, hint: 'Type a product name or GTIN to choose from your local data, or enter a product key such as gtin:04006381333931.', control: input }), list, shown);
 }
 
 function reviewForm(ctx, { blocked }) {
@@ -328,10 +337,13 @@ function listingForm(ctx, { blocked }) {
 function receiptTool(ctx) {
   const { client, params } = ctx;
   const me = client.author();
+  // The user's own listings, from their log.
   const mine = [];
-  for (const hit of client.search('')) {
-    const p = client.product(hit.key);
-    for (const l of p?.listings || []) if (l.seller === me) mine.push({ l, name: p.name?.value ?? p.key });
+  for (const c of client.authorRecords(me, { kinds: ['listing'] })) {
+    if (c.status === 'retracted' || c.status === 'invalid') continue;
+    const l = client.listing(c.root);
+    if (!l) continue;
+    mine.push({ l, name: client.product(l.product)?.name?.value ?? c.title ?? fmt.keyLabel(l.product) });
   }
   const out = h('div', { class: 'receipt-out' });
   const listingSel = h('select', { name: 'listing', id: 'f-rlisting' },

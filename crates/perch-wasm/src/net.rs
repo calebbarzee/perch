@@ -85,6 +85,42 @@ fn clear_timeout(id: i32) {
     }
 }
 
+/// Heads re-exchange on every open session every 10 minutes
+/// (docs/sync-protocol.md 9.2.3, rule L7). It repairs anything a lost
+/// message left unsynced. The timer stops when the client is dropped.
+pub const REFRESH_MS: f64 = 600_000.0;
+
+pub fn start_refresh_timer(inner: &Rc<RefCell<Inner>>) {
+    let weak: Weak<RefCell<Inner>> = Rc::downgrade(inner);
+    let handle: Rc<RefCell<Option<i32>>> = Rc::new(RefCell::new(None));
+    let h2 = handle.clone();
+    let cb = Closure::<dyn FnMut()>::new(move || {
+        let Some(inner) = weak.upgrade() else {
+            if let Some(id) = h2.borrow_mut().take() {
+                clear_interval(id);
+            }
+            return;
+        };
+        inner.borrow_mut().client.backend.refresh();
+        flush(&inner);
+    });
+    let global = js_sys::global();
+    if let Ok(set) = js_sys::Reflect::get(&global, &"setInterval".into()) {
+        let set: js_sys::Function = set.unchecked_into();
+        let id = set.call2(&global, cb.as_ref().unchecked_ref(), &JsValue::from_f64(REFRESH_MS)).ok().and_then(|v| v.as_f64()).unwrap_or(0.0) as i32;
+        *handle.borrow_mut() = Some(id);
+    }
+    cb.forget();
+}
+
+fn clear_interval(id: i32) {
+    let global = js_sys::global();
+    if let Ok(clear) = js_sys::Reflect::get(&global, &"clearInterval".into()) {
+        let clear: js_sys::Function = clear.unchecked_into();
+        let _ = clear.call1(&global, &JsValue::from_f64(id as f64));
+    }
+}
+
 /// Opens (or reopens) the socket for `url`.
 pub fn open(inner: &Rc<RefCell<Inner>>, url: &str) {
     let ws = match WebSocket::new(url) {

@@ -47,7 +47,9 @@ export default {
     const sort = SORTS.some(([v]) => v === params.sort) ? params.sort : 'relevance';
     const currency = fmt.knownCurrency(params.currency) ? params.currency : null;
     const stats = client.stats();
-    const hits = client.search(q, currency ? { sort, currency } : { sort });
+    // An empty query rates every product (865 ms on a large store), so the
+    // screen asks for a query instead of searching automatically.
+    const hits = q.trim() ? client.search(q, currency ? { sort, currency, limit: 200 } : { sort, limit: 200 }) : [];
     // Currencies present in the results, for the price sort.
     const resultCurrencies = [...new Set(hits.filter((x) => x.min_price).map((x) => x.min_price.currency))].sort();
 
@@ -104,8 +106,18 @@ export default {
       return section;
     }
 
+    if (!q.trim()) {
+      section.append(
+        emptyState(
+          'Search by product name, brand, or GTIN (the number under the barcode).',
+          `This device holds records about ${fmt.plural(stats.products, 'product')} from ${fmt.plural(stats.authors, 'author')}.`,
+        ),
+      );
+      return section;
+    }
+
     if (!hits.length) {
-      section.append(emptyState(`No products match “${q}”.`, 'Try fewer words, a brand name, or the barcode number (GTIN).'));
+      section.append(emptyState(`No products match “${q}”.`, `Check the spelling, search by brand, or search by GTIN. This device holds records about ${fmt.plural(stats.products, 'product')}; connect more nodes to search more data.`));
       return section;
     }
 

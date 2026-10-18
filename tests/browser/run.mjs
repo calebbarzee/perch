@@ -92,15 +92,16 @@ async function go(page, hash) {
   await page.waitForTimeout(150);
 }
 
+// Runs fn(client, arg) in the page. The app's CSP forbids eval in page
+// scripts, so the function source goes through Playwright's evaluation.
 async function clientEval(page, fn, arg) {
-  return page.evaluate(
-    async ([src, a]) => {
-      const { getClient } = await import('./src/client.js');
-      // eslint-disable-next-line no-new-func
-      return new Function('client', 'arg', `return (${src})(client, arg);`)(getClient(), a);
-    },
-    [fn.toString(), arg],
-  );
+  await page.evaluate(async () => {
+    if (!window.__perchTestClient) {
+      const m = await import('./src/client.js');
+      window.__perchTestClient = m.getClient();
+    }
+  });
+  return page.evaluate(`(${fn.toString()})(window.__perchTestClient, ${JSON.stringify(arg ?? null)})`);
 }
 
 async function main() {
@@ -114,25 +115,26 @@ async function main() {
   const work = tempDir();
   console.log(`work dir: ${work}`);
   const demo = generateDemo(bin, work);
+  const policy = demo.policy;
+  // The app's bundled policy must be the demo policy, as tests/live/run.sh does.
   const policyFile = path.join(REPO, 'web/default-policy.json');
-  const policy = demo.policy ?? JSON.parse(fs.readFileSync(policyFile, 'utf8'));
-  const attestors = (policy.trusted_attestors || []).map((a) => a.author);
+  fs.writeFileSync(policyFile, JSON.stringify(policy, null, 2) + '\n');
 
   const [portA, portB] = [await freePort(), await freePort()];
-  const nodeA = new PerchNode({ bin, name: 'node-a', port: portA, dataDir: path.join(work, 'a'), attestors, extraArgs: ['--web', path.join(REPO, 'web')] });
-  const nodeB = new PerchNode({ bin, name: 'node-b', port: portB, dataDir: path.join(work, 'b'), attestors, peers: [`ws://127.0.0.1:${portA}/v1/sync`], extraArgs: ['--web', path.join(REPO, 'web')] });
+  const web = path.join(REPO, 'web');
+  const nodeA = new PerchNode({ bin, name: 'node-a', port: portA, dataDir: path.join(work, 'a'), policyFile: demo.policyFile, importFile: demo.file, web });
+  const nodeB = new PerchNode({ bin, name: 'node-b', port: portB, dataDir: path.join(work, 'b'), policyFile: demo.policyFile, peers: [`ws://127.0.0.1:${portA}/v1/sync`], web });
   await nodeA.start();
-  await nodeA.submit(demo.jsonl);
   await nodeB.start();
   const statsA = await nodeA.stats();
   await waitFor(async () => (await nodeB.stats()).records === statsA.records, { timeout: 60000, what: 'node B to sync from node A' });
-  console.log(`nodes ready: ${statsA.records} records`);
+  console.log(`nodes ready: ${statsA.records} records, A ${nodeA.http}, B ${nodeB.http}`);
 
-  // The app is served by a static server so the test also covers "any host".
-  // Node A also serves it (--web) for the node-served path.
-  const web = await startStaticServer(path.join(REPO, 'web'));
-  const appA = `${web.url}/?nodes=${encodeURIComponent(nodeA.ws)}`;
-  const appB = `${web.url}/?nodes=${encodeURIComponent(nodeB.ws)}`;
+  // The app is also served by a plain static server, so the test covers
+  // "served by any host". Node A serves it too (--web), checked in case i.
+  const webServer = await startStaticServer(web);
+  const appA = `${webServer.url}/?nodes=${encodeURIComponent(nodeA.ws)}`;
+  const appB = `${webServer.url}/?nodes=${encodeURIComponent(nodeB.ws)}`;
 
   const browser = await chromium.launch();
   const errors = [];
@@ -151,11 +153,10 @@ async function main() {
   await page.goto(appA);
   await waitReady(page);
 
-  // Apply the demo policy, if the demo generator provided one that differs
-  // from the bundled file, through the client (as a user would on the Policy screen).
-  await clientEval(page, (client, p) => {
-    if (JSON.stringify(client.policy().trusted_attestors) !== JSON.stringify(p.trusted_attestors)) client.setPolicy({ ...p, now: null });
-  }, policy);
+  // The bundled policy is the node's policy: same hash.
+  const nodePolicy = await nodeA.get('/v1/policy');
+  const appHash = await clientEval(page, (c) => c.policyHash());
+  record('-', 'app policy hash equals the node policy hash', appHash === nodePolicy.hash, `${appHash.slice(0, 12)} vs ${String(nodePolicy.hash).slice(0, 12)}`);
 
   let hits = [];
   await test('a', 'app loads the wasm client, connects, and shows synced demo data', async () => {
@@ -164,16 +165,19 @@ async function main() {
     await waitFor(async () => (await clientEval(page, (c) => c.stats().records)) === statsA.records, { timeout: 60000, what: 'browser sync' });
     const peers = await clientEval(page, (c) => c.peers());
     assert(peers.length === 1 && peers[0].state === 'live', `peers: ${JSON.stringify(peers)}`);
-    await go(page, '#/search');
+    // Search for a word of a demo product name.
+    const word = (await nodeA.get('/v1/search?q=&limit=1'))[0].name.split(/\s+/).find((w) => w.length > 3) || 'a';
+    await go(page, `#/search?q=${encodeURIComponent(word)}`);
     await page.waitForSelector('.hit');
-    hits = await clientEval(page, (c) => c.search('', {}));
+    hits = await clientEval(page, (c, w) => c.search(w, { limit: 200 }), word);
+    const native = await nodeA.get(`/v1/search?q=${encodeURIComponent(word)}&limit=200`);
     const shown = await page.locator('.hit').count();
-    assert(shown === hits.length && shown > 0, `${shown} results shown, ${hits.length} expected`);
-    return `${statsA.records} records, ${shown} products`;
+    assert(shown === hits.length && shown > 0 && hits.length === native.length, `${shown} results shown, ${hits.length} in browser view, ${native.length} from node`);
+    return `${statsA.records} records, ${shown} products for "${word}"`;
   }, page);
 
   // Pick test products from the native API.
-  const allHits = await nodeA.get('/v1/search?q=');
+  const allHits = await nodeA.get('/v1/search?q=&limit=1000');
   const keys = allHits.map((h) => h.key);
 
   await test('b', 'product page shows ratings, listings, and the price chart', async () => {
@@ -199,28 +203,56 @@ async function main() {
     return `${chosen.key}: ${big}, ${listings} listings, ${series} series`;
   }, page);
 
-  await test('d', 'browser ProductView equals native GET /v1/products/{key}?now=', async () => {
+  await test('d', 'browser views equal native API views (same policy, pinned now)', async () => {
     const now = Date.now() - 60_000;
-    const sample = keys.slice(0, 8);
-    assert(sample.length >= 3, 'fewer than 3 products');
+    assert(keys.length >= 3, 'fewer than 3 products');
     const browserHash = await clientEval(page, (c) => c.policyHash());
-    const diffs = [];
-    for (const k of sample) {
-      const { body: native, headers } = await nodeA.getWithHeaders(`/v1/products/${encodeURIComponent(k)}?now=${now}`);
-      const nodeHash = headers.get('x-perch-policy-hash');
-      const local = await clientEval(page, (c, a) => {
+    const pinned = async (fn, arg) =>
+      clientEval(page, (c, a) => {
         const old = c.policy();
         c.setPolicy({ ...old, now: a.now });
-        const v = c.product(a.key);
-        c.setPolicy(old);
-        return v;
-      }, { key: k, now });
+        try {
+          return a.kind === 'product' ? c.product(a.key) : a.kind === 'listing' ? c.listing(a.key) : a.kind === 'author' ? c.authorView(a.key) : c.search('', { limit: 1000 });
+        } finally {
+          c.setPolicy(old);
+        }
+      }, { ...arg, now });
+    const diffs = [];
+    let compared = 0;
+    const listingIds = new Set();
+    const authorIds = new Set();
+    for (const k of keys) {
+      const { body: native, headers } = await nodeA.getWithHeaders(`/v1/products/${encodeURIComponent(k)}?now=${now}`);
+      const nodeHash = headers.get('x-perch-policy-hash');
       if (nodeHash && nodeHash !== browserHash) diffs.push(`${k}: policy hash ${nodeHash} (node) vs ${browserHash} (browser)`);
+      const local = await pinned(null, { kind: 'product', key: k });
       const d = firstDiff(local, native);
-      if (d) diffs.push(`${k}: ${d}`);
+      if (d) diffs.push(`product ${k}: ${d}`);
+      compared++;
+      for (const l of native.listings) {
+        listingIds.add(l.id);
+        authorIds.add(l.seller);
+      }
+      for (const r of native.reviews) authorIds.add(r.author);
     }
-    assert(!diffs.length, diffs.slice(0, 3).join(' | '));
-    return `${sample.length} products identical`;
+    for (const id of listingIds) {
+      const native = await nodeA.get(`/v1/listings/${id}?now=${now}`);
+      const d = firstDiff(await pinned(null, { kind: 'listing', key: id }), native);
+      if (d) diffs.push(`listing ${id.slice(0, 8)}: ${d}`);
+      compared++;
+    }
+    for (const id of authorIds) {
+      const native = await nodeA.get(`/v1/authors/${id}?now=${now}`);
+      const d = firstDiff(await pinned(null, { kind: 'author', key: id }), native);
+      if (d) diffs.push(`author ${id.slice(0, 8)}: ${d}`);
+      compared++;
+    }
+    const nativeHits = await nodeA.get(`/v1/search?q=&limit=1000&now=${now}`);
+    const d = firstDiff(await pinned(null, { kind: 'search' }), nativeHits);
+    if (d) diffs.push(`search: ${d}`);
+    compared++;
+    assert(!diffs.length, `${diffs.length} of ${compared} differ: ${diffs.slice(0, 3).join(' | ')}`);
+    return `${compared} views identical (${keys.length} products, ${listingIds.size} listings, ${authorIds.size} authors, search)`;
   }, page);
 
   await test('e', 'browser ingest rejects a tampered record', async () => {
@@ -315,7 +347,6 @@ async function main() {
 
     await page2.goto(appB);
     await waitReady(page2);
-    await clientEval(page2, (client, p) => client.setPolicy({ ...p, now: null }), policy);
     await waitFor(() => clientEval(page2, (c, id) => Boolean(c.record(id)), reviewId), { timeout: 60000, what: 'review in browser 2' });
     await go(page2, `#/product/${encodeURIComponent(reviewKey)}`);
     await page2.waitForSelector(`.review[data-review="${reviewId}"]`, { timeout: 10000 });
@@ -362,7 +393,7 @@ async function main() {
   record('-', 'no page errors', errors.length === 0, errors.slice(0, 4).join(' | '));
 
   await browser.close();
-  web.server.close();
+  webServer.server.close();
   await nodeB.stop();
   await nodeA.stop();
   if (results.every((r) => r.ok) && !process.env.PERCH_KEEP) fs.rmSync(work, { recursive: true, force: true });

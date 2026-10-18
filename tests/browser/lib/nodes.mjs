@@ -50,23 +50,25 @@ export function nodeBinary({ build = true } = {}) {
   return path.join(REPO, 'target/debug/perch-node');
 }
 
-// perch-node demo --out <file> [--policy-out <file>]
-export function generateDemo(bin, dir) {
+// perch-node demo --out <file> --policy-out <file> --manifest-out <file>
+export function generateDemo(bin, dir, size = 'small') {
   const out = path.join(dir, 'demo.jsonl');
-  const policyOut = path.join(dir, 'demo-policy.json');
-  let r = spawnSync(bin, ['demo', '--out', out, '--policy-out', policyOut], { encoding: 'utf8' });
-  if (r.status !== 0) {
-    // Older CLI without --policy-out.
-    r = spawnSync(bin, ['demo', '--out', out], { encoding: 'utf8' });
-    if (r.status !== 0) throw new Error(`perch-node demo failed: ${r.stderr}`);
-  }
-  const policy = fs.existsSync(policyOut) ? JSON.parse(fs.readFileSync(policyOut, 'utf8')) : null;
-  return { jsonl: fs.readFileSync(out, 'utf8'), file: out, policy };
+  const policyFile = path.join(dir, 'demo-policy.json');
+  const manifestFile = path.join(dir, 'manifest.json');
+  const r = spawnSync(bin, ['demo', '--size', size, '--out', out, '--policy-out', policyFile, '--manifest-out', manifestFile], { encoding: 'utf8' });
+  if (r.status !== 0) throw new Error(`perch-node demo failed: ${r.stderr}`);
+  return {
+    jsonl: fs.readFileSync(out, 'utf8'),
+    file: out,
+    policyFile,
+    policy: JSON.parse(fs.readFileSync(policyFile, 'utf8')),
+    manifest: fs.existsSync(manifestFile) ? JSON.parse(fs.readFileSync(manifestFile, 'utf8')) : null,
+  };
 }
 
 export class PerchNode {
-  constructor({ bin, name, port, dataDir, peers = [], attestors = [], extraArgs = [] }) {
-    Object.assign(this, { bin, name, port, dataDir, peers, attestors, extraArgs });
+  constructor({ bin, name, port, dataDir, peers = [], attestors = [], extraArgs = [], policyFile = null, importFile = null, web = null }) {
+    Object.assign(this, { bin, name, port, dataDir, peers, attestors, extraArgs, policyFile, importFile, web });
     this.http = `http://127.0.0.1:${port}`;
     this.ws = `ws://127.0.0.1:${port}/v1/sync`;
     this.logFile = path.join(dataDir, '..', `${name}.log`);
@@ -78,9 +80,16 @@ export class PerchNode {
     const args = ['serve', '--listen', `127.0.0.1:${this.port}`, '--data', this.dataDir];
     for (const p of this.peers) args.push('--peer', p);
     for (const a of this.attestors) args.push('--attestor', a);
+    if (this.policyFile) args.push('--policy', this.policyFile);
+    if (this.importFile) args.push('--import', this.importFile);
+    if (this.web) args.push('--web', this.web);
     args.push(...this.extraArgs);
     const log = fs.openSync(this.logFile, 'a');
-    this.proc = spawn(this.bin, args, { stdio: ['ignore', log, log], env: { ...process.env, RUST_LOG: process.env.RUST_LOG || 'warn' } });
+    // PERCH_EXIT_WITH_PID: the node exits when this test process ends.
+    this.proc = spawn(this.bin, args, {
+      stdio: ['ignore', log, log],
+      env: { ...process.env, RUST_LOG: process.env.RUST_LOG || 'warn', PERCH_EXIT_WITH_PID: String(process.pid) },
+    });
     this.proc.on('exit', (code, sig) => {
       this.exited = { code, sig };
     });

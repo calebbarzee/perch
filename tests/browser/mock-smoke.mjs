@@ -52,8 +52,10 @@ try {
   const { ctx, page } = await newPage();
   await page.goto(`${url}/?mock=1&nodes=ws://mock-a/v1/sync,ws://mock-b/v1/sync`);
   await waitReady(page);
+  check('empty query asks for a query instead of searching', (await page.locator('.hit').count()) === 0 && (await page.locator('.empty-title').count()) === 1);
+  await go(page, '#/search?q=kitchen');
   await page.waitForFunction(() => document.querySelectorAll('.hit').length > 0, null, { timeout: 10000 });
-  check('search shows results from synced mock data', (await page.locator('.hit').count()) >= 10);
+  check('search shows results from synced mock data', (await page.locator('.hit').count()) >= 3);
   check('mock banner shown', await page.locator('.banner-mock').isVisible());
 
   await go(page, '#/search?q=kettle');

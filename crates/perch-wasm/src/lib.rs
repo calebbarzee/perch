@@ -153,16 +153,18 @@ mod wasm {
         /// `PerchClient.create({ sparse })`.
         pub fn create(options: JsValue) -> PerchClient {
             let sparse = js_sys::Reflect::get(&options, &"sparse".into()).ok().and_then(|v| v.as_bool()).unwrap_or(false);
-            PerchClient {
-                inner: Rc::new(RefCell::new(Inner {
-                    client: Client::with_node(sparse, &node_id()),
-                    peers: BTreeMap::new(),
-                    session_urls: HashMap::new(),
-                    listeners: Vec::new(),
-                    next_listener: 0,
-                    notifying: false,
-                })),
+            let inner = Rc::new(RefCell::new(Inner {
+                client: Client::with_node(sparse, &node_id()),
+                peers: BTreeMap::new(),
+                session_urls: HashMap::new(),
+                listeners: Vec::new(),
+                next_listener: 0,
+                notifying: false,
+            }));
+            if !sparse {
+                net::start_refresh_timer(&inner);
             }
+            PerchClient { inner }
         }
 
         // Keys.

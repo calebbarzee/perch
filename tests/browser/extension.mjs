@@ -45,7 +45,7 @@ function productPage({ gtin, name, microdata = false }) {
         '@context': 'https://schema.org',
         '@graph': [
           { '@type': 'BreadcrumbList', itemListElement: [] },
-          { '@type': 'Product', name, gtin13: gtin, offers: { '@type': 'Offer', price: '49.99', priceCurrency: 'EUR' } },
+          { '@type': 'Product', name, gtin14: gtin, offers: { '@type': 'Offer', price: '49.99', priceCurrency: 'EUR' } },
         ],
       })}</script>`;
   const md = microdata
@@ -87,28 +87,62 @@ function fakeNode(records, keys, { drop = () => false } = {}) {
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({ server, url: `http://127.0.0.1:${server.address().port}`, log })));
 }
 
-async function main() {
-  if (!MOCK) {
-    console.log('Real mode needs perch-node and extension/pkg (scripts/build-wasm.sh). Run with --mock until they exist.');
+// Real mode: two perch-node processes with the demo dataset; the extension
+// runs the wasm client from extension/pkg with the demo policy.
+async function realSetup() {
+  const { PerchNode, freePort, nodeBinary, generateDemo, tempDir, waitFor } = await import('./lib/nodes.mjs');
+  if (!fs.existsSync(path.join(repo, 'extension/pkg/perch_wasm_bg.wasm'))) {
+    console.log('extension/pkg is missing. Run scripts/build-wasm.sh first.');
     process.exit(2);
   }
+  const bin = nodeBinary();
+  const work = tempDir('perch-ext-live-');
+  const demo = generateDemo(bin, work);
+  const [pa, pb] = [await freePort(), await freePort()];
+  const a = new PerchNode({ bin, name: 'node-a', port: pa, dataDir: path.join(work, 'a'), policyFile: demo.policyFile, importFile: demo.file });
+  const b = new PerchNode({ bin, name: 'node-b', port: pb, dataDir: path.join(work, 'b'), policyFile: demo.policyFile, peers: [a.ws] });
+  await a.start();
+  await b.start();
+  const want = (await a.stats()).records;
+  await waitFor(async () => (await b.stats()).records === want, { timeout: 60000, what: 'node B sync' });
 
+  // A product with a GTIN, identity-verified ratings, and a price.
+  const hits = await a.get('/v1/search?q=&limit=1000');
+  const hit = hits.find((x) => x.key.startsWith('gtin:') && x.rating_count > 0 && x.min_price) || hits.find((x) => x.key.startsWith('gtin:'));
+  const key = hit.key;
+  const view = await a.get(`/v1/products/${encodeURIComponent(key)}`);
+  const verified = view.listings.find((l) => l.domain_verified && l.domain);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'perch-ext-'));
+  fs.cpSync(path.join(repo, 'extension'), dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'default-policy.json'), JSON.stringify(demo.policy, null, 2));
+  const wrap = (n) => ({ url: n.http, log: [], server: { close: () => n.stop() } });
+  const other = hits.find((x) => x.key.startsWith('gtin:') && x.key !== key);
+  return {
+    extDir: dir,
+    nodeA: wrap(a),
+    nodeB: wrap(b),
+    key,
+    view,
+    expectDisagree: false,
+    verifiedHost: verified ? { host: `shop.${verified.domain.domain}`, seller: verified.seller_name } : null,
+    otherGtin: other ? other.key.slice(5) : '05012345678900',
+    clientLog: true,
+  };
+}
+
+async function mockSetup() {
   const { buildMockDataset } = await import(pathToFileURL(path.join(repo, 'web/src/mock-data.js')).href);
   const { PerchClient } = await import(pathToFileURL(path.join(repo, 'web/src/mock-client.js')).href);
   const ds = buildMockDataset();
   const policy = { ...ds.policy, now: null };
   const key = 'gtin:04006381333931';
-  const gtin = key.slice(5).replace(/^0/, '');
 
   // Expected numbers from the same records and policy.
   const ref = await PerchClient.create();
   ref.setPolicy(policy);
   ref.ingest(ds.records);
   const view = ref.product(key);
-  const vi = view.ratings.verified_identity;
-  const vp = view.ratings.verified_purchase;
-  const eur = view.price_range.EUR;
-  const visibleListings = view.listings.filter((l) => l.status === 'visible').length;
 
   const extDir = mockExtension(policy);
   const keys = Object.values(ds.keys).filter(Boolean);
@@ -116,6 +150,29 @@ async function main() {
   // Node B withholds the reviews by two authors.
   const hiddenAuthors = new Set([ds.authors.ana, ds.authors.farid]);
   const nodeB = await fakeNode(ds.records, keys, { drop: (r) => r.kind === 'review' && hiddenAuthors.has(r.author) });
+  return {
+    extDir,
+    nodeA,
+    nodeB,
+    key,
+    view,
+    expectDisagree: true,
+    verifiedHost: { host: 'www.brightline.example', seller: 'Brightline Electronics' },
+    otherGtin: '05012345678900',
+    clientLog: false,
+  };
+}
+
+async function main() {
+  const setup = MOCK ? await mockSetup() : await realSetup();
+  const { extDir, nodeA, nodeB, key, view } = setup;
+  console.log(`mode: ${MOCK ? 'mock' : 'real perch-node + wasm'}; product ${key}`);
+  const gtin = key.slice(5);
+  const vi = view.ratings.verified_identity;
+  const vp = view.ratings.verified_purchase;
+  const ranges = Object.entries(view.price_range).filter(([, r]) => r.count > 0).sort((x, y) => y[1].count - x[1].count || (x[0] < y[0] ? -1 : 1));
+  const visibleListings = view.listings.filter((l) => l.status === 'visible').length;
+  const fmtMean = (m) => new Intl.NumberFormat(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 }).format(m);
 
   const shop = await startStaticServer(fs.mkdtempSync(path.join(os.tmpdir(), 'perch-shop-')));
   const shopRoot = shop.server.address && path.join(os.tmpdir());
@@ -135,8 +192,8 @@ async function main() {
   const shopUrl = shop.url.replace('127.0.0.1', 'localhost');
 
   pages['/multi.html'] = `<!doctype html><title>Kettles</title><script type="application/ld+json">${JSON.stringify([
-    { '@context': 'https://schema.org', '@type': 'Product', name: 'A', gtin13: gtin },
-    { '@context': 'https://schema.org', '@type': 'Product', name: 'B', gtin13: '5012345678900' },
+    { '@context': 'https://schema.org', '@type': 'Product', name: 'A', gtin14: gtin },
+    { '@context': 'https://schema.org', '@type': 'Product', name: 'B', gtin14: setup.otherGtin },
   ])}</script><p>Two products.</p>`;
 
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'perch-ext-profile-'));
@@ -146,6 +203,14 @@ async function main() {
     args: [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`],
   });
   const errors = [];
+  if (setup.clientLog) {
+    // Real nodes: record the requests the browser sends them.
+    ctx.on('request', (r) => {
+      for (const n of [nodeA, nodeB]) {
+        if (r.url().startsWith(n.url)) n.log.push({ url: new URL(r.url()).pathname, headers: r.headers() });
+      }
+    });
+  }
   const frameOf = async (page) => (await page.waitForSelector('iframe[title^="Perch"]', { timeout: 10000 })).contentFrame();
   const noPanel = async (page, url) => {
     await page.goto(url);
@@ -157,6 +222,14 @@ async function main() {
     if (!sw) sw = await ctx.waitForEvent('serviceworker', { timeout: 10000 });
     const id = new URL(sw.url()).host;
     check('background worker runs', /^[a-p]{32}$/.test(id), id);
+    // The settings page opens on install (first run). Wait for it, so it
+    // does not take over the tab the test uses next.
+    let firstRun = null;
+    for (let i = 0; i < 50 && !firstRun; i++) {
+      firstRun = ctx.pages().find((pg) => pg.url().includes('/options.html'));
+      if (!firstRun) await new Promise((r) => setTimeout(r, 100));
+    }
+    check('settings page opens on install', Boolean(firstRun), ctx.pages().map((pg) => pg.url()).join(' '));
 
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(e.message));
@@ -186,7 +259,8 @@ async function main() {
     const box = await frameEl.boundingBox();
     check('panel starts collapsed as a small tab', box.height <= 40 && box.width <= 200, `${Math.round(box.width)} x ${Math.round(box.height)}`);
     const tabText = (await frame.locator('[data-testid=tab]').textContent()).trim();
-    check('tab shows the identity-verified rating and count', tabText === `Perch ${vi.mean} (${vi.count})`, tabText);
+    const expectedTab = vi.count ? `Perch ${fmtMean(vi.mean)} (${vi.count})` : 'Perch: no rating';
+    check('tab shows the identity-verified rating and count', tabText === expectedTab, `${tabText} vs ${expectedTab}`);
 
     // Keyboard activation of the tab button. (Pointer clicks into an
     // out-of-process extension iframe are intermittently dropped by headless
@@ -199,24 +273,31 @@ async function main() {
     if (process.env.PERCH_DEBUG) console.log('panel text:', await frame.evaluate(() => document.body.innerText));
     const text = (sel) => frame.locator(sel).first().textContent();
 
-    const rating = await text('[data-testid=rating] .big');
-    check('rating: identity-verified mean', Number(rating) === vi.mean, `${rating} vs ${vi.mean}`);
-    const ratingSub = await text('[data-testid=rating] .sub');
-    check('rating: identity-verified count', ratingSub.includes(`${vi.count} identity-verified`), ratingSub);
+    if (vi.count) {
+      const rating = await text('[data-testid=rating] .big');
+      check('rating: identity-verified mean', rating === fmtMean(vi.mean), `${rating} vs ${vi.mean}`);
+      const ratingSub = await text('[data-testid=rating] .sub');
+      check('rating: identity-verified count', ratingSub.includes(`${vi.count} identity-verified`), ratingSub);
+    }
     const purchase = (await text('[data-testid=purchase] dd')).trim();
-    const fmtMean = (m) => new Intl.NumberFormat(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 }).format(m);
-    check('verified-purchase split', purchase === `${fmtMean(vp.mean)} from ${vp.count}`, purchase);
-    const price = await text('[data-testid=price] strong');
-    const fmt = (n) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n / 100);
-    const expectedPrice = eur.min === eur.max ? fmt(eur.min) : `${fmt(eur.min)} to ${fmt(eur.max)}`;
-    check('price range', price === expectedPrice, `${price} vs ${expectedPrice}`);
+    const expectedPurchase = vp.count ? `${fmtMean(vp.mean)} from ${vp.count}` : 'none';
+    check('verified-purchase split', purchase === expectedPurchase, `${purchase} vs ${expectedPurchase}`);
+    if (ranges.length) {
+      const [cur, r] = ranges[0];
+      const digits = { JPY: 0, KRW: 0, BHD: 3, KWD: 3 }[cur] ?? 2;
+      const fmt = (n) => new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n / 10 ** digits);
+      const price = await text(`[data-testid=price][data-currency=${cur}] strong`);
+      const expectedPrice = r.min === r.max ? fmt(r.min) : `${fmt(r.min)} to ${fmt(r.max)}`;
+      check('price range', price === expectedPrice, `${price} vs ${expectedPrice}`);
+    }
     const listings = await text('[data-testid=listings]');
     check('listing count', listings.startsWith(`${visibleListings} listing`), listings);
     const open = await frame.locator('[data-testid=open]').getAttribute('href');
     check('link to the product in the web app', open.endsWith(`#/product/${encodeURIComponent(key)}`), open);
     const sources = await text('.sources');
     check('sources name both nodes', sources.includes(new URL(nodeA.url).host) && sources.includes(new URL(nodeB.url).host));
-    check('disagreement between nodes shown', (await frame.locator('[data-testid=disagree]').count()) === 1);
+    const disagreeShown = (await frame.locator('[data-testid=disagree]').count()) === 1;
+    check(setup.expectDisagree ? 'disagreement between nodes shown' : 'nodes agree: no disagreement shown', disagreeShown === setup.expectDisagree);
     const prefix = sha256(key).slice(0, 4);
     const privacy = await text('[data-testid=privacy]');
     check('privacy line shows the prefix actually sent', privacy.includes(prefix) && privacy.includes('2 nodes'), privacy);
@@ -246,10 +327,13 @@ async function main() {
     // Popup content, opened as a page with the GTIN and a verified shop host.
     const pop = await ctx.newPage();
     pop.on('pageerror', (e) => errors.push(`popup: ${e.message}`));
-    await pop.goto(`chrome-extension://${id}/panel.html#mode=page&gtin=${gtin}&host=www.brightline.example`);
-    await pop.waitForSelector('[data-testid=site]', { timeout: 15000 });
-    const site2 = await pop.locator('[data-testid=site]').textContent();
-    check('"This site" names the verified seller of the shop domain', site2.includes('www.brightline.example is verified as the shop of Brightline Electronics'), site2);
+    if (setup.verifiedHost) {
+      const vh = setup.verifiedHost;
+      await pop.goto(`chrome-extension://${id}/panel.html#mode=page&gtin=${gtin}&host=${vh.host}`);
+      await pop.waitForSelector('[data-testid=site]', { timeout: 15000 });
+      const site2 = await pop.locator('[data-testid=site]').textContent();
+      check('"This site" names the verified seller of the shop domain', site2.includes(`${vh.host} is verified as the shop of ${vh.seller}`), site2);
+    }
     await pop.screenshot({ path: path.join(shots, 'extension-popup.png'), fullPage: true });
 
     // Back to toolbar-only: the page is left unchanged.
