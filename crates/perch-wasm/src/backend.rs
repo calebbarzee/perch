@@ -7,6 +7,7 @@
 
 use crate::guard::HeadRef;
 use perch_core::{AuthorId, Keypair, Record, RecordId, Unsigned};
+use perch_store::{Insert, MemoryStore, Store};
 use serde_json::{Map, Value, json};
 
 /// Result of offering one record to the store, in `ingest()` terms (8.2).
@@ -37,13 +38,14 @@ pub struct Header {
 
 pub struct Backend {
     sparse: bool,
-    store: interim::Store,
+    store: MemoryStore,
 }
 
 
 impl Backend {
     pub fn new(sparse: bool) -> Backend {
-        Backend { sparse, store: interim::Store::new(sparse) }
+        let store = if sparse { MemoryStore::new_sparse() } else { MemoryStore::new() };
+        Backend { sparse, store }
     }
 
     pub fn is_sparse(&self) -> bool {
@@ -131,16 +133,20 @@ impl Backend {
     // Store.
 
     pub fn insert(&mut self, line: &str) -> Ingested {
-        let rec = match Record::from_json_str(line) {
-            Ok(r) => r,
-            Err(e) => return Ingested::Rejected { id: header_id(line), error: e.to_string() },
-        };
-        self.store.insert(rec)
+        match self.store.insert_json(line) {
+            Err(e) => Ingested::Rejected { id: header_id(line), error: e.to_string() },
+            Ok(Insert::Inserted | Insert::BodyFilled) => Ingested::Inserted,
+            Ok(Insert::Duplicate) => Ingested::Duplicate,
+            Ok(Insert::Fork { .. }) => Ingested::Fork,
+            Ok(Insert::Gap | Insert::AboveFork) => Ingested::Gap,
+            Ok(Insert::Rejected(r)) => Ingested::Rejected { id: header_id(line), error: r.to_string() },
+        }
     }
 
     pub fn head(&self, author: &str) -> Option<HeadRef> {
         let a = AuthorId::from_hex(author).ok()?;
-        self.store.head(&a).map(|(seq, id)| HeadRef { seq, id: id.to_hex() })
+        let h = self.store.head(&a)?;
+        h.id.map(|id| HeadRef { seq: h.seq, id: id.to_hex() })
     }
 
     pub fn header_of(&self, id: &str) -> Option<Header> {
@@ -154,11 +160,11 @@ impl Backend {
 
     pub fn author_log(&self, author: &str) -> Vec<String> {
         let Ok(a) = AuthorId::from_hex(author) else { return Vec::new() };
-        self.store.log(&a).iter().map(Record::to_json_string).collect()
+        self.store.log(&a, 1, usize::MAX).iter().map(Record::to_json_string).collect()
     }
 
     pub fn export_jsonl(&self) -> String {
-        perch_core::to_jsonl(self.store.all())
+        self.store.export_jsonl()
     }
 
     fn listing_author(&self, listing: &RecordId) -> Option<AuthorId> {
@@ -205,9 +211,9 @@ impl Backend {
     }
 
     pub fn stats(&self, _policy: &Value) -> Value {
-        let (records, authors, forks, redacted) = self.store.counts();
-        json!({ "records": records, "authors": authors, "products": 0, "listings": 0, "reviews": 0,
-                "forks": forks, "invalid": 0, "redacted": redacted, "unknown": 0 })
+        json!({ "records": self.store.len(), "authors": self.store.authors().len(), "products": self.store.product_keys().len(),
+                "listings": 0, "reviews": 0, "forks": self.store.forked_authors().len(), "invalid": 0,
+                "redacted": self.store.bodyless_count(), "unknown": 0 })
     }
 
     pub fn currencies(&self) -> Value {
@@ -302,166 +308,4 @@ fn header_id(line: &str) -> Option<String> {
     }
     let c = perch_core::canonical::map_to_canonical_json(&h).ok()?;
     Some(perch_core::ids::encode_hex(&perch_core::sha256(c.as_bytes())))
-}
-
-/// Interim store until perch-store lands: complete prefixes per author,
-/// gap buffer, one evidence pair per author with prefix truncation. It
-/// implements only what the client needs and is replaced by
-/// `perch_store::MemoryStore`.
-mod interim {
-    use super::Ingested;
-    use perch_core::{AuthorId, EvidencePair, Record, RecordId};
-    use std::collections::{BTreeMap, HashMap};
-
-    pub struct Store {
-        sparse: bool,
-        logs: BTreeMap<AuthorId, Vec<Record>>,
-        by_id: HashMap<RecordId, (AuthorId, u64)>,
-        held: BTreeMap<(AuthorId, u64), Record>,
-        evidence: BTreeMap<AuthorId, EvidencePair>,
-        sparse_recs: BTreeMap<AuthorId, BTreeMap<u64, Record>>,
-    }
-
-    impl Store {
-        pub fn new(sparse: bool) -> Store {
-            Store { sparse, logs: BTreeMap::new(), by_id: HashMap::new(), held: BTreeMap::new(), evidence: BTreeMap::new(), sparse_recs: BTreeMap::new() }
-        }
-
-        pub fn head(&self, a: &AuthorId) -> Option<(u64, RecordId)> {
-            if self.sparse {
-                let (seq, r) = self.sparse_recs.get(a)?.iter().next_back()?;
-                return Some((*seq, r.id()));
-            }
-            let log = self.logs.get(a)?;
-            log.last().map(|r| (r.seq(), r.id()))
-        }
-
-        pub fn get(&self, id: &RecordId) -> Option<&Record> {
-            if let Some((a, seq)) = self.by_id.get(id) {
-                if self.sparse {
-                    return self.sparse_recs.get(a)?.get(seq);
-                }
-                if let Some(r) = self.logs.get(a).and_then(|l| l.get((*seq - 1) as usize)) {
-                    if r.id() == *id {
-                        return Some(r);
-                    }
-                }
-            }
-            self.evidence.values().flat_map(|p| p.records().into_iter()).find(|r| r.id() == *id)
-        }
-
-        pub fn log(&self, a: &AuthorId) -> Vec<Record> {
-            if self.sparse {
-                return self.sparse_recs.get(a).map(|m| m.values().cloned().collect()).unwrap_or_default();
-            }
-            self.logs.get(a).cloned().unwrap_or_default()
-        }
-
-        pub fn all(&self) -> impl Iterator<Item = &Record> {
-            self.logs
-                .values()
-                .flatten()
-                .chain(self.sparse_recs.values().flat_map(|m| m.values()))
-                .chain(self.evidence.values().flat_map(|p| p.records().into_iter()))
-        }
-
-        pub fn counts(&self) -> (u64, u64, u64, u64) {
-            let records = self.all().count() as u64;
-            let mut authors: Vec<&AuthorId> = self.logs.keys().chain(self.sparse_recs.keys()).collect();
-            authors.sort();
-            authors.dedup();
-            let redacted = self.all().filter(|r| !r.has_body()).count() as u64;
-            (records, authors.len() as u64, self.evidence.len() as u64, redacted)
-        }
-
-        pub fn insert(&mut self, rec: Record) -> Ingested {
-            let id = rec.id();
-            let a = rec.author();
-            if let Some(existing) = self.get(&id) {
-                if !existing.has_body() && rec.has_body() {
-                    let (a2, seq) = self.by_id[&id];
-                    if self.sparse {
-                        self.sparse_recs.get_mut(&a2).unwrap().insert(seq, rec);
-                    } else {
-                        self.logs.get_mut(&a2).unwrap()[(seq - 1) as usize] = rec;
-                    }
-                    return Ingested::Inserted;
-                }
-                return Ingested::Duplicate;
-            }
-            if self.sparse {
-                let m = self.sparse_recs.entry(a).or_default();
-                if let Some(other) = m.get(&rec.seq()) {
-                    if let Ok(pair) = EvidencePair::new(other.clone(), rec.clone()) {
-                        self.set_pair(pair);
-                        return Ingested::Fork;
-                    }
-                }
-                self.by_id.insert(id, (a, rec.seq()));
-                m.insert(rec.seq(), rec);
-                return Ingested::Inserted;
-            }
-            if let Some(p) = self.evidence.get(&a) {
-                if rec.seq() >= p.fork_seq() + 2 {
-                    return Ingested::Duplicate;
-                }
-            }
-            let log = self.logs.entry(a).or_default();
-            let len = log.len() as u64;
-            let seq = rec.seq();
-            // Conflicts with stored records at seq - 1, seq, seq + 1.
-            let mut candidates = Vec::new();
-            for s in [seq.saturating_sub(1), seq, seq + 1] {
-                if s >= 1 && s <= len {
-                    if let Ok(p) = EvidencePair::new(log[(s - 1) as usize].clone(), rec.clone()) {
-                        candidates.push(p);
-                    }
-                }
-            }
-            if let Some(best) = candidates.into_iter().min() {
-                self.set_pair(best);
-                return Ingested::Fork;
-            }
-            if seq <= len {
-                return Ingested::Duplicate;
-            }
-            if seq > len + 1 {
-                if self.held.len() < 4096 {
-                    self.held.insert((a, seq), rec);
-                }
-                return Ingested::Gap;
-            }
-            if let Some(prev) = log.last() {
-                if rec.ts() < prev.ts() {
-                    return Ingested::Rejected { id: Some(id.to_hex()), error: "ts is lower than the previous record in the log".into() };
-                }
-            }
-            self.by_id.insert(id, (a, seq));
-            log.push(rec);
-            // Release held records that now continue the log.
-            let mut next = seq + 1;
-            while let Some(r) = self.held.remove(&(a, next)) {
-                match self.insert(r) {
-                    Ingested::Inserted => next += 1,
-                    _ => break,
-                }
-            }
-            Ingested::Inserted
-        }
-
-        fn set_pair(&mut self, pair: EvidencePair) {
-            let a = pair.author();
-            let lower = self.evidence.get(&a).is_none_or(|old| pair < *old);
-            if !lower {
-                return;
-            }
-            let keep = pair.fork_seq().saturating_sub(1) as usize;
-            if let Some(log) = self.logs.get_mut(&a) {
-                for r in log.drain(keep.min(log.len())..) {
-                    self.by_id.remove(&r.id());
-                }
-            }
-            self.evidence.insert(a, pair);
-        }
-    }
 }

@@ -950,6 +950,7 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "perch-core",
+ "perch-store",
  "serde_json",
  "sha2",
 ]
