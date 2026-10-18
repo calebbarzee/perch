@@ -473,7 +473,7 @@ client.ingest(recordsOrJsonl)                 -> { inserted, duplicate, fork, ga
 client.connect(wsUrl) / disconnect(wsUrl)     -> Promise
 client.peers()                                -> [{ url, state, sent, received, behind, ahead }]
 client.setPolicy(policy) / policy() / policyHash()
-client.search(q, { sort?, currency? })        -> [SearchHit]
+client.search(q, { sort?, currency?, limit? }) -> [SearchHit]   (limit default 100)
 client.product(key)                           -> ProductView | null
 client.listing(id)                            -> ListingView | null
 client.authorView(id)                         -> AuthorView | null

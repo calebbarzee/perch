@@ -28,7 +28,7 @@ mod net;
 pub use wasm::{PerchClient, set_wasm_sha256};
 #[cfg(target_arch = "wasm32")]
 mod wasm {
-    use crate::backend::{Sessions, SessionId};
+    use crate::backend::SessionId;
     use crate::client::{Client, split_records};
     use crate::guard::HeadRef;
     use crate::net::{self, Peer, PeerState};
@@ -58,7 +58,6 @@ mod wasm {
 
     pub struct Inner {
         pub client: Client,
-        pub sessions: Sessions,
         pub peers: BTreeMap<String, Peer>,
         pub session_urls: HashMap<SessionId, String>,
         listeners: Vec<(u32, js_sys::Function)>,
@@ -71,8 +70,8 @@ mod wasm {
         pub fn after_session_update(&mut self, sid: SessionId, now_ms: u64) {
             let Some(url) = self.session_urls.get(&sid).cloned() else { return };
             let Some(author) = self.client.author().map(String::from) else { return };
-            let info = self.client.backend.session_info(&self.sessions, sid);
-            let head = self.client.backend.peer_head(&self.sessions, sid, &author);
+            let info = self.client.backend.session_info(sid);
+            let head = self.client.backend.peer_head(sid, &author);
             // A node's head is a claim, not proof (guard.rs).
             self.client.guard.node_reported(&url, head, now_ms);
             if info.live {
@@ -131,6 +130,13 @@ mod wasm {
         js_sys::Date::now() as u64
     }
 
+    /// 32 random hex characters: this client's sync node ID.
+    fn node_id() -> String {
+        let mut b = [0u8; 16];
+        let _ = getrandom::fill(&mut b);
+        crate::backup::encode_hex(&b)
+    }
+
     fn random32() -> Result<[u8; 32], JsError> {
         let mut b = [0u8; 32];
         getrandom::fill(&mut b).map_err(|e| JsError::new(&format!("No secure random source: {e}")))?;
@@ -149,8 +155,7 @@ mod wasm {
             let sparse = js_sys::Reflect::get(&options, &"sparse".into()).ok().and_then(|v| v.as_bool()).unwrap_or(false);
             PerchClient {
                 inner: Rc::new(RefCell::new(Inner {
-                    client: Client::new(sparse),
-                    sessions: Sessions::default(),
+                    client: Client::with_node(sparse, &node_id()),
                     peers: BTreeMap::new(),
                     session_urls: HashMap::new(),
                     listeners: Vec::new(),
@@ -336,7 +341,7 @@ mod wasm {
                 .peers
                 .values()
                 .map(|p| {
-                    let info = p.session.map(|sid| me.client.backend.session_info(&me.sessions, sid)).unwrap_or_default();
+                    let info = p.session.map(|sid| me.client.backend.session_info(sid)).unwrap_or_default();
                     let state = if p.state == PeerState::Syncing && info.live { PeerState::Live } else { p.state };
                     json!({
                         "url": p.url, "state": state.as_str(), "sent": p.sent, "received": p.received,
@@ -370,9 +375,10 @@ mod wasm {
             let get = |k: &str| js_sys::Reflect::get(&opts, &k.into()).ok().and_then(|v| v.as_string());
             let sort = get("sort").unwrap_or_else(|| "relevance".into());
             let currency = get("currency").filter(|c| !c.is_empty());
+            let limit = js_sys::Reflect::get(&opts, &"limit".into()).ok().and_then(|v| v.as_f64()).map(|f| f as usize);
             let me = self.inner.borrow();
             let p = me.client.effective_policy(now_ms());
-            to_js(&me.client.backend.search(&p, &q, &sort, currency.as_deref()))
+            to_js(&me.client.backend.search(&p, &q, &sort, currency.as_deref(), limit))
         }
 
         pub fn product(&self, key: String) -> Result<JsValue, JsError> {
@@ -418,8 +424,7 @@ mod wasm {
         }
 
         pub fn stats(&self) -> Result<JsValue, JsError> {
-            let me = self.inner.borrow();
-            to_js(&me.client.backend.stats(&me.client.effective_policy(now_ms())))
+            to_js(&self.inner.borrow().client.backend.stats())
         }
 
         #[wasm_bindgen(js_name = buildInfo)]

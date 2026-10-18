@@ -144,7 +144,7 @@ fn on_open(inner: &Rc<RefCell<Inner>>, url: &str) {
     {
         let mut guard = inner.borrow_mut();
         let me = &mut *guard;
-        let sid = me.client.backend.open_session(&mut me.sessions, url);
+        let sid = me.client.backend.open_session(url);
         me.session_urls.insert(sid, url.to_string());
         if let Some(p) = me.peers.get_mut(url) {
             p.session = Some(sid);
@@ -165,8 +165,8 @@ fn on_frame(inner: &Rc<RefCell<Inner>>, url: &str, text: &str) {
         let mut guard = inner.borrow_mut();
         let me = &mut *guard;
         let Some(sid) = me.peers.get(url).and_then(|p| p.session) else { return };
-        let (records, changed) = me.client.backend.on_message(&mut me.sessions, sid, text);
-        let info = me.client.backend.session_info(&me.sessions, sid);
+        let (records, changed) = me.client.backend.on_message(sid, text);
+        let info = me.client.backend.session_info(sid);
         if let Some(p) = me.peers.get_mut(url) {
             p.received += records;
             if info.live && p.state == PeerState::Syncing {
@@ -190,7 +190,7 @@ fn on_closed(inner: &Rc<RefCell<Inner>>, url: &str, reason: &str) {
         let me = &mut *guard;
         if let Some(p) = me.peers.get_mut(url) {
             if let Some(sid) = p.session.take() {
-                me.client.backend.on_closed(&mut me.sessions, sid);
+                me.client.backend.on_closed(sid);
                 me.session_urls.remove(&sid);
             }
             p.socket = None;
@@ -246,7 +246,7 @@ pub fn flush(inner: &Rc<RefCell<Inner>>) {
     let (out, closes) = {
         let mut guard = inner.borrow_mut();
         let me = &mut *guard;
-        me.client.backend.take_outgoing(&mut me.sessions)
+        me.client.backend.take_outgoing()
     };
     let mut to_close = Vec::new();
     {
@@ -296,7 +296,7 @@ pub fn close(inner: &Rc<RefCell<Inner>>, url: &str) {
     let mut guard = inner.borrow_mut();
     let me = &mut *guard;
     if let Some(sid) = sid {
-        me.client.backend.on_closed(&mut me.sessions, sid);
+        me.client.backend.on_closed(sid);
         me.session_urls.remove(&sid);
     }
     me.peers.remove(url);

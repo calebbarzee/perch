@@ -11,9 +11,10 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # src/backend.rs is the only file that calls the perch-* crates.
-# perch-sync and perch-views are added when their APIs land.
 perch-core = { workspace = true }
 perch-store = { workspace = true }
+perch-sync = { workspace = true }
+perch-views = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 getrandom = { workspace = true, features = ["wasm_js"] }
@@ -23,3 +24,6 @@ js-sys = { workspace = true }
 serde-wasm-bindgen = { workspace = true }
 console_error_panic_hook = { workspace = true }
 web-sys = { workspace = true, features = ["WebSocket", "MessageEvent", "CloseEvent", "Event", "BinaryType"] }
+
+[dev-dependencies]
+perch-demo = { workspace = true }

@@ -69,9 +69,15 @@ pub fn split_records(text: &str) -> Result<Vec<String>, String> {
 }
 
 impl Client {
+    /// A client with a fixed node ID (tests). Browsers use `with_node`.
     pub fn new(sparse: bool) -> Client {
+        Client::with_node(sparse, &"0".repeat(32))
+    }
+
+    /// `node`: 32 hex characters, random per client (sync-protocol 3.2).
+    pub fn with_node(sparse: bool, node: &str) -> Client {
         Client {
-            backend: Backend::new(sparse),
+            backend: Backend::new(sparse, node),
             guard: Guard::new(sparse),
             secret: None,
             author: None,
@@ -86,6 +92,7 @@ impl Client {
         self.secret = Some(seed);
         let a = self.backend.author_of(&seed);
         self.author = Some(a.clone());
+        self.backend.watch_author(Some(&a));
         self.guard.reset_for_new_key();
         a
     }
@@ -95,6 +102,7 @@ impl Client {
         let a = self.backend.author_of(&b.secret);
         self.secret = Some(b.secret);
         self.author = Some(a.clone());
+        self.backend.watch_author(Some(&a));
         self.guard.reset_for_import(b.head);
         if let Some(h) = self.backend.head(&a) {
             self.guard.note_known(h);
@@ -163,8 +171,8 @@ impl Client {
 
     pub fn ingest_lines(&mut self, lines: &[String]) -> IngestReport {
         let mut r = IngestReport::default();
-        for (index, line) in lines.iter().enumerate() {
-            match self.backend.insert(line) {
+        for (index, outcome) in self.backend.insert_many(lines).into_iter().enumerate() {
+            match outcome {
                 Ingested::Inserted => r.inserted += 1,
                 Ingested::Duplicate => r.duplicate += 1,
                 Ingested::Fork => r.fork += 1,
