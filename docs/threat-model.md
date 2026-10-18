@@ -349,6 +349,15 @@ The forgery: author `01000000000000000000000000000000000000000000000000000000000
 - Tests: `isolated.rs`: `universal_forgery_identity_key_rejected`, `small_order_public_key_rejected`.
 - Published: [`docs/test-vectors.json`](test-vectors.json) holds 7 valid records, 1 receipt, and 13 invalid inputs, including this forgery as `identity_point_forgery`. Node 22 Web Crypto accepts that vector for any message (checked 2026-10-18); perch-core rejects it. Planned: add S + L malleation and each small-order encoding.
 
+### R15. Products described only by unverified authors can be evicted (T15a)
+
+Found by the independent audit (2026-10-18). Admission tiers (ARCHITECTURE 9) keep tier-1 and tier-2 authors in full. Authors of `product` records are tier 3 unless verified. Tier-3 admission order is `sha256(author ‖ floor(day / 30))`, and low ranks are cheap to find by generating keys.
+
+- Exposure: an attacker who fills a node's tier-3 budget with low-ranked keys pushes out product records from unverified makers. Listings and reviews for that product key remain; the product's name, brand, and description can disappear from that node.
+- Not affected: verified product sources, listings, reviews, flags, ranking inputs, and verified-purchase inputs.
+- Mitigation in v1: product facts from unverified authors are labeled as such; search also matches the product key (GTIN).
+- Planned: a tier-2 rule for one product record per key referenced by tier-1 listings, chosen by a rule that is not grindable (for example the record cited by the most verified sellers).
+
 ## 8. Legal exposure
 
 This is an engineering summary, not legal advice.
