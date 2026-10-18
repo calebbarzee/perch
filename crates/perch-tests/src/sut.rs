@@ -102,11 +102,23 @@ pub fn search(store: &Store, policy: &Value, q: &str) -> Value {
     imp::search(&store.0, policy, q)
 }
 
-/// Two sync peers exchanging messages until quiet (perch-sync). The function
-/// passes messages through `filter`, which can drop, reorder, or rewrite them,
-/// to model a hostile peer. Returns when no messages remain or after `max_rounds`.
-pub fn sync_pair(a: &mut Store, b: &mut Store, max_rounds: usize, filter: &mut dyn FnMut(Dir, String) -> Vec<String>) {
-    imp::sync_pair(&mut a.0, &mut b.0, max_rounds, filter)
+/// Two sync peers exchanging messages until quiet (perch-sync). A dials B.
+/// Every message passes through `filter`, which can drop, duplicate, reorder,
+/// or rewrite it, to model a hostile peer or network. Stops when no messages
+/// remain, when a side closes the session, or after `max_messages` deliveries.
+pub fn sync_pair(a: &mut Store, b: &mut Store, max_messages: usize, filter: &mut dyn FnMut(Dir, String) -> Vec<String>) -> SyncRun {
+    imp::sync_pair(&mut a.0, &mut b.0, max_messages, filter)
+}
+
+/// What happened during one `sync_pair` run.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SyncRun {
+    /// Messages delivered.
+    pub delivered: usize,
+    /// A side closed the session (for example after misbehavior).
+    pub closed: bool,
+    /// The message cap was reached with messages still queued.
+    pub capped: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -153,14 +165,14 @@ macro_rules! require_sut {
 // Implementation. Replace this module with calls into the real crates.
 // ---------------------------------------------------------------------------
 mod imp {
-    use super::{Dir, Ingest};
+    use super::{Dir, Ingest, SyncRun};
     use perch_core::{AuthorId, Record};
     use serde_json::Value;
 
     pub const CORE: bool = true;
     pub const STORE: bool = true;
     pub const VIEWS: bool = false;
-    pub const SYNC: bool = false;
+    pub const SYNC: bool = true;
 
     pub fn verify(line: &str) -> Result<String, String> {
         Record::from_json_str(line).map(|r| r.id().to_string()).map_err(|e| e.to_string())
@@ -246,5 +258,45 @@ mod imp {
     pub fn search(_s: &Store, _p: &Value, _q: &str) -> Value {
         Value::Null
     }
-    pub fn sync_pair(_a: &mut Store, _b: &mut Store, _m: usize, _f: &mut dyn FnMut(Dir, String) -> Vec<String>) {}
+    pub fn sync_pair(
+        a: &mut Store,
+        b: &mut Store,
+        max_messages: usize,
+        filter: &mut dyn FnMut(Dir, String) -> Vec<String>,
+    ) -> SyncRun {
+        use perch_store::Store as _;
+        use perch_sync::{Hub, Role, SessionConfig};
+        use std::collections::VecDeque;
+        for s in [&mut a.0, &mut b.0] {
+            s.set_track_changes(true);
+            let _ = s.drain_changes();
+        }
+        let mut ha = Hub::new(SessionConfig::new("a".repeat(32), Role::Node));
+        let mut hb = Hub::new(SessionConfig::new("b".repeat(32), Role::Node));
+        let (sa, ma) = ha.open(true);
+        let (sb, mb) = hb.open(false);
+        let mut q: VecDeque<(Dir, String)> = VecDeque::new();
+        q.extend(ma.iter().map(|m| (Dir::AtoB, m.to_json())));
+        q.extend(mb.iter().map(|m| (Dir::BtoA, m.to_json())));
+        let mut run = SyncRun::default();
+        while let Some((d, text)) = q.pop_front() {
+            for t in filter(d, text) {
+                if run.delivered >= max_messages {
+                    run.capped = true;
+                    return run;
+                }
+                run.delivered += 1;
+                let (out, back) = match d {
+                    Dir::AtoB => (hb.on_message(&mut b.0, sb, &t), Dir::BtoA),
+                    Dir::BtoA => (ha.on_message(&mut a.0, sa, &t), Dir::AtoB),
+                };
+                q.extend(out.send.iter().map(|(_, m)| (back, m.to_json())));
+                if !out.close.is_empty() {
+                    run.closed = true;
+                    return run;
+                }
+            }
+        }
+        run
+    }
 }

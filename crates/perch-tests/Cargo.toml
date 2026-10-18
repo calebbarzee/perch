@@ -16,3 +16,4 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 perch-core = { workspace = true }
 perch-store = { workspace = true }
+perch-sync = { workspace = true }
