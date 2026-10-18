@@ -271,20 +271,28 @@ mod tests {
     #[test]
     fn rejects_s_not_reduced() {
         let kp = Keypair::from_seed([2; 32]);
-        let mut sig = kp.sign_raw(b"m");
-        // S + L is a valid equation solution but not canonical.
-        let mut s = [0u8; 32];
-        s.copy_from_slice(&sig.0[32..]);
-        let mut carry = 0u16;
-        for i in 0..32 {
-            let t = u16::from(s[i]) + u16::from(L_LE[i]) + carry;
-            s[i] = t as u8;
-            carry = t >> 8;
-        }
-        if s[31] & 0xe0 == 0 {
+        // S + L satisfies the equation but is not canonical. Use messages
+        // whose S + L still fits in 253 bits, so only the S < L check rejects it.
+        let mut checked = 0;
+        for m in 0u8..32 {
+            let msg = [m];
+            let mut sig = kp.sign_raw(&msg);
+            let mut s = [0u8; 32];
+            s.copy_from_slice(&sig.0[32..]);
+            let mut carry = 0u16;
+            for i in 0..32 {
+                let t = u16::from(s[i]) + u16::from(L_LE[i]) + carry;
+                s[i] = t as u8;
+                carry = t >> 8;
+            }
+            if s[31] & 0xe0 != 0 {
+                continue;
+            }
             sig.0[32..].copy_from_slice(&s);
-            assert_eq!(verify_strict(&kp.author(), b"m", &sig), Err(SignatureError::NonCanonicalSignature));
+            assert_eq!(verify_strict(&kp.author(), &msg, &sig), Err(SignatureError::NonCanonicalSignature));
+            checked += 1;
         }
+        assert!(checked > 0);
     }
 
     #[test]

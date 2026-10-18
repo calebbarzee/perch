@@ -68,12 +68,13 @@ mod wasm {
 
     impl Inner {
         /// Feeds the publish guard after a session advanced.
-        pub fn after_session_update(&mut self, sid: SessionId) {
+        pub fn after_session_update(&mut self, sid: SessionId, now_ms: u64) {
             let Some(url) = self.session_urls.get(&sid).cloned() else { return };
             let Some(author) = self.client.author().map(String::from) else { return };
             let info = self.client.backend.session_info(&self.sessions, sid);
             let head = self.client.backend.peer_head(&self.sessions, sid, &author);
-            self.client.guard.node_reported(&url, head);
+            // A node's head is a claim, not proof (guard.rs).
+            self.client.guard.node_reported(&url, head, now_ms);
             if info.live {
                 self.client.guard.node_checked(&url);
             }
@@ -195,13 +196,13 @@ mod wasm {
 
         #[wasm_bindgen(js_name = publishStatus)]
         pub fn publish_status(&self) -> Result<JsValue, JsError> {
-            let s = self.inner.borrow_mut().client.publish_status();
+            let s = self.inner.borrow_mut().client.publish_status(now_ms());
             let head = |h: &Option<HeadRef>| h.as_ref().map(|h| json!({ "seq": h.seq, "id": h.id })).unwrap_or(Value::Null);
             to_js(&json!({
                 "ready": s.ready,
                 "reason": s.reason,
                 "local_head": head(&s.local_head),
-                "nodes": s.nodes.iter().map(|n| json!({ "url": n.url, "head": head(&n.head), "checked": n.checked })).collect::<Vec<_>>(),
+                "nodes": s.nodes.iter().map(|n| json!({ "url": n.url, "head": head(&n.head), "checked": n.checked, "unproven": n.unproven })).collect::<Vec<_>>(),
             }))
         }
 

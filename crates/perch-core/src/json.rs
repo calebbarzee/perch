@@ -381,7 +381,7 @@ impl Parser<'_> {
 /// and returns `limit + 1` in that case.
 pub fn depth(v: &Value, limit: usize) -> usize {
     fn go(v: &Value, here: usize, limit: usize) -> usize {
-        if here > limit {
+        if here > limit && (v.is_object() || v.is_array()) {
             return here;
         }
         match v {
@@ -475,6 +475,10 @@ mod tests {
         assert_eq!(depth(&json!({"a":[{}]}), 16), 3);
         // A very deep value is cut off at limit + 1.
         assert_eq!(depth(&p(&ok).unwrap(), 3), 4);
+        // A scalar inside the deepest allowed container does not add depth.
+        assert_eq!(depth(&json!([[1]]), 2), 2);
+        assert_eq!(depth(&json!([[[1]]]), 2), 3);
+        assert_eq!(depth(&json!({"a": {"b": "x"}}), 2), 2);
     }
 
     #[test]

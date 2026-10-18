@@ -199,10 +199,10 @@ A `ProductKey` is a string that groups records about the same product.
 | Priority | Condition | Key |
 |---|---|---|
 | 1 | Product has `gtin` | `gtin:` + GTIN zero-padded to 14 digits |
-| 2 | Product has `mpn` | `mpn:` + brand + `:` + MPN, each with ASCII whitespace trimmed and ASCII letters lowercased |
+| 2 | Product has `mpn` | `mpn:` + brand + `:` + MPN, each with ASCII whitespace trimmed and ASCII letters lowercased, then `%` written as `%25` and `:` as `%3a` |
 | 3 | Otherwise | `rec:` + root ID of the product record |
 
-[GTIN](https://www.gs1.org/standards/id-keys/gtin) check digits are validated.
+[GTIN](https://www.gs1.org/standards/id-keys/gtin) check digits are validated. The escaping in rule 2 keeps keys unique: brand `a:b` with MPN `c` gives `mpn:a%3ab:c`, and brand `a` with MPN `b:c` gives `mpn:a:b%3ac`.
 
 ## 5. Logs and storage
 

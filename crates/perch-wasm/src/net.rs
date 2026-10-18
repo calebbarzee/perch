@@ -173,7 +173,7 @@ fn on_frame(inner: &Rc<RefCell<Inner>>, url: &str, text: &str) {
                 p.state = PeerState::Live;
             }
         }
-        me.after_session_update(sid);
+        me.after_session_update(sid, js_sys::Date::now() as u64);
         changed
     };
     flush(inner);

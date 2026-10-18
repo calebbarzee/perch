@@ -21,7 +21,8 @@ function gtin13(base12) {
 export function productKeyFor(body, rootId) {
   if (body.gtin) return 'gtin:' + body.gtin.padStart(14, '0');
   const trim = (s) => s.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '').replace(/[A-Z]/g, (c) => c.toLowerCase());
-  if (body.mpn) return 'mpn:' + trim(body.brand) + ':' + trim(body.mpn);
+  const esc = (s) => s.replace(/%/g, '%25').replace(/:/g, '%3a');
+  if (body.mpn) return 'mpn:' + esc(trim(body.brand)) + ':' + esc(trim(body.mpn));
   return 'rec:' + rootId;
 }
 

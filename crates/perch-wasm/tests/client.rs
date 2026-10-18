@@ -2,6 +2,7 @@
 //! receipts, verification, tamper rejection, forks, gaps, and the publish guard.
 
 use perch_wasm::client::{Client, split_records};
+use perch_wasm::guard::{CLAIM_TIMEOUT_MS, HeadRef};
 use serde_json::{Value, json};
 
 const T: u64 = 1_760_000_000_000;
@@ -131,17 +132,17 @@ fn imported_key_waits_for_every_node_then_sees_the_highest_head() {
     b.guard.add_node("ws://n1");
     b.guard.add_node("ws://n2");
     b.import_key(&secret_backup).unwrap();
-    assert!(!b.publish_status().ready);
+    assert!(!b.publish_status(T).ready);
     // n1 reports seq 1; n2 reports nothing.
     let id1 = a.backend.verify_record(&r1.to_string())["id"].as_str().unwrap().to_string();
-    b.guard.node_reported("ws://n1", Some(perch_wasm::guard::HeadRef { seq: 1, id: id1 }));
+    b.guard.node_reported("ws://n1", Some(HeadRef { seq: 1, id: id1 }), T);
     b.guard.node_checked("ws://n1");
     b.guard.node_checked("ws://n2");
     // Device lacks record 1.
-    let s = b.publish_status();
+    let s = b.publish_status(T);
     assert!(!s.ready, "{s:?}");
     b.ingest_lines(&[r1.to_string()]);
-    assert!(b.publish_status().ready);
+    assert!(b.publish_status(T).ready);
     let s = b.publish("profile", &json!({ "name": "A2", "role": "buyer" }).to_string(), None, Some(T), T).unwrap();
     let r: Value = serde_json::from_str(&s.wire).unwrap();
     assert_eq!(r["seq"], 2);
@@ -159,4 +160,49 @@ fn currencies_come_from_core() {
     let cur = c.backend.currencies();
     let iqd = cur.as_array().unwrap().iter().find(|x| x["code"] == "IQD").unwrap();
     assert_eq!(iqd["minor_units"], json!(3));
+}
+
+#[test]
+fn fake_head_from_a_node_cannot_block_publishing_forever() {
+    let mut c = Client::new(false);
+    c.guard.add_node("ws://evil.example/v1/sync");
+    c.generate_key([12; 32]);
+    let (_, _r1) = publish(&mut c, "profile", json!({ "name": "A", "role": "buyer" }));
+    // The node claims a head far above anything the user signed.
+    c.guard.node_reported("ws://evil.example/v1/sync", Some(HeadRef { seq: 1_000_000, id: "f".repeat(64) }), T);
+    let s = c.publish_status(T + 1);
+    assert!(!s.ready);
+    assert!(s.reason.unwrap().contains("evil.example"));
+    // The claim never raises the proven head.
+    let backup: Value = serde_json::from_str(&c.export_key().unwrap()).unwrap();
+    assert_eq!(backup["head"]["seq"], 1);
+    // Without proof the claim is ignored after the timeout, and named.
+    let s = c.publish_status(T + CLAIM_TIMEOUT_MS);
+    assert!(s.ready, "{s:?}");
+    assert!(s.reason.as_deref().unwrap().contains("cannot prove"));
+    let p = c.publish("profile", &json!({ "name": "B", "role": "buyer" }).to_string(), None, Some(T), T + CLAIM_TIMEOUT_MS).unwrap();
+    let r: Value = serde_json::from_str(&p.wire).unwrap();
+    assert_eq!(r["seq"], 2);
+}
+
+/// Web Crypto Ed25519 in some engines accepts the identity point as a public
+/// key with R = identity and S = 0 for any message. perch-core must reject it.
+#[test]
+fn identity_point_forgery_is_rejected() {
+    let identity = format!("01{}", "00".repeat(31));
+    let sig = format!("{identity}{}", "00".repeat(32));
+    let body = json!({ "name": "Forged", "role": "seller" });
+    let body_c = perch_core::to_canonical_json(&body).unwrap();
+    let body_hash = perch_core::ids::encode_hex(&perch_core::sha256(body_c.as_bytes()));
+    let rec = json!({
+        "v": 1, "author": identity, "seq": 1, "prev": null, "ts": T, "kind": "profile",
+        "body_hash": body_hash, "sig": sig, "body": body,
+    });
+    let mut c = Client::new(false);
+    let r = c.ingest_lines(&[rec.to_string()]);
+    assert_eq!(r.rejected, 1, "{:?}", r.errors);
+    assert_eq!(r.inserted, 0);
+    assert_eq!(c.backend.verify_record(&rec.to_string())["valid"], json!(false));
+    let mut sparse = Client::new(true);
+    assert_eq!(sparse.ingest_lines(&[rec.to_string()]).rejected, 1);
 }

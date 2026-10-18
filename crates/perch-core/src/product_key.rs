@@ -7,7 +7,7 @@
 //! | Form | Rule |
 //! |---|---|
 //! | `gtin:` + 14 digits | Valid GS1 check digit. Shorter GTINs are zero-padded to 14 before use. |
-//! | `mpn:` + brand + `:` + MPN | Brand and MPN each non-empty, no leading or trailing ASCII whitespace, no ASCII uppercase letters. |
+//! | `mpn:` + brand + `:` + MPN | Brand and MPN each non-empty, no leading or trailing ASCII whitespace, no ASCII uppercase letters. In each part, `%` is written `%25` and `:` is written `%3a`, so the key has exactly one `:` after `mpn:`. |
 //! | `rec:` + 64 lowercase hex | Root ID of a product record. |
 //!
 //! "ASCII whitespace" is U+0009, U+000A, U+000C, U+000D, and U+0020, as in
@@ -78,9 +78,51 @@ pub fn trim_ascii_ws(s: &str) -> &str {
 }
 
 /// Normalizes one part of an `mpn:` key: trim ASCII whitespace, lowercase
-/// ASCII letters. Other characters are unchanged.
+/// ASCII letters. Other characters are unchanged. The result is unescaped;
+/// [`escape_mpn_part`] produces the form used inside a key.
 pub fn normalize_mpn_part(s: &str) -> String {
     trim_ascii_ws(s).to_ascii_lowercase()
+}
+
+/// Escapes one normalized part for use inside an `mpn:` key: `%` becomes
+/// `%25` and `:` becomes `%3a`. Without this, brand `a:b` with MPN `c` and
+/// brand `a` with MPN `b:c` would share the key `mpn:a:b:c`.
+pub fn escape_mpn_part(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '%' => out.push_str("%25"),
+            ':' => out.push_str("%3a"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+/// Reverses [`escape_mpn_part`]. Returns `None` for any `%` not followed by
+/// `25` or `3a` (lowercase), so each part has exactly one valid spelling.
+pub fn unescape_mpn_part(s: &str) -> Option<String> {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find('%') {
+        out.push_str(&rest[..i]);
+        let tail = &rest[i..];
+        if tail.starts_with("%25") {
+            out.push('%');
+        } else if tail.starts_with("%3a") {
+            out.push(':');
+        } else {
+            return None;
+        }
+        rest = &tail[3..];
+    }
+    out.push_str(rest);
+    Some(out)
+}
+
+/// True if `p` is a valid escaped part of a canonical `mpn:` key.
+fn escaped_mpn_part_ok(p: &str) -> bool {
+    !p.contains(':') && unescape_mpn_part(p).is_some_and(|raw| mpn_part_ok(&raw))
 }
 
 fn mpn_part_ok(p: &str) -> bool {
@@ -127,12 +169,11 @@ impl ProductKey {
                 return Err(ProductKeyError::GtinCheckDigit);
             }
         } else if let Some(rest) = s.strip_prefix("mpn:") {
-            // The brand may itself contain ':', so accept the key if any
-            // split point yields two valid parts.
-            let ok = rest
-                .char_indices()
-                .filter(|&(_, c)| c == ':')
-                .any(|(i, _)| mpn_part_ok(&rest[..i]) && mpn_part_ok(&rest[i + 1..]));
+            // Parts escape ':' (escape_mpn_part), so exactly one ':' separates them.
+            let ok = match rest.split_once(':') {
+                Some((b, m)) => escaped_mpn_part_ok(b) && escaped_mpn_part_ok(m),
+                None => false,
+            };
             if !ok {
                 return Err(ProductKeyError::MpnFormat);
             }
@@ -158,7 +199,7 @@ impl ProductKey {
         if !mpn_part_ok(&b) || !mpn_part_ok(&m) {
             return Err(ProductKeyError::MpnFormat);
         }
-        Ok(ProductKey(format!("mpn:{b}:{m}")))
+        Ok(ProductKey(format!("mpn:{}:{}", escape_mpn_part(&b), escape_mpn_part(&m))))
     }
 
     /// `rec:` key from a product chain's root ID.
@@ -268,9 +309,13 @@ mod tests {
         assert_eq!(ProductKey::parse("mpn:acme:x-100").unwrap().scheme(), KeyScheme::Mpn);
         assert!(ProductKey::parse("mpn:sony:wh-1000xm5").is_ok());
         assert!(ProductKey::parse("mpn:müller:é1").is_ok());
-        assert!(ProductKey::parse("mpn:a:b:c").is_ok());
-        assert!(ProductKey::parse("mpn:a :b:c").is_ok()); // brand "a :b", mpn "c"
-        for bad in ["mpn:Acme:x", "mpn:acme:X", "mpn::x", "mpn:acme:", "mpn:acme", "mpn: acme:x", "mpn:acme:x ", "mpn:"] {
+        assert!(ProductKey::parse("mpn:a%3ab:c").is_ok()); // brand "a:b", mpn "c"
+        assert!(ProductKey::parse("mpn:a:b%3ac").is_ok()); // brand "a", mpn "b:c"
+        assert!(ProductKey::parse("mpn:100%25 cotton:x").is_ok());
+        for bad in [
+            "mpn:Acme:x", "mpn:acme:X", "mpn::x", "mpn:acme:", "mpn:acme", "mpn: acme:x", "mpn:acme:x ", "mpn:",
+            "mpn:a:b:c", "mpn:a%3Ab:c", "mpn:a%:b", "mpn:a%2:b", "mpn:a%41:b", "mpn:%20a:b",
+        ] {
             assert_eq!(ProductKey::parse(bad), Err(ProductKeyError::MpnFormat), "{bad}");
         }
         let root = RecordId([0xab; 32]);
@@ -292,7 +337,16 @@ mod tests {
         assert_eq!(ProductKey::derive(None, "MÜLLER", Some("Ä1"), root).unwrap().as_str(), "mpn:mÜller:Ä1");
         assert_eq!(ProductKey::derive(None, "   ", Some("x"), root), Err(ProductKeyError::MpnFormat));
         // Every derived key parses.
+        // Colons in brand or MPN cannot make two products share a key.
+        let k1 = ProductKey::derive(None, "a:b", Some("c"), root).unwrap();
+        let k2 = ProductKey::derive(None, "a", Some("b:c"), root).unwrap();
+        assert_eq!(k1.as_str(), "mpn:a%3ab:c");
+        assert_eq!(k2.as_str(), "mpn:a:b%3ac");
+        assert_ne!(k1, k2);
+        assert_eq!(ProductKey::derive(None, "100% Cotton", Some("X"), root).unwrap().as_str(), "mpn:100%25 cotton:x");
         for k in [
+            k1,
+            k2,
             ProductKey::derive(None, "a :b", Some("c"), root).unwrap(),
             ProductKey::derive(None, "MÜLLER", Some("Ä1"), root).unwrap(),
         ] {

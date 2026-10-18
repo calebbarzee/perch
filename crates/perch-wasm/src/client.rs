@@ -124,17 +124,17 @@ impl Client {
         self.author.as_ref().and_then(|a| self.backend.head(a))
     }
 
-    pub fn publish_status(&mut self) -> PublishStatus {
+    pub fn publish_status(&mut self, now_ms: u64) -> PublishStatus {
         self.refresh_own_head();
         let local = self.own_local_head();
-        self.guard.status(self.secret.is_some(), local)
+        self.guard.status(self.secret.is_some(), local, now_ms)
     }
 
     /// Signs and stores a record. `now_ms` is the wall clock; `ts` overrides it.
     pub fn publish(&mut self, kind: &str, body_json: &str, replaces: Option<&str>, ts: Option<u64>, now_ms: u64) -> Result<Signed, String> {
-        let status = self.publish_status();
-        if let Some(reason) = status.reason {
-            return Err(reason);
+        let status = self.publish_status(now_ms);
+        if !status.ready {
+            return Err(status.reason.unwrap_or_else(|| "Publishing is paused.".into()));
         }
         let secret = self.secret.ok_or("No key.")?;
         let author = self.author.clone().ok_or("No key.")?;
@@ -254,7 +254,7 @@ mod tests {
     fn imported_key_waits_for_nodes() {
         let mut c = Client::new(false);
         c.import_key(&"11".repeat(32)).unwrap();
-        assert!(!c.publish_status().ready);
+        assert!(!c.publish_status(0).ready);
     }
 
     #[test]
