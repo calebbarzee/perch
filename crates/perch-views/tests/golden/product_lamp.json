@@ -41,6 +41,7 @@
       "condition": "new",
       "domain": null,
       "domain_verified": false,
+      "feeds_prices": false,
       "flags": {
         "count": 2,
         "counted": 1,
@@ -55,6 +56,7 @@
         "amount": 2799,
         "currency": "EUR"
       },
+      "price_excluded_reason": "seller_restricted",
       "price_history": [
         {
           "amount": 2799,
@@ -88,6 +90,7 @@
         "expires": 1830297600000
       },
       "domain_verified": true,
+      "feeds_prices": false,
       "flags": {
         "count": 3,
         "counted": 3,
@@ -102,6 +105,7 @@
         "amount": 2999,
         "currency": "EUR"
       },
+      "price_excluded_reason": "hidden",
       "price_history": [
         {
           "amount": 2999,

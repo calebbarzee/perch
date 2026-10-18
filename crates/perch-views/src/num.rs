@@ -18,13 +18,10 @@ pub struct Ratio {
 }
 
 impl Ratio {
-    /// `num / den`.
-    ///
-    /// # Panics
-    /// If `den ≤ 0`.
+    /// `num / den`. A denominator below 1 is treated as 1 (never used by
+    /// views; it keeps the function total).
     pub fn new(num: i128, den: i128) -> Ratio {
-        assert!(den > 0, "Ratio denominator must be positive");
-        Ratio { num, den }
+        Ratio { num, den: den.max(1) }
     }
 }
 

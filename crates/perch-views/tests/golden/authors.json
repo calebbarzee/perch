@@ -1126,7 +1126,8 @@
     "restricted": true,
     "restriction": {
       "distinct_flaggers": 0,
-      "hidden_listings": 0
+      "hidden_listings": 0,
+      "reason": "forked_key"
     },
     "retired": null,
     "revoked": null,
@@ -1285,7 +1286,8 @@
     "restricted": false,
     "restriction": {
       "distinct_flaggers": 3,
-      "hidden_listings": 1
+      "hidden_listings": 1,
+      "reason": "hidden_listings"
     },
     "retired": null,
     "revoked": null,
@@ -1456,7 +1458,8 @@
     "restricted": true,
     "restriction": {
       "distinct_flaggers": 9,
-      "hidden_listings": 3
+      "hidden_listings": 3,
+      "reason": "hidden_listings"
     },
     "retired": null,
     "revoked": null,
@@ -1498,7 +1501,8 @@
     "restricted": true,
     "restriction": {
       "distinct_flaggers": 9,
-      "hidden_listings": 3
+      "hidden_listings": 3,
+      "reason": "hidden_listings"
     },
     "retired": null,
     "revoked": null,

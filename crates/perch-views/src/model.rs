@@ -159,6 +159,9 @@ pub struct DomainAttestation {
 /// `AuthorView.restriction`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct RestrictionView {
+    /// `hidden_listings` when the counts below explain the state;
+    /// `forked_key` when the person is restricted only because a key forked.
+    pub reason: &'static str,
     /// Restriction-hidden listings of the person.
     pub hidden_listings: u64,
     /// Distinct persons with counted flags on them.
@@ -287,6 +290,11 @@ pub struct ListingView {
     pub seller_status: AuthorStatus,
     /// URL host matches a counting domain attestation of the seller.
     pub domain_verified: bool,
+    /// Counts toward `price_range` and `min_price` (8.3).
+    pub feeds_prices: bool,
+    /// First price-feed rule the listing fails: `hidden`, `retracted`,
+    /// `unavailable`, `availability`, `seller_restricted`, or `domain_unverified`.
+    pub price_excluded_reason: Option<&'static str>,
     /// The matching domain attestation.
     pub domain: Option<DomainAttestation>,
     /// Product key.

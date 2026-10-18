@@ -275,12 +275,15 @@ impl<S: Store + ?Sized> Views<'_, S> {
             return None;
         }
         let text = self.product_text(&ps);
-        let fields = [
-            tokens(&text.name.value),
-            text.mpn.as_deref().map(tokens).unwrap_or_default(),
-            tokens(&text.brand.value),
-            text.category.as_ref().map(|c| tokens(&c.value)).unwrap_or_default(),
-        ];
+        // Every candidate value counts, not only the displayed one (7.8).
+        let [names, brands, categories] = text.candidates();
+        let toks = |vals: &[&str]| -> Vec<String> {
+            let mut t: Vec<String> = vals.iter().flat_map(|v| tokens(v)).collect();
+            t.sort();
+            t.dedup();
+            t
+        };
+        let fields = [toks(&names), text.mpn.as_deref().map(tokens).unwrap_or_default(), toks(&brands), toks(&categories)];
         let mut why = Vec::new();
         let mut points: i64 = 0;
         for t in qt {

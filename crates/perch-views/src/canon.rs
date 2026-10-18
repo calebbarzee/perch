@@ -7,10 +7,10 @@ use serde_json::Value;
 
 /// The RFC 8785 serialization of a view result.
 ///
-/// # Panics
-/// If `v` does not serialize to JSON, or holds a non-finite number.
+/// Never panics: a value that does not serialize gives `null`, and a
+/// non-finite number is written as `null`.
 pub fn canonical_json<T: Serialize + ?Sized>(v: &T) -> String {
-    let v = serde_json::to_value(v).expect("view result serializes");
+    let v = serde_json::to_value(v).unwrap_or(Value::Null);
     let mut out = String::new();
     write(&v, &mut out);
     out
@@ -26,8 +26,11 @@ fn write(v: &Value, out: &mut String) {
             } else if let Some(u) = n.as_u64() {
                 out.push_str(&u.to_string());
             } else {
-                let f = n.as_f64().expect("number");
-                assert!(f.is_finite(), "non-finite number");
+                let f = n.as_f64().unwrap_or(f64::NAN);
+                if !f.is_finite() {
+                    out.push_str("null");
+                    return;
+                }
                 // Rust's shortest round-trip form equals ECMAScript
                 // Number::toString for |f| in [1e-6, 1e21), which covers
                 // every view value (multiples of 0.01).

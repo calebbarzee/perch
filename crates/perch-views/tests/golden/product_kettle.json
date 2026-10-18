@@ -172,101 +172,13 @@
       "appealed": false,
       "availability": "in_stock",
       "condition": "new",
-      "domain": null,
-      "domain_verified": false,
-      "flags": {
-        "count": 0,
-        "counted": 0,
-        "reasons": {}
-      },
-      "id": "f9eb450928a3333bdf2bd559c782ddc40dbe17733d2706f90d4f4248161ddc34",
-      "latest": "f9eb450928a3333bdf2bd559c782ddc40dbe17733d2706f90d4f4248161ddc34",
-      "location": null,
-      "price": {
-        "amount": 1999,
-        "currency": "EUR"
-      },
-      "price_history": [
-        {
-          "amount": 1999,
-          "currency": "EUR",
-          "record": "f9eb450928a3333bdf2bd559c782ddc40dbe17733d2706f90d4f4248161ddc34",
-          "source": "seller",
-          "ts": 1768089600004
-        },
-        {
-          "amount": 1999,
-          "currency": "EUR",
-          "record": "5848d18ad269545a06755a929795c4b1513f44fe5b89460ad3dae06ac5616c9f",
-          "source": "observation",
-          "ts": 1770681000001
-        }
-      ],
-      "product": "gtin:02000090000018",
-      "redaction": null,
-      "seller": "bf1f528ac533c4c97f214855f72d3e15d80d386c4a964aec4082d2c58233b3b8",
-      "seller_name": "G00dshop Deals",
-      "seller_restricted": false,
-      "seller_status": "ok",
-      "seller_verified": false,
-      "ships_to": [],
-      "status": "visible",
-      "title": "Alder Kettle 1.7 L - 60% OFF TODAY",
-      "updated_ts": 1768089600004,
-      "url": "https://goodshop-deals.example/alder-kettle-sale"
-    },
-    {
-      "appeal": null,
-      "appealed": false,
-      "availability": "in_stock",
-      "condition": "new",
-      "domain": null,
-      "domain_verified": false,
-      "flags": {
-        "count": 0,
-        "counted": 0,
-        "reasons": {}
-      },
-      "id": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
-      "latest": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
-      "location": null,
-      "price": {
-        "amount": 3999,
-        "currency": "EUR"
-      },
-      "price_history": [
-        {
-          "amount": 3999,
-          "currency": "EUR",
-          "record": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
-          "source": "seller",
-          "ts": 1768089600003
-        }
-      ],
-      "product": "gtin:02000090000018",
-      "redaction": null,
-      "seller": "64159d9e1ae8190d4e0724f352fa2cd0174b624b5133923540b26fe364ab54c6",
-      "seller_name": "Bargain Barn",
-      "seller_restricted": false,
-      "seller_status": "ok",
-      "seller_verified": false,
-      "ships_to": [],
-      "status": "visible",
-      "title": null,
-      "updated_ts": 1768089600003,
-      "url": "https://bargainbarn.example/kettle"
-    },
-    {
-      "appeal": null,
-      "appealed": false,
-      "availability": "in_stock",
-      "condition": "new",
       "domain": {
         "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
         "domain": "goodshop.example",
         "expires": 1830297600000
       },
       "domain_verified": true,
+      "feeds_prices": true,
       "flags": {
         "count": 0,
         "counted": 0,
@@ -279,6 +191,7 @@
         "amount": 4799,
         "currency": "EUR"
       },
+      "price_excluded_reason": null,
       "price_history": [
         {
           "amount": 4999,
@@ -347,6 +260,7 @@
         "expires": 1830297600000
       },
       "domain_verified": true,
+      "feeds_prices": true,
       "flags": {
         "count": 0,
         "counted": 0,
@@ -359,6 +273,7 @@
         "amount": 4299,
         "currency": "GBP"
       },
+      "price_excluded_reason": null,
       "price_history": [
         {
           "amount": 4299,
@@ -386,12 +301,106 @@
       "appealed": false,
       "availability": "in_stock",
       "condition": "new",
+      "domain": null,
+      "domain_verified": false,
+      "feeds_prices": false,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "f9eb450928a3333bdf2bd559c782ddc40dbe17733d2706f90d4f4248161ddc34",
+      "latest": "f9eb450928a3333bdf2bd559c782ddc40dbe17733d2706f90d4f4248161ddc34",
+      "location": null,
+      "price": {
+        "amount": 1999,
+        "currency": "EUR"
+      },
+      "price_excluded_reason": "domain_unverified",
+      "price_history": [
+        {
+          "amount": 1999,
+          "currency": "EUR",
+          "record": "f9eb450928a3333bdf2bd559c782ddc40dbe17733d2706f90d4f4248161ddc34",
+          "source": "seller",
+          "ts": 1768089600004
+        },
+        {
+          "amount": 1999,
+          "currency": "EUR",
+          "record": "5848d18ad269545a06755a929795c4b1513f44fe5b89460ad3dae06ac5616c9f",
+          "source": "observation",
+          "ts": 1770681000001
+        }
+      ],
+      "product": "gtin:02000090000018",
+      "redaction": null,
+      "seller": "bf1f528ac533c4c97f214855f72d3e15d80d386c4a964aec4082d2c58233b3b8",
+      "seller_name": "G00dshop Deals",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": false,
+      "ships_to": [],
+      "status": "visible",
+      "title": "Alder Kettle 1.7 L - 60% OFF TODAY",
+      "updated_ts": 1768089600004,
+      "url": "https://goodshop-deals.example/alder-kettle-sale"
+    },
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": null,
+      "domain_verified": false,
+      "feeds_prices": false,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
+      "latest": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
+      "location": null,
+      "price": {
+        "amount": 3999,
+        "currency": "EUR"
+      },
+      "price_excluded_reason": "domain_unverified",
+      "price_history": [
+        {
+          "amount": 3999,
+          "currency": "EUR",
+          "record": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
+          "source": "seller",
+          "ts": 1768089600003
+        }
+      ],
+      "product": "gtin:02000090000018",
+      "redaction": null,
+      "seller": "64159d9e1ae8190d4e0724f352fa2cd0174b624b5133923540b26fe364ab54c6",
+      "seller_name": "Bargain Barn",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": false,
+      "ships_to": [],
+      "status": "visible",
+      "title": null,
+      "updated_ts": 1768089600003,
+      "url": "https://bargainbarn.example/kettle"
+    },
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
       "domain": {
         "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
         "domain": "hearthandtrail.example",
         "expires": 1830297600000
       },
       "domain_verified": true,
+      "feeds_prices": false,
       "flags": {
         "count": 0,
         "counted": 0,
@@ -404,6 +413,7 @@
         "amount": 5199,
         "currency": "EUR"
       },
+      "price_excluded_reason": "retracted",
       "price_history": [
         {
           "amount": 5299,

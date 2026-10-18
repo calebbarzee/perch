@@ -12,6 +12,7 @@ This document defines every view in [`ARCHITECTURE.md`](../ARCHITECTURE.md) sect
 4. **Exact arithmetic.** Views use integers and exact fractions. No floating-point arithmetic affects a result (§12).
 5. **Total orders.** Every list has a total order, ending with a tie-break by ID or key in ascending byte order (7.7).
 6. **Visible exclusion.** When a rule excludes a record from an aggregate, the view says so and why (`excluded_reason`, `excluded` counts, `why`).
+7. **Total functions.** No input record can make a view fail. perch-views has no `expect`, `unwrap`, or unchecked indexing on record-derived data, and walks `replaces` links iteratively, so a long chain cannot overflow the stack. A property test runs every view over random record soups (`tests/soup.rs`).
 
 ## 2. Policy
 
@@ -47,7 +48,7 @@ This document defines every view in [`ARCHITECTURE.md`](../ARCHITECTURE.md) sect
 | `price_requires_domain_verified` | bool | |
 | `future_ts_tolerance_ms` | integer | 0 to 2^53 − 1 |
 
-Unknown fields make a policy invalid. A threshold of 0 is invalid because it would hide every record with no flags.
+Unknown fields make a policy invalid. A threshold of 0 is invalid because it would hide every record with no flags. Every integer, including `flag_thresholds` values and `not_after_seq`, must be at most 2^53 − 1, so the policy hash is defined and JavaScript reads the same value.
 
 `threshold(kind)` = `flag_thresholds[kind]` if present, otherwise `flag_threshold`.
 
@@ -60,7 +61,9 @@ Unknown fields make a policy invalid. A threshold of 0 is invalid because it wou
 
 ### 2.3 Policy hash
 
-`policy_hash(policy)` = `lowercase_hex(sha256(canonical_json(normalized)))`, where `normalized` is the policy after:
+`policy_hash(policy)` = `lowercase_hex(sha256(canonical_json(normalized)))`, where `normalized` is the policy after the steps below. The function never fails; for a policy that breaks §2.1 (only possible when built in code) the hash is not specified.
+
+Steps:
 
 1. parsing and validation (§2.1), with `flag_thresholds` filled in as `{}` when absent;
 2. removing `now`;
@@ -128,7 +131,12 @@ Root resolution needs only headers, so it works for unavailable records.
 
 A **chain** is the set of records with the same root. Chain members can branch: two records may both replace the root.
 
-The **reference version** of a chain is its lowest-seq member whose body is present and schema-valid (§4.1). Fixed fields (4.5) of every other member with a body are compared against it (`fixed:<field>`). A chain without a reference version has no known product key, target, or subject, and is reported only in `Stats`.
+The **reference version** of a chain is its **root**, when the root's body is present and schema-valid (§4.1). Fixed fields (4.5) of every other member are compared against the root (`fixed:<field>`), and the chain's product key, target, and subject come from the root (4.6).
+
+- If the root has no body, the chain is **unavailable**: its only candidate is the root (§3.5), and every replacement has validity `root_unavailable` (neither valid nor invalid) until the root's body arrives. A body that arrives later therefore cannot move a chain to another product or change its fixed fields: replacements that differ from the root become `fixed:<field>` invalid.
+- If the root has a body that fails the schema, replacements are invalid with `replaces:root_invalid`.
+
+A chain without a reference version has no known product key, target, or subject. It appears in a product view only through a redaction notice that names a product (§9.1).
 
 Reference resolution: a reference field (`target`, `listing`, `receipt.listing`) holding ID `x` resolves to `root(x)` if `x` is in the store, otherwise to `x` (**dangling**). A dangling reference matches nothing until the record arrives.
 
@@ -140,7 +148,7 @@ For a chain `C`:
 
 - `retract_seq(C)` = lowest seq of a counting retract whose target resolves to `C`'s root. ∞ if none.
 - `C` is **retracted** when `retract_seq(C) < ∞`.
-- A member `m` is a **candidate** when: `m` is active; `m.seq < retract_seq(C)` (a retraction is final, 4.6); and either `m.body` is absent (and the kind is not a control kind) or `m` is valid.
+- A member `m` is a **candidate** when: `m` is active; `m.seq < retract_seq(C)` (a retraction is final, 4.6); either `m.body` is absent (and the kind is not a control kind) or `m` is valid; and, if the root has no body, `m` is the root.
 - The **latest version** `latest(C)` is the candidate with the highest seq. A chain with no candidate has no latest version and is omitted from views.
 - **Versions** of `C` are its candidates in ascending seq order.
 
@@ -190,14 +198,15 @@ Body schemas are the ones in 4.5, with these details.
 | `replaces:seq` | The replaced record's seq is not lower. |
 | `replaces:kind` | The replaced record has another kind. |
 | `replaces:not_replaceable` | The kind is not replaceable. |
-| `fixed:<field>` | A fixed field (4.5) differs from the chain's reference version. For `product`, `brand` is fixed only when the reference version has `mpn`. Absent and present count as different. |
+| `replaces:root_invalid` | The chain's root has a body that fails the schema. |
+| `fixed:<field>` | A fixed field (4.5) differs from the chain's root. For `product`, `brand` is fixed only when the root has `mpn`. Absent and present count as different. |
 | `retract:author` | The target is in the store and has another author. |
 | `retract:seq` | The target is in the store and its seq is not lower than the retract's. |
 | `retract:target_kind` | The target's kind is `retract`, `retire`, `attest.revoke`, or `redact`. |
 | `appeal:author` | The target is in the store, and the author of its chain root is not the appeal's author. |
 | `ref:listing_kind` | `review.listing`, `observation.listing`, or `review.receipt.listing` names a record in the store that is not of kind `listing`. |
 
-Checks run in this order: schema, `replaces:*`, `fixed:*`, then the kind-specific rules. The first failure is the reason. `invalid_records(store)` returns `[(id, reason)]` for every invalid record, sorted by `id`.
+Checks run in this order: schema, `replaces:*`, root availability (`root_unavailable`, not counted as invalid), `fixed:*`, then the kind-specific rules. The first failure is the reason. `invalid_records(store)` returns `[(id, reason)]` for every invalid record, sorted by `id`.
 
 Author permissions in 4.5 that depend on the policy (for example "identity attestor") are not validity rules. An attestation from an untrusted author is valid and does not count (§5.1). `listing` may be authored by anyone; its author is by definition the seller.
 
@@ -351,6 +360,8 @@ For a listing chain `C` with latest version `L` and reference version `R`:
 | `seller_restricted` | §6 |
 | `seller_status` | §5.4 |
 | `domain_verified`, `domain` | §5.5, using `L.url`. `false`/`null` when `L` has no body. |
+| `feeds_prices` | The listing feeds price figures (§8.3) |
+| `price_excluded_reason` | The first rule of §8.3 that fails: `hidden`, `retracted`, or `unavailable` (rule 1, the display status), `availability` (rule 2), `seller_restricted` (rule 3), `domain_unverified` (rule 4); `null` when `feeds_prices` |
 | `product` | `R.body.product` (fixed). For a chain without any body: the `product` of its redaction notice (§7.5). |
 | `title` | `L.body.title` or `null` |
 | `url`, `price`, `availability`, `condition` | From `L`; `null` when `L` has no body |
@@ -391,9 +402,10 @@ Hidden listings do not feed prices. A minimum price is a summary of one listing'
 
 `listings` are sorted by:
 
-1. status rank: `visible` 0, `hidden` 1, `retracted` 2, `unavailable` 3;
-2. `price.currency` ascending, then `price.amount` ascending (listings without a price last);
-3. `id`.
+1. `feeds_prices` first (§8.3), then the others, so an unverified or lookalike shop never leads the list (7.8);
+2. within each group, status rank: `visible` 0, `hidden` 1, `retracted` 2, `unavailable` 3;
+3. `price.currency` ascending, then `price.amount` ascending (listings without a price last);
+4. `id`.
 
 ## 9. Reviews and ratings
 
@@ -402,7 +414,7 @@ Hidden listings do not feed prices. A minimum price is a summary of one listing'
 The reviews of product key `K` are review chains that have a latest version and either:
 
 - a reference version with `product = K`; or
-- no reference version (no member has a body), and a redaction notice (§7.5) with `product = K` on the latest version.
+- a root without a body, and a redaction notice (§7.5) with `product = K` that targets the root. The root is then the chain's latest version (§3.5), so the notice is the one the view shows.
 
 The same rule selects the listing chains of `K`. The second case places records whose only body was removed; it is attributed to the notice's author.
 
@@ -494,13 +506,15 @@ The product key of a `product` chain is computed from its reference version by p
 
 Each product chain with key `K` and a latest version has a status (§3.6). Product chains of excluded-forked authors are not used.
 
-- If any chain is `visible`, the **source chains** are the visible chains.
-- Otherwise, if any is `hidden`, the source chains are the hidden chains.
-- Otherwise there are no source chains.
+- The **source chains** are the `visible` chains. Facts come from them only (7.6). When no chain is visible, every fact is empty (`name.value` and `brand.value` are `""`).
 
-`ProductView.moderation.status` is `visible`, `hidden`, `retracted`, or `unavailable`: the first of these that any chain of `K` has, in that order. It is `visible` when `K` has no product chains. `moderation.flags` is the union over all chains of `K`: `count` = distinct flagging authors over all chains, `counted` = distinct persons with a counted flag on any chain, `reasons` over the used live flags of all chains. `moderation.appeal` is the appeal with the highest `(ts, record)` over all chains. `moderation.redaction` is the redaction of the lowest-root unavailable chain when the status is `unavailable`, else `null`.
+`ProductView.moderation.status`:
 
-`ProductView.excluded_sources` = `{ hidden, retracted, unavailable, forked, revoked }`: the number of product chains of `K` not used as sources, by reason (`revoked`: all members with a body have `seq > revoke_cut`).
+1. `hidden` when at least one chain is `hidden` and no `visible` chain has a verified author (7.6). One new key therefore cannot un-hide a product by publishing a fresh product record.
+2. Otherwise the first of `visible`, `retracted`, `unavailable` that any chain of `K` has.
+3. `visible` when `K` has no product chains. `moderation.flags` is the union over all chains of `K`: `count` = distinct flagging authors over all chains, `counted` = distinct persons with a counted flag on any chain, `reasons` over the used live flags of all chains. `moderation.appeal` is the appeal with the highest `(ts, record)` over all chains. `moderation.redaction` is the redaction of the lowest-root unavailable chain when the status is `unavailable`, else `null`.
+
+`ProductView.excluded_sources` = `{ hidden, retracted, unavailable, forked, revoked }`: the number of product chains of `K` not used as sources, by reason (`revoked`: all members with a body have `seq > revoke_cut`). Every hidden chain counts in `hidden`.
 
 ### 10.4 Fact resolution
 
@@ -564,10 +578,12 @@ The fields of a candidate are:
 | Field | Tokens | Exact | Prefix |
 |---|---|---|---|
 | `gtin` | The 14-digit GTIN; matches a query token of 8–14 ASCII digits that, zero-padded to 14, equals it | 100 | — |
-| `name` | `tokens(name.value)` | 30 | 15 |
+| `name` | Tokens of every candidate value: `name.value` and each `name.conflicts[].value` | 30 | 15 |
 | `mpn` | `tokens(mpn)` | 25 | 10 |
-| `brand` | `tokens(brand.value)` | 20 | 10 |
-| `category` | `tokens(category.value)` | 10 | 5 |
+| `brand` | Tokens of every candidate value of `brand` | 20 | 10 |
+| `category` | Tokens of every candidate value of `category` | 10 | 5 |
+
+Candidate values come from visible chains only (§10.3). Matching every value, not only the displayed one, means unverified keys cannot hide a product from search by outvoting its name (7.8). The hit still shows the displayed values.
 
 - **Exact**: a field token equals the query token.
 - **Prefix**: a field token starts with the query token and is longer, and the query token has at least 2 characters.
@@ -726,7 +742,7 @@ Rule 7 follows only trusted attestors. Untrusted keys could otherwise attest eac
 | `verified` | From the author's counting `attest.identity` with the lowest `(attestor, person, root)`: `{ level, legal_name|null, country|null, attestor, expires }`, or `null` |
 | `domains` | One entry `{ domain, attestor, expires }` per counting `attest.domain`, sorted by `(domain, attestor)` |
 | `status` | §5.4 |
-| `restricted`, `restriction` | §6. `restriction` is `{ hidden_listings, distinct_flaggers }` of the author's person, or `null` when not restricted and `hidden_listings` = 0. |
+| `restricted`, `restriction` | §6. `restriction` is `{ reason, hidden_listings, distinct_flaggers }` of the author's person, or `null` when not restricted and `hidden_listings` = 0. `reason` is `forked_key` when the person is restricted only because a key forked (§6 condition 2), otherwise `hidden_listings`. |
 | `revoked` | Reported revoke `{ attestor, valid_through_seq }` (§5.3), or `null` |
 | `fork_seq`, `fork_evidence` | From the evidence pair: fork seq and `[a.id, b.id]` sorted by `(seq, id)`; or `null` |
 | `retired` | `{ seq: retire_seq, successor|null }` when `retire_seq < ∞`, else `null` |
@@ -775,6 +791,8 @@ RecordStatus { semantic_valid, reason|null, root, versions: [id], ignored|null }
 | `unknown` | Records of unknown kinds |
 
 ### 15.5 Admission tier
+
+Tiers depend on identity and references only, not on product facts. A product whose only sources are unverified authors can therefore be evicted from nodes short of space (contract section 9; threat-model R15).
 
 `admission_tier(store, admission, author) → 1 | 2 | 3` implements contract section 9. `admission` is a `Policy` built from the node's admission attestor set and the current time.
 

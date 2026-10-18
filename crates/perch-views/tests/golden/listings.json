@@ -10,6 +10,7 @@
       "expires": 1830297600000
     },
     "domain_verified": true,
+    "feeds_prices": false,
     "flags": {
       "count": 3,
       "counted": 3,
@@ -24,6 +25,7 @@
       "amount": 499,
       "currency": "EUR"
     },
+    "price_excluded_reason": "hidden",
     "price_history": [
       {
         "amount": 499,
@@ -57,6 +59,7 @@
       "expires": 1830297600000
     },
     "domain_verified": true,
+    "feeds_prices": false,
     "flags": {
       "count": 3,
       "counted": 3,
@@ -71,6 +74,7 @@
       "amount": 1999,
       "currency": "EUR"
     },
+    "price_excluded_reason": "hidden",
     "price_history": [
       {
         "amount": 1999,
@@ -104,6 +108,7 @@
       "expires": 1830297600000
     },
     "domain_verified": true,
+    "feeds_prices": true,
     "flags": {
       "count": 0,
       "counted": 0,
@@ -116,6 +121,7 @@
       "amount": 11999,
       "currency": "EUR"
     },
+    "price_excluded_reason": null,
     "price_history": [
       {
         "amount": 12999,
@@ -163,6 +169,7 @@
       "expires": 1830297600000
     },
     "domain_verified": true,
+    "feeds_prices": false,
     "flags": {
       "count": 7,
       "counted": 3,
@@ -179,6 +186,7 @@
       "amount": 8999,
       "currency": "EUR"
     },
+    "price_excluded_reason": "hidden",
     "price_history": [
       {
         "amount": 8999,
@@ -216,6 +224,7 @@
       "expires": 1830297600000
     },
     "domain_verified": true,
+    "feeds_prices": true,
     "flags": {
       "count": 1,
       "counted": 1,
@@ -230,6 +239,7 @@
       "amount": 11999,
       "currency": "EUR"
     },
+    "price_excluded_reason": null,
     "price_history": [
       {
         "amount": 11999,
@@ -263,6 +273,7 @@
       "expires": 1830297600000
     },
     "domain_verified": true,
+    "feeds_prices": true,
     "flags": {
       "count": 0,
       "counted": 0,
@@ -275,6 +286,7 @@
       "amount": 4299,
       "currency": "GBP"
     },
+    "price_excluded_reason": null,
     "price_history": [
       {
         "amount": 4299,
@@ -308,6 +320,7 @@
       "expires": 1830297600000
     },
     "domain_verified": true,
+    "feeds_prices": true,
     "flags": {
       "count": 0,
       "counted": 0,
@@ -320,6 +333,7 @@
       "amount": 4799,
       "currency": "EUR"
     },
+    "price_excluded_reason": null,
     "price_history": [
       {
         "amount": 4999,
@@ -384,6 +398,7 @@
     "condition": "new",
     "domain": null,
     "domain_verified": false,
+    "feeds_prices": false,
     "flags": {
       "count": 0,
       "counted": 0,
@@ -396,6 +411,7 @@
       "amount": 1999,
       "currency": "EUR"
     },
+    "price_excluded_reason": "domain_unverified",
     "price_history": [
       {
         "amount": 1999,
@@ -436,6 +452,7 @@
       "expires": 1830297600000
     },
     "domain_verified": true,
+    "feeds_prices": false,
     "flags": {
       "count": 0,
       "counted": 0,
@@ -448,6 +465,7 @@
       "amount": 5199,
       "currency": "EUR"
     },
+    "price_excluded_reason": "retracted",
     "price_history": [
       {
         "amount": 5299,
@@ -484,6 +502,7 @@
     "condition": "new",
     "domain": null,
     "domain_verified": false,
+    "feeds_prices": false,
     "flags": {
       "count": 0,
       "counted": 0,
@@ -496,6 +515,7 @@
       "amount": 3999,
       "currency": "EUR"
     },
+    "price_excluded_reason": "domain_unverified",
     "price_history": [
       {
         "amount": 3999,
@@ -525,6 +545,7 @@
     "condition": "new",
     "domain": null,
     "domain_verified": false,
+    "feeds_prices": false,
     "flags": {
       "count": 2,
       "counted": 1,
@@ -539,6 +560,7 @@
       "amount": 2799,
       "currency": "EUR"
     },
+    "price_excluded_reason": "seller_restricted",
     "price_history": [
       {
         "amount": 2799,
@@ -572,6 +594,7 @@
       "expires": 1830297600000
     },
     "domain_verified": true,
+    "feeds_prices": false,
     "flags": {
       "count": 3,
       "counted": 3,
@@ -586,6 +609,7 @@
       "amount": 2999,
       "currency": "EUR"
     },
+    "price_excluded_reason": "hidden",
     "price_history": [
       {
         "amount": 2999,
@@ -619,6 +643,7 @@
       "expires": 1830297600000
     },
     "domain_verified": true,
+    "feeds_prices": true,
     "flags": {
       "count": 0,
       "counted": 0,
@@ -631,6 +656,7 @@
       "amount": 3400,
       "currency": "EUR"
     },
+    "price_excluded_reason": null,
     "price_history": [
       {
         "amount": 3400,
@@ -664,6 +690,7 @@
       "expires": 1830297600000
     },
     "domain_verified": true,
+    "feeds_prices": true,
     "flags": {
       "count": 0,
       "counted": 0,
@@ -676,6 +703,7 @@
       "amount": 1999,
       "currency": "EUR"
     },
+    "price_excluded_reason": null,
     "price_history": [
       {
         "amount": 1999,
@@ -709,6 +737,7 @@
       "expires": 1830297600000
     },
     "domain_verified": true,
+    "feeds_prices": true,
     "flags": {
       "count": 0,
       "counted": 0,
@@ -721,6 +750,7 @@
       "amount": 19999,
       "currency": "EUR"
     },
+    "price_excluded_reason": null,
     "price_history": [
       {
         "amount": 19999,

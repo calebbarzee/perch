@@ -86,11 +86,26 @@ impl Policy {
     /// Checks the rules of docs/views.md section 2.1.
     pub fn validate(&self) -> Result<(), PolicyError> {
         let f = |field, problem| Err(PolicyError::Field { field, problem });
-        if self.now > MAX_SAFE {
-            return f("now", "must be at most 2^53 - 1");
+        // Every integer must be a JSON-safe integer (4.2), so the policy hash
+        // is defined and JavaScript reads the same value.
+        const BIG: &str = "must be at most 2^53 - 1";
+        let ints: [(&'static str, u64); 5] = [
+            ("now", self.now),
+            ("future_ts_tolerance_ms", self.future_ts_tolerance_ms),
+            ("flag_threshold", self.flag_threshold),
+            ("seller_hidden_listing_limit", self.seller_hidden_listing_limit),
+            ("seller_min_distinct_flaggers", self.seller_min_distinct_flaggers),
+        ];
+        for (field, v) in ints {
+            if v > MAX_SAFE {
+                return f(field, BIG);
+            }
         }
-        if self.future_ts_tolerance_ms > MAX_SAFE {
-            return f("future_ts_tolerance_ms", "must be at most 2^53 - 1");
+        if self.flag_thresholds.values().any(|&t| t > MAX_SAFE) {
+            return f("flag_thresholds", BIG);
+        }
+        if self.trusted_attestors.iter().any(|a| a.not_after_seq.is_some_and(|n| n > MAX_SAFE)) {
+            return f("trusted_attestors", "not_after_seq must be at most 2^53 - 1");
         }
         if self.flag_threshold == 0 {
             return f("flag_threshold", "must be at least 1");
@@ -149,13 +164,13 @@ impl Policy {
 
     /// The policy as JSON.
     pub fn to_value(&self) -> Value {
-        serde_json::to_value(self).expect("policy serializes")
+        serde_json::to_value(self).unwrap_or(Value::Null)
     }
 
     /// The normalized form that is hashed (docs/views.md section 2.3).
     pub fn normalized(&self) -> Value {
         let mut v = self.to_value();
-        let m = v.as_object_mut().expect("object");
+        let Some(m) = v.as_object_mut() else { return v };
         m.remove("now");
         if let Some(Value::Array(list)) = m.get_mut("trusted_attestors") {
             for a in list.iter_mut() {
@@ -184,8 +199,12 @@ fn strip_nulls(v: &mut Value) {
 }
 
 /// `lowercase_hex(sha256(canonical_json(normalized policy)))` (ARCHITECTURE 7.1).
+///
+/// Never panics. For a valid policy the encoding is RFC 8785. An invalid
+/// policy (for example an integer above 2^53 − 1 built in code) still gets a
+/// hash, of its integers written in full.
 pub fn policy_hash(policy: &Policy) -> String {
-    let c = perch_core::to_canonical_json(&policy.normalized()).expect("policy is canonical-encodable");
+    let c = crate::canon::canonical_json(&policy.normalized());
     perch_core::ids::encode_hex(&perch_core::sha256(c.as_bytes()))
 }
 
@@ -232,6 +251,31 @@ mod tests {
         let mut p3 = p1.clone();
         p3.trusted_attestors[0].not_after_seq = Some(5);
         assert_ne!(policy_hash(&p1), policy_hash(&p3));
+    }
+
+    #[test]
+    fn large_integers_rejected_and_hash_never_panics() {
+        let a = AuthorId([1; 32]);
+        let big = 9_007_199_254_740_992u64;
+        let base = default_policy(1, &[a]);
+        for path in ["now", "flag_threshold", "seller_hidden_listing_limit", "seller_min_distinct_flaggers", "future_ts_tolerance_ms"] {
+            let mut v = base.to_value();
+            v[path] = big.into();
+            assert!(Policy::from_value(v).is_err(), "{path}");
+        }
+        let mut v = base.to_value();
+        v["trusted_attestors"][0]["not_after_seq"] = 10_000_000_000_000_000u64.into();
+        assert!(Policy::from_value(v).is_err());
+        let mut v = base.to_value();
+        v["flag_thresholds"]["review"] = big.into();
+        assert!(Policy::from_value(v).is_err());
+        let mut p = base.clone();
+        p.flag_threshold = u64::MAX;
+        p.trusted_attestors[0].not_after_seq = Some(u64::MAX);
+        assert_eq!(policy_hash(&p).len(), 64);
+        // Valid policies hash with RFC 8785 as before.
+        let c = perch_core::to_canonical_json(&base.normalized()).unwrap();
+        assert_eq!(policy_hash(&base), perch_core::ids::encode_hex(&perch_core::sha256(c.as_bytes())));
     }
 
     #[test]

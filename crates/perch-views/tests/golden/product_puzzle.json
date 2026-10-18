@@ -45,6 +45,7 @@
         "expires": 1830297600000
       },
       "domain_verified": true,
+      "feeds_prices": true,
       "flags": {
         "count": 0,
         "counted": 0,
@@ -57,6 +58,7 @@
         "amount": 1999,
         "currency": "EUR"
       },
+      "price_excluded_reason": null,
       "price_history": [
         {
           "amount": 1999,

@@ -113,8 +113,11 @@ impl<S: Store + ?Sized> Views<'_, S> {
             domains,
             status: cuts.status(),
             restricted: r.restricted,
-            restriction: (r.restricted || r.hidden_listings > 0)
-                .then_some(RestrictionView { hidden_listings: r.hidden_listings, distinct_flaggers: r.distinct_flaggers }),
+            restriction: (r.restricted || r.hidden_listings > 0).then_some(RestrictionView {
+                reason: if r.forked && !r.by_listings { "forked_key" } else { "hidden_listings" },
+                hidden_listings: r.hidden_listings,
+                distinct_flaggers: r.distinct_flaggers,
+            }),
             revoked: cuts.revoke.map(|(v, attestor, _)| Revoked { attestor, valid_through_seq: v }),
             fork_seq: evidence.as_ref().map(|p| p.fork_seq()),
             fork_evidence: evidence.as_ref().map(|p| p.ids()),
@@ -131,8 +134,8 @@ impl<S: Store + ?Sized> Views<'_, S> {
         let fi = self.flag_info(&root);
         fi.entries
             .iter()
-            .map(|e| {
-                let l = e.chain.latest.as_ref().expect("latest");
+            .filter_map(|e| {
+                let l = e.chain.latest.as_ref()?;
                 let (reason, note) = match (&l.body(), e.state) {
                     (Some(Body::Flag(b)), s) if s != FlagState::Unavailable => {
                         (Some(b.reason.as_str().to_owned()), b.note.clone())
@@ -140,7 +143,7 @@ impl<S: Store + ?Sized> Views<'_, S> {
                     _ => (None, None),
                 };
                 let a = e.chain.author();
-                FlagView {
+                Some(FlagView {
                     record: l.id(),
                     author: a,
                     author_name: self.display_name(&a),
@@ -150,7 +153,7 @@ impl<S: Store + ?Sized> Views<'_, S> {
                     counted: e.excluded.is_none(),
                     excluded_reason: e.excluded,
                     ts: l.ts(),
-                }
+                })
             })
             .collect()
     }
@@ -222,6 +225,7 @@ impl<S: Store + ?Sized> Views<'_, S> {
             Validity::Valid => (true, None),
             Validity::Invalid(s) => (false, Some(s.clone())),
             Validity::Unavailable => (false, Some("unavailable".to_owned())),
+            Validity::RootUnavailable => (false, Some("root_unavailable".to_owned())),
             Validity::Unknown => (false, Some("unknown_kind".to_owned())),
         };
         let root = self.root_of(id);

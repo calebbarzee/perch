@@ -38,41 +38,51 @@ impl<S: Store + ?Sized> Views<'_, S> {
         if c.kind() != names::LISTING || c.latest.is_none() {
             return None;
         }
-        if c.reference().is_none() && self.stated_product(&c).is_none() {
-            return None;
-        }
-        Some(self.listing_view(&c))
+        self.listing_view(&c)
     }
 
     pub(crate) fn feed(&self, c: &Chain) -> Feed {
-        let Some(Body::Listing(l)) = c.latest_body() else { return Feed::No };
-        if self.display_status(c) != Status::Visible
-            || !matches!(l.availability.as_str(), "in_stock" | "preorder")
-            || self.restricted(&c.author())
-        {
-            return Feed::No;
+        match self.price_excluded_reason(c) {
+            None => Feed::Feeds,
+            Some("domain_unverified") => Feed::UnverifiedDomain,
+            Some(_) => Feed::No,
         }
-        if self.policy.price_requires_domain_verified && self.listing_domain(c).is_none() {
-            return Feed::UnverifiedDomain;
-        }
-        Feed::Feeds
     }
 
-    pub(crate) fn listing_view(&self, c: &Chain) -> ListingView {
-        let latest = c.latest.as_ref().expect("listing chain has a latest version");
-        let product = reference_product(&c.base)
-            .cloned()
-            .or_else(|| self.stated_product(c))
-            .expect("listing chain has a reference version or a notice with a product");
+    /// The first rule of 8.3 that a listing fails, or `None` if it feeds prices.
+    pub(crate) fn price_excluded_reason(&self, c: &Chain) -> Option<&'static str> {
+        let status = self.display_status(c);
+        if status != Status::Visible {
+            return Some(status.as_str());
+        }
+        let Some(Body::Listing(l)) = c.latest_body() else { return Some("unavailable") };
+        if !matches!(l.availability.as_str(), "in_stock" | "preorder") {
+            return Some("availability");
+        }
+        if self.restricted(&c.author()) {
+            return Some("seller_restricted");
+        }
+        if self.policy.price_requires_domain_verified && self.listing_domain(c).is_none() {
+            return Some("domain_unverified");
+        }
+        None
+    }
+
+    /// `ListingView` of a chain, or `None` if it has no latest version or no
+    /// known product (neither a root body nor a notice naming one).
+    pub(crate) fn listing_view(&self, c: &Chain) -> Option<ListingView> {
+        let latest = c.latest.as_ref()?;
+        let product = reference_product(&c.base).cloned().or_else(|| self.stated_product(c))?;
         let seller = c.author();
         let body = match &latest.body() {
             Some(Body::Listing(l)) => Some(l),
             _ => None,
         };
         let domain = self.listing_domain(c);
+        let price_excluded_reason = self.price_excluded_reason(c);
         let fi = self.flag_info(&c.root());
         let appeal = self.appeal(c);
-        ListingView {
+        Some(ListingView {
             id: c.root(),
             latest: latest.id(),
             seller,
@@ -81,6 +91,8 @@ impl<S: Store + ?Sized> Views<'_, S> {
             seller_restricted: self.restricted(&seller),
             seller_status: self.status(&seller),
             domain_verified: domain.is_some(),
+            feeds_prices: price_excluded_reason.is_none(),
+            price_excluded_reason,
             domain: domain.map(|d| DomainAttestation { domain: d.domain, attestor: d.attestor, expires: d.expires }),
             product,
             title: body.and_then(|b| b.title.clone()),
@@ -99,7 +111,7 @@ impl<S: Store + ?Sized> Views<'_, S> {
             appeal,
             redaction: self.redaction(c),
             price_history: self.price_history(c),
-        }
+        })
     }
 
     fn price_history(&self, c: &Chain) -> Vec<PricePoint> {
@@ -147,8 +159,8 @@ impl<S: Store + ?Sized> Views<'_, S> {
 
     // --- Reviews ----------------------------------------------------------------
 
-    pub(crate) fn review_view(&self, c: &Chain, excluded: Option<&'static str>) -> ReviewView {
-        let latest = c.latest.as_ref().expect("review chain has a latest version");
+    pub(crate) fn review_view(&self, c: &Chain, excluded: Option<&'static str>) -> Option<ReviewView> {
+        let latest = c.latest.as_ref()?;
         let author = c.author();
         let body = match &latest.body() {
             Some(Body::Review(r)) => Some(r),
@@ -156,7 +168,7 @@ impl<S: Store + ?Sized> Views<'_, S> {
         };
         let purchase = if body.is_some() { self.purchase(c).outcome } else { "none" };
         let fi = self.flag_info(&c.root());
-        ReviewView {
+        Some(ReviewView {
             id: c.root(),
             latest: latest.id(),
             author,
@@ -176,7 +188,7 @@ impl<S: Store + ?Sized> Views<'_, S> {
             flags: fi.flags.clone(),
             appeal: self.appeal(c),
             redaction: self.redaction(c),
-        }
+        })
     }
 
     /// Rating summary of a product (9.4). `with_purchase` computes the
@@ -250,18 +262,21 @@ impl<S: Store + ?Sized> Views<'_, S> {
             }
             by_status.entry(status_rank(s)).or_default().push(c.clone());
         }
+        // Facts come from visible chains only (7.6).
         let visible = by_status.get(&0).cloned().unwrap_or_default();
         let hidden = by_status.get(&1).cloned().unwrap_or_default();
-        let sources = if !visible.is_empty() {
-            ex.hidden = hidden.len() as u64;
-            visible
+        ex.hidden = hidden.len() as u64;
+        // A product key is hidden when a product chain is hidden and no
+        // visible product chain has a verified author (7.6).
+        let status = if !hidden.is_empty() && !visible.iter().any(|c| self.verified(&c.author())) {
+            Status::Hidden
         } else {
-            hidden
+            [Status::Visible, Status::Retracted, Status::Unavailable]
+                .into_iter()
+                .find(|s| by_status.contains_key(&status_rank(*s)))
+                .unwrap_or(Status::Visible)
         };
-        let status = [Status::Visible, Status::Hidden, Status::Retracted, Status::Unavailable]
-            .into_iter()
-            .find(|s| by_status.contains_key(&status_rank(*s)))
-            .unwrap_or(Status::Visible);
+        let sources = visible;
         let all: Vec<Arc<Chain>> = by_status.values().flatten().cloned().collect();
         ProductSources { sources, all, status, excluded: ex }
     }
@@ -339,7 +354,7 @@ impl<S: Store + ?Sized> Views<'_, S> {
             .collect();
         ranked.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.cmp(&a.1)).then(a.2.cmp(&b.2)));
         let mut it = ranked.into_iter();
-        let (_, _, value, sources) = it.next().expect("non-empty");
+        let (_, _, value, sources) = it.next()?;
         Some(Fact { value, sources, conflicts: it.map(|(_, _, value, sources)| Conflict { value, sources }).collect() })
     }
 
@@ -350,7 +365,7 @@ impl<S: Store + ?Sized> Views<'_, S> {
         let mut category = Vec::new();
         let mut mpn = Vec::new();
         for c in &ps.sources {
-            let l = c.latest.as_ref().expect("latest");
+            let Some(l) = c.latest.as_ref() else { continue };
             if let Some(Body::Product(p)) = &l.body() {
                 name.push((p.name.clone(), c.author(), l.id()));
                 brand.push((p.brand.clone(), c.author(), l.id()));
@@ -388,7 +403,7 @@ impl<S: Store + ?Sized> Views<'_, S> {
         let mut attrs: BTreeMap<String, Vec<(String, AuthorId, RecordId)>> = BTreeMap::new();
         let mut images: BTreeMap<(String, Option<String>), bool> = BTreeMap::new();
         for c in &ps.sources {
-            let l = c.latest.as_ref().expect("latest");
+            let Some(l) = c.latest.as_ref() else { continue };
             let Some(Body::Product(p)) = &l.body() else { continue };
             if let Some(d) = &p.description {
                 description.push((d.clone(), c.author(), l.id()));
@@ -407,16 +422,16 @@ impl<S: Store + ?Sized> Views<'_, S> {
         images.sort_by(|a, b| (!a.author_verified, &a.url, &a.sha256).cmp(&(!b.author_verified, &b.url, &b.sha256)));
 
         let pr = self.product_records(key);
-        let mut listings: Vec<ListingView> =
-            pr.listings.iter().filter(|c| c.latest.is_some()).map(|c| self.listing_view(c)).collect();
+        let mut listings: Vec<ListingView> = pr.listings.iter().filter_map(|c| self.listing_view(c)).collect();
+        // Listings that feed prices first, then the rest (8.4).
         listings.sort_by(|a, b| {
             let pa = a.price.as_ref().map(|p| (0, p.currency.clone(), p.amount));
             let pb = b.price.as_ref().map(|p| (0, p.currency.clone(), p.amount));
-            (status_rank(a.status), pa.unwrap_or((1, String::new(), 0)), a.id)
-                .cmp(&(status_rank(b.status), pb.unwrap_or((1, String::new(), 0)), b.id))
+            (!a.feeds_prices, status_rank(a.status), pa.unwrap_or((1, String::new(), 0)), a.id)
+                .cmp(&(!b.feeds_prices, status_rank(b.status), pb.unwrap_or((1, String::new(), 0)), b.id))
         });
         let set = self.review_set(key);
-        let mut reviews: Vec<ReviewView> = set.evals.iter().map(|e| self.review_view(&e.chain, e.excluded)).collect();
+        let mut reviews: Vec<ReviewView> = set.evals.iter().filter_map(|e| self.review_view(&e.chain, e.excluded)).collect();
         reviews.sort_by(|a, b| b.ts.cmp(&a.ts).then(a.id.cmp(&b.id)));
 
         Some(ProductView {
@@ -503,6 +518,17 @@ pub(crate) struct ProductText {
     pub brand: Fact<String>,
     pub category: Option<Fact<String>>,
     pub mpn: Option<String>,
+}
+
+impl ProductText {
+    /// Every candidate value of name, brand, and category (the displayed
+    /// value and its conflicts), for search matching (7.8).
+    pub fn candidates(&self) -> [Vec<&str>; 3] {
+        fn all(f: &Fact<String>) -> Vec<&str> {
+            std::iter::once(f.value.as_str()).chain(f.conflicts.iter().map(|c| c.value.as_str())).collect()
+        }
+        [all(&self.name), all(&self.brand), self.category.as_ref().map(all).unwrap_or_default()]
+    }
 }
 
 #[derive(Default)]

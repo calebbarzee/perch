@@ -118,6 +118,9 @@ pub(crate) enum Validity {
     Valid,
     Invalid(String),
     Unavailable,
+    /// A replacement whose chain root has no body: it cannot be checked
+    /// until the root's body arrives (4.6).
+    RootUnavailable,
     Unknown,
 }
 
@@ -134,7 +137,8 @@ pub(crate) struct ChainBase {
     pub kind: String,
     /// Members ascending by seq.
     pub members: Vec<Arc<Rec>>,
-    /// Lowest-seq member with a schema-valid body.
+    /// The root, when its body is present and schema-valid. Fixed fields
+    /// and product keys come from it (4.6).
     pub reference: Option<Arc<Rec>>,
 }
 
@@ -253,6 +257,10 @@ pub(crate) struct Restriction {
     pub hidden_listings: u64,
     pub distinct_flaggers: u64,
     pub restricted: bool,
+    /// The hidden-listing condition holds.
+    pub by_listings: bool,
+    /// Some key of the person is excluded-forked.
+    pub forked: bool,
 }
 
 /// State of one flag chain on a target.
@@ -590,17 +598,28 @@ impl<'a, S: Store + ?Sized> Views<'a, S> {
         if let Some(r) = self.c.roots.borrow().get(id) {
             return *r;
         }
-        let root = match self.rec(id) {
-            None => *id,
-            Some(r) => match r.r.replaces() {
-                None => *id,
-                Some(p) => match self.rec(&p) {
-                    Some(parent) if self.link_ok(&r, &parent) => self.root_of(&p),
-                    _ => *id,
-                },
-            },
+        // Iterative: seqs strictly decrease along valid links, so the walk
+        // ends, and a long chain cannot overflow the stack.
+        let mut path = vec![*id];
+        let mut cur = *id;
+        let root = loop {
+            if let Some(r) = self.c.roots.borrow().get(&cur) {
+                break *r;
+            }
+            let Some(r) = self.rec(&cur) else { break cur };
+            let Some(p) = r.r.replaces() else { break cur };
+            match self.rec(&p) {
+                Some(parent) if self.link_ok(&r, &parent) => {
+                    cur = p;
+                    path.push(p);
+                }
+                _ => break cur,
+            }
         };
-        self.c.roots.borrow_mut().insert(*id, root);
+        let mut m = self.c.roots.borrow_mut();
+        for x in path {
+            m.insert(x, root);
+        }
         root
     }
 
@@ -620,7 +639,8 @@ impl<'a, S: Store + ?Sized> Views<'a, S> {
             }
         }
         members.sort_by_key(|m| (m.seq(), m.id()));
-        let reference = members.iter().find(|m| m.body().is_some()).cloned();
+        // Fixed fields and product keys come from the root only (4.6).
+        let reference = Some(r.clone()).filter(|x| x.body().is_some());
         let b = Arc::new(ChainBase { root: *root, author: r.author(), kind: r.kind().to_owned(), members, reference });
         self.c.bases.borrow_mut().insert(*root, b.clone());
         Some(b)
@@ -658,6 +678,11 @@ impl<'a, S: Store + ?Sized> Views<'a, S> {
     }
 
     fn is_candidate(&self, base: &ChainBase, m: &Rec, retract: Option<&Arc<Rec>>, cap: u64) -> bool {
+        // A chain whose root has no body is unavailable: only the root counts.
+        let root_bodyless = base.members.first().is_none_or(|r| !r.has_body());
+        if root_bodyless && m.id() != base.root {
+            return false;
+        }
         m.seq() < retract.map_or(NONE, |t| t.seq())
             && m.seq() <= cap
             && self.active(m)
@@ -714,10 +739,14 @@ impl<'a, S: Store + ?Sized> Views<'a, S> {
                 return inv("replaces:not_replaceable");
             }
             let root = self.root_of(id);
-            if let Some(base) = self.chain_base(&root)
-                && let Some(reference) = &base.reference
-                && reference.id() != *id
-                && let (Some(old), Some(new)) = (reference.r.body(), r.r.body())
+            let Some(root_rec) = self.rec(&root) else { return Validity::RootUnavailable };
+            if !root_rec.has_body() {
+                return Validity::RootUnavailable;
+            }
+            if root_rec.body().is_none() {
+                return inv("replaces:root_invalid");
+            }
+            if let (Some(old), Some(new)) = (root_rec.r.body(), r.r.body())
                 && let Err(e) = kinds::check_fixed_fields(r.kind(), old, new)
             {
                 return Validity::Invalid(format!("fixed:{}", e.field));
@@ -894,8 +923,11 @@ impl<'a, S: Store + ?Sized> Views<'a, S> {
                         && let Some(t) = self.rec(&b.target)
                         && !t.has_body()
                         && (t.kind() == names::LISTING || t.kind() == names::REVIEW)
+                        && self.root_of(&b.target) == b.target
                     {
-                        let root = self.root_of(&b.target);
+                        // Only a body-less root places a chain; then the root
+                        // is the chain's latest version and shows this notice.
+                        let root = b.target;
                         if self.chain_base(&root).is_some_and(|c| c.reference.is_none()) {
                             stated.insert(root);
                             let k = if t.kind() == names::LISTING { names::LISTING } else { names::REVIEW };
@@ -1069,10 +1101,7 @@ impl<'a, S: Store + ?Sized> Views<'a, S> {
             }
         }
         flags.counted = counted_persons.len() as u64;
-        entries.sort_by_key(|e| {
-            let l = e.chain.latest.as_ref().expect("latest");
-            (l.ts(), l.id())
-        });
+        entries.sort_by_key(|e| e.chain.latest.as_ref().map(|l| (l.ts(), l.id())));
         FlagInfo { entries, flags, counted_persons }
     }
 
@@ -1203,9 +1232,10 @@ impl<'a, S: Store + ?Sized> Views<'a, S> {
             }
         }
         let distinct = flaggers.len() as u64;
-        let restricted = forked
-            || (hidden >= self.policy.seller_hidden_listing_limit && distinct >= self.policy.seller_min_distinct_flaggers);
-        let r = Arc::new(Restriction { hidden_listings: hidden, distinct_flaggers: distinct, restricted });
+        let by_listings =
+            hidden >= self.policy.seller_hidden_listing_limit && distinct >= self.policy.seller_min_distinct_flaggers;
+        let restricted = forked || by_listings;
+        let r = Arc::new(Restriction { hidden_listings: hidden, distinct_flaggers: distinct, restricted, by_listings, forked });
         self.c.restrictions.borrow_mut().insert(person.id.clone(), r.clone());
         r
     }
@@ -1299,7 +1329,7 @@ impl<'a, S: Store + ?Sized> Views<'a, S> {
                 }
                 continue;
             }
-            let latest = c.latest.as_ref().expect("latest");
+            let Some(latest) = c.latest.as_ref() else { continue };
             let excluded = if c.retract.is_some() {
                 Some("retracted")
             } else if !latest.has_body() {
@@ -1381,7 +1411,7 @@ impl<'a, S: Store + ?Sized> Views<'a, S> {
         }
         let lroot = self.root_of(&rc.listing);
         let Some(lbase) = self.chain_base(&lroot) else { return invalid };
-        let root_rec = &lbase.members[0];
+        let Some(root_rec) = lbase.members.first() else { return invalid };
         if !self.active(root_rec) {
             return invalid;
         }
