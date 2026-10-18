@@ -152,7 +152,7 @@ All text fields are UTF-8 strings. Lengths are in Unicode scalar values. `Id` me
 | `attest.identity` | identity attestor | `subject` (Author), `person` (Hex64: a stable pseudonym for the human or business, the same for every key the attestor verifies for them), `level` (`person`, `business`), `country`? ([ISO 3166-1](https://www.iso.org/iso-3166-country-codes.html) alpha-2), `expires` (Unix ms) | yes; `subject` and `person` fixed |
 | `attest.domain` | domain attestor | `subject` (Author), `domain` (lowercase ASCII hostname, ≤253), `expires` (Unix ms). Issued after the attestor checks either `https://<domain>/.well-known/perch.json` containing `{ "perch": 1, "authors": ["<subject hex>"] }`, or a DNS TXT record at `_perch.<domain>` with value `perch-author=<subject hex>`. | yes; `subject` and `domain` fixed |
 | `attest.revoke` | attestor | `subject` (Author), `valid_through_seq` (integer ≥ 0). Declares the subject's key compromised after that seq. | no |
-| `product` | anyone | `name` (1–300), `brand` (1–100), `gtin`? (8, 12, 13, or 14 digits with a valid check digit), `mpn`? (1–100), `category`? (≤200, lowercase, `/`-separated), `attributes`? (object, ≤64 entries, keys 1–64, values ≤500), `images`? (≤16 × `{ "url": URL, "sha256"?: Hex64 }`), `description`? (≤5000) | yes; `gtin` and `mpn` fixed |
+| `product` | anyone | `name` (1–300), `brand` (1–100), `gtin`? (8, 12, 13, or 14 digits with a valid check digit), `mpn`? (1–100), `category`? (≤200, lowercase, `/`-separated), `attributes`? (object, ≤64 entries, keys 1–64, values ≤500), `images`? (≤16 × `{ "url": URL, "sha256"?: Hex64 }`), `description`? (≤5000) | yes; `gtin` and `mpn` fixed; `brand` fixed when `mpn` is set |
 | `listing` | seller | `product` (ProductKey), `url` (URL), `price` (Price), `availability` (`in_stock`, `out_of_stock`, `preorder`, `discontinued`), `condition` (`new`, `used`, `refurbished`), `title`? (≤300), `ships_to`? (list of alpha-2, ≤250), `location`? (`{ "country", "region"? (≤100) }`) | yes; `product` fixed |
 | `observation` | anyone | `product` (ProductKey), `url` (URL), `price` (Price), `observed_at` (Unix ms, ≤ the record's `ts`), `listing`? (Id), `availability`? | no |
 | `review` | anyone | `product` (ProductKey), `rating` (integer 1–5), `text` (1–10000), `title`? (≤200), `listing`? (Id), `receipt`? (Receipt, 4.7) | yes; `product` fixed |
@@ -173,7 +173,7 @@ Records with a non-replaceable kind cannot carry `replaces` and cannot be replac
 - The **latest version** of a chain is its semantically valid record with the highest `seq`.
 - A replacement that changes a field marked "fixed" in 4.5 is semantically invalid.
 - Every reference field (`target`, `listing`, `receipt.listing`) is resolved to the root ID of the referenced record's chain. Flags, appeals, retractions, and reviews therefore apply to the whole chain, not to one version.
-- `retract` applies to the chain of its target's root and is valid only if the retracting author authored that chain.
+- `retract` applies to the chain of its target's root and is valid only if the retracting author authored that chain and the `retract` has a higher seq than its target.
 - A retraction is final. Replacements of a retracted chain are ignored, including ones with a higher seq than the `retract`.
 
 ### 4.7 Receipts
@@ -231,6 +231,7 @@ Fork rules, chosen so every node reaches the same state regardless of arrival or
 - The node operator should publish a `redact` record with the reason. Views show a `redact` notice only for records whose body is actually missing, and attribute the notice to its author.
 - A node keeps a local list of removed IDs and refuses bodies for them.
 - A node that holds a record without a body accepts the body later if a peer sends it and the hash matches, unless the ID is on its removal list.
+- A `redact` notice targets an exact record ID, not a root ID, because bodies are removed per record.
 - Views treat a record without a body as unavailable: excluded from aggregates and shown as a notice. A control-kind record without a body has no effect until its body arrives.
 
 ### 5.4 Persistence
@@ -300,8 +301,9 @@ A view is a pure function `view(store, policy) -> result`. The same records and 
 
 - An attestation counts when: its author is a trusted attestor for its kind; it is within `not_after_seq`; it is below the attestor's fork seq and revoke cutoff; it is the latest version of its chain; it is not retracted; and `expires > now`. Hidden status never affects counting (7.6).
 - An author is **verified** when at least one counting `attest.identity` names them as `subject`.
-- An author's **person key** is `(attestor, person)` from their counting attestation with the lowest `(attestor, person)` pair. Views count verified flags and reviews once per person key, so one person with many keys counts once per attestor.
-- `attest.revoke` counts under the same conditions as an attestation (without `expires`), and only if the same attestor has issued an `attest.identity` or `attest.domain` for that subject. A counting revoke makes views ignore the subject's records with `seq > valid_through_seq` and mark the author revoked.
+- **Persons.** Two keys are linked when they share a counting `(attestor, person)` pair. A **person** is a connected component of linked keys. Its **person key** is the lowest `(attestor, person)` pair in the component. Views count verified flags and reviews once per person, and apply restriction per person. A key that shares no pair forms its own person.
+- `attest.revoke` counts under the same conditions as an attestation (without `expires`), and only if the same attestor's log holds an `attest.identity` or `attest.domain` for that subject at a lower seq (its expiry or retraction does not matter). Revokes do not cascade: whether a revoke counts depends on the revoking attestor's fork and retire cutoffs, not on revokes against that attestor.
+- Author status precedence: `revoked` > `forked` > `retired` > `ok`. A counting revoke makes views ignore the subject's records with `seq > valid_through_seq` and mark the author revoked.
 - **Per-person status.** Restriction (7.6) is computed per person key and applies to every key with that person key. A person with any forked key is restricted on all keys, unless that key has a counting `attest.revoke`: a stolen key can be used to fork it, and the attestor decides theft claims. Fork truncation still applies to that key. Revocation stays per key, because it reports a stolen key, not misbehavior. This prevents a restricted or forked seller from starting over with a new key.
 - `retire`: views ignore the author's records with a higher seq and mark the author retired.
 - Real-world identity is the v1 basis for sybil resistance. Anonymous buyers are a planned extension (see [`docs/identity.md`](docs/identity.md)).
