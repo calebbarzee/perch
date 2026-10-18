@@ -1,0 +1,193 @@
+{
+  "attributes": {},
+  "brand": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "bc79036ee28c5137dc5fa1d0dd0fab233bfc6dfcbe5e53f3ea91409b636d4270",
+        "record": "4b00b2e61d067c8b3f259fd96ffb769865d56449234ee3351b089fa231f47597",
+        "verified": true
+      }
+    ],
+    "value": "Clay & Kiln"
+  },
+  "category": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "bc79036ee28c5137dc5fa1d0dd0fab233bfc6dfcbe5e53f3ea91409b636d4270",
+        "record": "4b00b2e61d067c8b3f259fd96ffb769865d56449234ee3351b089fa231f47597",
+        "verified": true
+      }
+    ],
+    "value": "home/kitchen"
+  },
+  "description": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "bc79036ee28c5137dc5fa1d0dd0fab233bfc6dfcbe5e53f3ea91409b636d4270",
+        "record": "4b00b2e61d067c8b3f259fd96ffb769865d56449234ee3351b089fa231f47597",
+        "verified": true
+      }
+    ],
+    "value": "Stoneware mug, about 350 ml. Each piece differs slightly."
+  },
+  "excluded_sources": {
+    "forked": 0,
+    "hidden": 0,
+    "retracted": 0,
+    "revoked": 0,
+    "unavailable": 0
+  },
+  "gtin": null,
+  "images": [],
+  "key": "rec:4b00b2e61d067c8b3f259fd96ffb769865d56449234ee3351b089fa231f47597",
+  "listings": [
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "clayandkiln.example",
+        "expires": 1830297600000
+      },
+      "domain_verified": true,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "5e595a4958168ffacec96680bd0ec504ef1b7b719874150f60bb7a1d5a2892d6",
+      "latest": "5e595a4958168ffacec96680bd0ec504ef1b7b719874150f60bb7a1d5a2892d6",
+      "location": null,
+      "price": {
+        "amount": 3400,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 3400,
+          "currency": "EUR",
+          "record": "5e595a4958168ffacec96680bd0ec504ef1b7b719874150f60bb7a1d5a2892d6",
+          "source": "seller",
+          "ts": 1768089600013
+        }
+      ],
+      "product": "rec:4b00b2e61d067c8b3f259fd96ffb769865d56449234ee3351b089fa231f47597",
+      "redaction": null,
+      "seller": "bc79036ee28c5137dc5fa1d0dd0fab233bfc6dfcbe5e53f3ea91409b636d4270",
+      "seller_name": "Clay & Kiln",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "visible",
+      "title": null,
+      "updated_ts": 1768089600013,
+      "url": "https://clayandkiln.example/mugs/blue"
+    }
+  ],
+  "moderation": {
+    "appeal": null,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "redaction": null,
+    "status": "visible"
+  },
+  "mpn": null,
+  "name": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "bc79036ee28c5137dc5fa1d0dd0fab233bfc6dfcbe5e53f3ea91409b636d4270",
+        "record": "4b00b2e61d067c8b3f259fd96ffb769865d56449234ee3351b089fa231f47597",
+        "verified": true
+      }
+    ],
+    "value": "Hand-thrown Mug, Blue Glaze"
+  },
+  "price_range": {
+    "EUR": {
+      "count": 1,
+      "excluded_unverified_domain": 0,
+      "max": 3400,
+      "median": 3400,
+      "min": 3400
+    }
+  },
+  "ratings": {
+    "count": 1,
+    "excluded": {
+      "forked": 0,
+      "hidden": 0,
+      "retracted": 0,
+      "revoked": 0,
+      "seller": 0,
+      "superseded": 0,
+      "unavailable": 0
+    },
+    "histogram": [
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    "mean": 5,
+    "verified_identity": {
+      "count": 1,
+      "histogram": [
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "mean": 5
+    },
+    "verified_purchase": {
+      "count": 1,
+      "histogram": [
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "mean": 5
+    }
+  },
+  "reviews": [
+    {
+      "appeal": null,
+      "author": "378779efaa7bfe5049a589a8388532f9a9b0d2c6f32d76f90ceb856dafc36a15",
+      "author_name": "Alice",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "5559a0a55e0e5028557b80c8c578d3113b734fa40f9084890520346b0da972e3",
+      "latest": "5559a0a55e0e5028557b80c8c578d3113b734fa40f9084890520346b0da972e3",
+      "listing": "5e595a4958168ffacec96680bd0ec504ef1b7b719874150f60bb7a1d5a2892d6",
+      "purchase": "verified",
+      "rating": 5,
+      "redaction": null,
+      "status": "visible",
+      "text": "Beautiful glaze, holds heat well.",
+      "title": null,
+      "ts": 1772409600001,
+      "verified_purchase": true
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "attributes": {},
+  "brand": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+        "record": "3f3599156a805e9dbbf6255cfd5a7beca5db1f3522b419bf0a6b9ac32d525ac3",
+        "verified": true
+      }
+    ],
+    "value": "Voltix"
+  },
+  "category": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+        "record": "3f3599156a805e9dbbf6255cfd5a7beca5db1f3522b419bf0a6b9ac32d525ac3",
+        "verified": true
+      }
+    ],
+    "value": "electronics/cables"
+  },
+  "description": null,
+  "excluded_sources": {
+    "forked": 0,
+    "hidden": 0,
+    "retracted": 0,
+    "revoked": 0,
+    "unavailable": 0
+  },
+  "gtin": null,
+  "images": [],
+  "key": "mpn:voltix:vx-c2m",
+  "listings": [
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "shadyimports.example",
+        "expires": 1830297600000
+      },
+      "domain_verified": true,
+      "flags": {
+        "count": 3,
+        "counted": 3,
+        "reasons": {
+          "counterfeit": 3
+        }
+      },
+      "id": "93d04ec0b92ed343e91958c8cf33933bc3fba517c88f77cd43b321888bf9f02f",
+      "latest": "93d04ec0b92ed343e91958c8cf33933bc3fba517c88f77cd43b321888bf9f02f",
+      "location": null,
+      "price": {
+        "amount": 499,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 499,
+          "currency": "EUR",
+          "record": "93d04ec0b92ed343e91958c8cf33933bc3fba517c88f77cd43b321888bf9f02f",
+          "source": "seller",
+          "ts": 1768089600011
+        }
+      ],
+      "product": "mpn:voltix:vx-c2m",
+      "redaction": null,
+      "seller": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+      "seller_name": "Shady Imports",
+      "seller_restricted": true,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "hidden",
+      "title": null,
+      "updated_ts": 1768089600011,
+      "url": "https://shadyimports.example/vx-c2m"
+    }
+  ],
+  "moderation": {
+    "appeal": null,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "redaction": null,
+    "status": "visible"
+  },
+  "mpn": "VX-C2M",
+  "name": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+        "record": "3f3599156a805e9dbbf6255cfd5a7beca5db1f3522b419bf0a6b9ac32d525ac3",
+        "verified": true
+      }
+    ],
+    "value": "Voltix USB-C Cable 2 m"
+  },
+  "price_range": {},
+  "ratings": {
+    "count": 0,
+    "excluded": {
+      "forked": 0,
+      "hidden": 0,
+      "retracted": 0,
+      "revoked": 0,
+      "seller": 0,
+      "superseded": 0,
+      "unavailable": 0
+    },
+    "histogram": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "mean": null,
+    "verified_identity": {
+      "count": 0,
+      "histogram": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": null
+    },
+    "verified_purchase": {
+      "count": 0,
+      "histogram": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": null
+    }
+  },
+  "reviews": []
+}

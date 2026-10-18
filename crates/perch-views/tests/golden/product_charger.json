@@ -1,0 +1,177 @@
+{
+  "attributes": {},
+  "brand": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+        "record": "a8a5cff946e83f130f253b74b9ef59834ed0a9d6731241f7ce7cfd26842ef9af",
+        "verified": true
+      }
+    ],
+    "value": "Voltix"
+  },
+  "category": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+        "record": "a8a5cff946e83f130f253b74b9ef59834ed0a9d6731241f7ce7cfd26842ef9af",
+        "verified": true
+      }
+    ],
+    "value": "electronics/chargers"
+  },
+  "description": null,
+  "excluded_sources": {
+    "forked": 0,
+    "hidden": 0,
+    "retracted": 0,
+    "revoked": 0,
+    "unavailable": 0
+  },
+  "gtin": "02000090000049",
+  "images": [],
+  "key": "gtin:02000090000049",
+  "listings": [
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "shadyimports.example",
+        "expires": 1830297600000
+      },
+      "domain_verified": true,
+      "flags": {
+        "count": 3,
+        "counted": 3,
+        "reasons": {
+          "counterfeit": 3
+        }
+      },
+      "id": "46830b63b4111c1242a29d3cb160662802a747adc6327ac04fed9366865bac44",
+      "latest": "46830b63b4111c1242a29d3cb160662802a747adc6327ac04fed9366865bac44",
+      "location": null,
+      "price": {
+        "amount": 1999,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 1999,
+          "currency": "EUR",
+          "record": "46830b63b4111c1242a29d3cb160662802a747adc6327ac04fed9366865bac44",
+          "source": "seller",
+          "ts": 1768089600010
+        }
+      ],
+      "product": "gtin:02000090000049",
+      "redaction": null,
+      "seller": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+      "seller_name": "Shady Imports",
+      "seller_restricted": true,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "hidden",
+      "title": null,
+      "updated_ts": 1768089600010,
+      "url": "https://shadyimports.example/voltix-65w"
+    }
+  ],
+  "moderation": {
+    "appeal": null,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "redaction": null,
+    "status": "visible"
+  },
+  "mpn": null,
+  "name": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+        "record": "a8a5cff946e83f130f253b74b9ef59834ed0a9d6731241f7ce7cfd26842ef9af",
+        "verified": true
+      }
+    ],
+    "value": "Voltix 65 W USB-C Charger"
+  },
+  "price_range": {},
+  "ratings": {
+    "count": 1,
+    "excluded": {
+      "forked": 0,
+      "hidden": 0,
+      "retracted": 0,
+      "revoked": 0,
+      "seller": 0,
+      "superseded": 0,
+      "unavailable": 0
+    },
+    "histogram": [
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "mean": 1,
+    "verified_identity": {
+      "count": 1,
+      "histogram": [
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": 1
+    },
+    "verified_purchase": {
+      "count": 0,
+      "histogram": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": null
+    }
+  },
+  "reviews": [
+    {
+      "appeal": null,
+      "author": "34231636fce34da5dca65970e43ba86b44c7aaece0610274bf8e5ec05a9ddca9",
+      "author_name": "Community Member 3",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "d1f23f9e96e0108dce6dc12e1533afde69a8b79c9b84287487367a212d6eea75",
+      "latest": "d1f23f9e96e0108dce6dc12e1533afde69a8b79c9b84287487367a212d6eea75",
+      "listing": "46830b63b4111c1242a29d3cb160662802a747adc6327ac04fed9366865bac44",
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Gets too hot to touch at 65 W.",
+      "title": "Overheats",
+      "ts": 1773273600001,
+      "verified_purchase": false
+    }
+  ]
+}

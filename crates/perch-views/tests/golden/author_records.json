@@ -1,0 +1,201 @@
+{
+  "alice": [
+    {
+      "kind": "profile",
+      "latest": "237b7ec53105267b66d5d5d26a56e7f9a2761b6526469873b9802340cb4fc9ac",
+      "product": null,
+      "root": "237b7ec53105267b66d5d5d26a56e7f9a2761b6526469873b9802340cb4fc9ac",
+      "status": "visible",
+      "title": "Alice",
+      "ts": 1767312000023
+    },
+    {
+      "kind": "review",
+      "latest": "28ec4be7c2f9c8e3674aa404bd454b1edac6e5d0ba06f92c93a779d0a6b42e90",
+      "product": "gtin:02000090000018",
+      "root": "28ec4be7c2f9c8e3674aa404bd454b1edac6e5d0ba06f92c93a779d0a6b42e90",
+      "status": "visible",
+      "title": "Quiet and fast",
+      "ts": 1769385600000
+    },
+    {
+      "kind": "review",
+      "latest": "179f7a285511838cd073dc9a7fbfecb3cdfa7c5b4f12e10d75af7f71742eeabf",
+      "product": "gtin:02000090000032",
+      "root": "179f7a285511838cd073dc9a7fbfecb3cdfa7c5b4f12e10d75af7f71742eeabf",
+      "status": "visible",
+      "title": null,
+      "ts": 1771545600000
+    },
+    {
+      "kind": "review",
+      "latest": "5559a0a55e0e5028557b80c8c578d3113b734fa40f9084890520346b0da972e3",
+      "product": "rec:4b00b2e61d067c8b3f259fd96ffb769865d56449234ee3351b089fa231f47597",
+      "root": "5559a0a55e0e5028557b80c8c578d3113b734fa40f9084890520346b0da972e3",
+      "status": "visible",
+      "title": null,
+      "ts": 1772409600001
+    },
+    {
+      "kind": "flag",
+      "latest": "802376dade056a988707fe6ffcf858a7c06c563149c36608900df916ec6881ca",
+      "product": null,
+      "root": "802376dade056a988707fe6ffcf858a7c06c563149c36608900df916ec6881ca",
+      "status": "visible",
+      "title": null,
+      "ts": 1785110400000
+    },
+    {
+      "kind": "x.wishlist",
+      "latest": "762d5a74fa8ba43441a2d81681056ca1ac49785fd23f4d85f1c94be3dcd246d7",
+      "product": null,
+      "root": "762d5a74fa8ba43441a2d81681056ca1ac49785fd23f4d85f1c94be3dcd246d7",
+      "status": "invalid",
+      "title": null,
+      "ts": 1785542400000
+    }
+  ],
+  "bob": [
+    {
+      "kind": "profile",
+      "latest": "9e7702bd25665a261cef88af512267e40b83474e49004ec976fdf95649ea4698",
+      "product": null,
+      "root": "9e7702bd25665a261cef88af512267e40b83474e49004ec976fdf95649ea4698",
+      "status": "visible",
+      "title": "Bob",
+      "ts": 1767312000027
+    },
+    {
+      "kind": "review",
+      "latest": "c2c308653f72ba4df84936dfe1ab3c64077f1d223298c8faa49c0a66ceed4d7f",
+      "product": "gtin:00200090000021",
+      "root": "c2c308653f72ba4df84936dfe1ab3c64077f1d223298c8faa49c0a66ceed4d7f",
+      "status": "visible",
+      "title": null,
+      "ts": 1770940800000
+    }
+  ],
+  "carol": [
+    {
+      "kind": "profile",
+      "latest": "02abd58cd9fa5cdd124f4f7fd0688d95d6b7509f94049519e9cca8fe86c744e6",
+      "product": null,
+      "root": "02abd58cd9fa5cdd124f4f7fd0688d95d6b7509f94049519e9cca8fe86c744e6",
+      "status": "visible",
+      "title": "Carol",
+      "ts": 1767312000031
+    },
+    {
+      "kind": "review",
+      "latest": "1d9e535177c3a0fefed42cbb70ed5708e334b937635e2877a038369b04a6416f",
+      "product": "gtin:02000090000018",
+      "root": "d399af62d0e9986b807943621b0038b4e8bae1f69c4ec7e709636e70f39eafa2",
+      "status": "visible",
+      "title": "Switch broke",
+      "ts": 1775433600000
+    },
+    {
+      "kind": "retire",
+      "latest": "18484ff112e4aebb6ce51a63fcba700799cf2e7e8005162f0bf8d66885ea2d86",
+      "product": null,
+      "root": "18484ff112e4aebb6ce51a63fcba700799cf2e7e8005162f0bf8d66885ea2d86",
+      "status": "visible",
+      "title": null,
+      "ts": 1786233600000
+    }
+  ],
+  "mallory": [
+    {
+      "kind": "profile",
+      "latest": "5d616dee236e4b9413ccac158792ea51566c59b9b9e541e4138578730ec73013",
+      "product": null,
+      "root": "5d616dee236e4b9413ccac158792ea51566c59b9b9e541e4138578730ec73013",
+      "status": "visible",
+      "title": "Mallory",
+      "ts": 1767312000046
+    },
+    {
+      "kind": "review",
+      "latest": "507136064ee0e57746a8f22960297558c156506e8e67d2f63f9ee0150743322d",
+      "product": "gtin:02000090000018",
+      "root": "507136064ee0e57746a8f22960297558c156506e8e67d2f63f9ee0150743322d",
+      "status": "visible",
+      "title": null,
+      "ts": 1770336000000
+    }
+  ],
+  "seller_good": [
+    {
+      "kind": "profile",
+      "latest": "8e0ebc1907d1651dfd7c6b6b6d2febbfa4097b1777bbc04dc328ceb83cdb25b5",
+      "product": null,
+      "root": "8e0ebc1907d1651dfd7c6b6b6d2febbfa4097b1777bbc04dc328ceb83cdb25b5",
+      "status": "visible",
+      "title": "Goodshop",
+      "ts": 1767312000000
+    },
+    {
+      "kind": "product",
+      "latest": "bdeb21780c8b8731db13f5c3d80741b65acfe1783e7bbce9c2ad3da8eb9b6457",
+      "product": "gtin:02000090000018",
+      "root": "fc2e165d234247bf5dea841c7f8b402b9a56d50b26a3dfc060f817f79317b47e",
+      "status": "visible",
+      "title": "Alder Kettle 1.7 L",
+      "ts": 1771547400000
+    },
+    {
+      "kind": "product",
+      "latest": "3da45b7f74f8f5ec162297d768f42bc6eadaa7d24b83a1ff48e539b73fa8dd7b",
+      "product": "gtin:00000020000912",
+      "root": "3da45b7f74f8f5ec162297d768f42bc6eadaa7d24b83a1ff48e539b73fa8dd7b",
+      "status": "visible",
+      "title": "Kestrel Wooden Puzzle 500",
+      "ts": 1767484800010
+    },
+    {
+      "kind": "listing",
+      "latest": "30445f22c095a963f6852faa11a4437a52bd9eb6798fd04f9f836976d3ba4523",
+      "product": "gtin:02000090000018",
+      "root": "9fde227c3972c816116bbad75591eecefeb83afd2e13a2d5013f837161ae00dc",
+      "status": "visible",
+      "title": "Alder Kettle 1.7 L, stainless",
+      "ts": 1777593600000
+    },
+    {
+      "kind": "listing",
+      "latest": "84cfad507fd89ae6ef76b55261b80c90cd305dbd5cac23fe68a91e802d3500ef",
+      "product": "gtin:00200090000021",
+      "root": "e0102edc870197bb1f61b0e91b225eb6bf215b9fad18d09ebc43a937839e214d",
+      "status": "visible",
+      "title": null,
+      "ts": 1774137600000
+    },
+    {
+      "kind": "listing",
+      "latest": "439bad3bc86ea345b6a5935a2e2e923c7c45603dd7b1ba3a9581ff9919675335",
+      "product": "gtin:00000020000912",
+      "root": "439bad3bc86ea345b6a5935a2e2e923c7c45603dd7b1ba3a9581ff9919675335",
+      "status": "visible",
+      "title": null,
+      "ts": 1768089600014
+    },
+    {
+      "kind": "review",
+      "latest": "5566076aab69d701a0756035f72297722c4e48d43d4fd5b25e6cac151121c648",
+      "product": "gtin:02000090000018",
+      "root": "5566076aab69d701a0756035f72297722c4e48d43d4fd5b25e6cac151121c648",
+      "status": "visible",
+      "title": "Our best seller",
+      "ts": 1769990400000
+    },
+    {
+      "kind": "flag",
+      "latest": "720d68dc02fe20aaec95b86fd36544e51742565457c13f77eac67bd04dcde7c3",
+      "product": null,
+      "root": "720d68dc02fe20aaec95b86fd36544e51742565457c13f77eac67bd04dcde7c3",
+      "status": "visible",
+      "title": null,
+      "ts": 1784937600011
+    }
+  ]
+}

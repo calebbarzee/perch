@@ -28,7 +28,7 @@
 //! | Expiry, retraction of attestations | `dave` (expires day 100), `erin` (retracted day 200) | Unverified at `now`. |
 //! | Retirement | `carol` | `retire` with successor `carol_new`; a later review is ignored. |
 //! | Fork | `mallory` | Two records at one seq; `fork_evidence`. A third record follows on one branch. |
-//! | Redaction | `kettle_frank` (body removed, `redact` notice), `headphones_gina` (body removed, no notice), `headphones_judy` (notice, body present: no effect) | Body removal. |
+//! | Redaction | `kettle_frank` (body removed; `redact` notice naming the product), `headphones_gina` (second version's body removed, no notice; the first version names the product), `headphones_judy` (notice, body present: no effect) | Body removal. |
 //! | Invalid records | `invalid_listing_http`, `invalid_review_rating`, `invalid_product_gtin`, `invalid_replaces_author`, `invalid_retract_author`, `invalid_appeal_author`, `invalid_fixed_product` | One semantic failure each. |
 //! | Unknown kinds | `unknown_wishlist`, `unknown_poll` | Stored, ignored by views. |
 //! | Future record | `kettle_future` | `ts` 2 days after `now`. |
@@ -412,7 +412,14 @@ fn other_reviews(g: &mut Gen) {
     g.at(42, 0, |g| {
         let gina = g.ax("gina");
         let r = g.review("headphones_gina", gina, "headphones", 4, None, "Comfortable for long flights.", None, None);
-        g.strip_body(r.id());
+        g.at(46, 0, move |g| {
+            // The second version's body is missing and no notice exists.
+            let gina = g.ax("gina");
+            let key = g.key("headphones");
+            let v2 = g.review_key("", gina, &key, 3, None, "Update: the headband cracked.", None, None, Some(r.id()));
+            g.name("headphones_gina_v2", &v2);
+            g.strip_body(v2.id());
+        });
     });
     g.at(43, 0, |g| {
         let bob = g.ax("bob");
@@ -574,7 +581,8 @@ fn moderation(g: &mut Gen) {
 fn redaction_and_compromise(g: &mut Gen) {
     let node = g.ax("node_op");
     let frank = g.reviews["kettle_frank"].id();
-    let r = g.emit(node, "redact", json!({ "target": frank.to_hex(), "reason": "personal_data",
+    let kettle = g.key("kettle");
+    let r = g.emit(node, "redact", json!({ "target": frank.to_hex(), "reason": "personal_data", "product": kettle.as_str(),
         "note": "Removed a phone number and a home address." }), None);
     g.name("redact_frank", &r);
     g.strip_body(frank);

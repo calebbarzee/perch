@@ -1,0 +1,1742 @@
+{
+  "alice": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "378779efaa7bfe5049a589a8388532f9a9b0d2c6f32d76f90ceb856dafc36a15",
+    "name": "Alice",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 6,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "alice_phone": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "b5cc12ff3274b79042d0f202d89365364706d57762e41da045ca42f886247865",
+    "name": "Alice (phone)",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 3,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "attestor_a": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+    "name": "Demo Identity Verifier A",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 45,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "attestor",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": "https://verifier-a.example/procedure",
+    "verified": null
+  },
+  "attestor_b": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+    "name": "Demo Verifier B",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 12,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "attestor",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": "https://verifier-b.example/",
+    "verified": null
+  },
+  "bob": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "3fbc3a79f7a62b98fa9b57694b9ced1362def18511aabe5a6a84957d00c355ba",
+    "name": "Bob",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 2,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "valid_through_seq": 2
+    },
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "revoked",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "bob_new": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "28277189f777b777f187f40a9ecdbcf2139866566c0efd47ca57b974ba0cbc67",
+    "name": "Bob",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 2,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "carol": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "074b3e84cc0259214d4f329f485d0a4a416234e4400a6853a6369117576f3eb7",
+    "name": "Carol",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 4,
+    "restricted": false,
+    "restriction": null,
+    "retired": {
+      "seq": 4,
+      "successor": "2d3a0824e50e83accf1d68ea5417ae9a581e5b17599f543fcbaec08ff061892e"
+    },
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "retired",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "carol_new": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "2d3a0824e50e83accf1d68ea5417ae9a581e5b17599f543fcbaec08ff061892e",
+    "name": "Carol",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 1,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "crawler_anon": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "bc6f11e9d467be48b248620850700d9332d8e7630e85e106d3d059c82efb48f5",
+    "name": "Anonymous Crawler",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 2,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "crawler",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": null
+  },
+  "crawler_verified": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "83143c5c9d32f0792951620312591e7ae6404ac20270cdbdaa0ada63f6f2fc2d",
+    "name": "Price Watch Crawler",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 6,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "crawler",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "dave": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "ddb8b6f5bb2aa6712b699e50adcadcce1cf698ebcf327af83a68b7db2b5f7ce3",
+    "name": "Dave",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 3,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": null
+  },
+  "erin": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "027790c6a3040a3f22c655806d66b020bed98c322e67c8bb6638a69632184864",
+    "name": "Erin",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 2,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": null
+  },
+  "flagger_0": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "839fdb0df55e09d27ee70d3afa9e4731c8149dd978907655b51076b5107998fd",
+    "name": "Community Member 0",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 5,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "flagger_1": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "5d47701e07b42f0b6352ff7898d6def159c835d07b0cc11d1d51cb042a78fd74",
+    "name": "Community Member 1",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 5,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "flagger_10": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "e3222bef245cf4e59d4e3e661ea1fec07f9a01efd85a891bb87228d442de1775",
+    "name": "Community Member 10",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 3,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "flagger_11": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "fb873605948cefc8edfa1ee4284a05df0b945fb0121c9a8c3dcf6b51b794992d",
+    "name": "Community Member 11",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 4,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "flagger_2": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "720949b9e4863b5e5193f9c63ca4612ad2f9fb9b5e969d1d351c5a4acb384d76",
+    "name": "Community Member 2",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 4,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "flagger_3": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "34231636fce34da5dca65970e43ba86b44c7aaece0610274bf8e5ec05a9ddca9",
+    "name": "Community Member 3",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 4,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "flagger_4": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "e8bf961dff77869f72cd12425040bb7038b686c845125c493f57238c2f6c73c2",
+    "name": "Community Member 4",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 3,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "flagger_5": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "e649a3024a62a39cbcf1008ed51cc4cf8909d6749ba212421d1af9a9343fe6a4",
+    "name": "Community Member 5",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 3,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "flagger_6": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "56037b6192fb4a7a65f3bd9746dbade42177fec4d4049ec1826beb550dddf4eb",
+    "name": "Community Member 6",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 3,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "flagger_7": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "0e99bfe79d7c2410376f13b074969691e96b17fd28cd134e8fecfbe821f303ab",
+    "name": "Community Member 7",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 3,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "flagger_8": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "72fd2adaf1d5a2b96355d1e825554d2d3fa2c022d8b2dfedc02433424c8d4de5",
+    "name": "Community Member 8",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 2,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "flagger_9": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "a51f95d6c988f181ac520daa3f3bd7a85d678c6f7d21b6f7fc26935ba0e53cf4",
+    "name": "Community Member 9",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 3,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "frank": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "46cca90f08e946206308ae612727a20e867833c09db57cd6f095b613010a72c4",
+    "name": "Frank",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 2,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "gina": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "680a4ac37bd33e6a89ad525df24ded96882bd997dacfc5687504058981c82b1f",
+    "name": "Gina",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 3,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "henry": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "8a00b849b0cf558ef0ce1a39ebc3b03cd92653dac3623bc2b790dbad7e645512",
+    "name": "Henry",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 4,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": null
+  },
+  "ivan": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "59e693378d6d8c0ee3afa975f22c878d7b97a3e0415151788501f968fc29ea54",
+    "name": "Ivan",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 5,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "tester",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "judy": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "706d9fa43a59dcb14163c5a9843d9e33fa7c930f4a62201977c44852cba2ee26",
+    "name": "Judy",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 4,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "mallory": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": [
+      "2462c698fdce3d307856ceef25b0f931676d482b16b933e0a141c0b7573384b8",
+      "dbfbcd253a499ffb5bcf1fd75fba44bc97476c5760d9062800d74bdd77515e2b"
+    ],
+    "fork_seq": 3,
+    "hidden_listing_count": 0,
+    "id": "6d7061427f4370c9c6fa9a0d7ce5b02b7d66cf10a459a23c3eb1874dc6565c07",
+    "name": "Mallory",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 2,
+    "restricted": true,
+    "restriction": {
+      "distinct_flaggers": 0,
+      "hidden_listings": 0
+    },
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "forked",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "node_op": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "06828685b1db91e859894abd12450775c275eea5eb13de3f7da0d7e356d66666",
+    "name": "Demo Node Operator",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 3,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "node",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": "https://node.example/",
+    "verified": null
+  },
+  "rogue_attestor": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "3ef731a2296a027537ad80e495c2fca498adf6640516b7be5a3160414a0a8521",
+    "name": "Instant Verification Service",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 17,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "attestor",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": null
+  },
+  "seller_appeal": {
+    "about": null,
+    "domains": [
+      {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "soundcorner.example",
+        "expires": 1830297600000
+      }
+    ],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "f1c4c1b5c9d1e56aedd98a2680ca45876cc551d43c995e052fb9b70bf521434a",
+    "name": "Sound Corner",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 5,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "seller",
+    "seller_reviews": {
+      "total": 3,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": "https://soundcorner.example/",
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "FR",
+      "expires": 1830297600000,
+      "legal_name": "Sound Corner SARL",
+      "level": "business"
+    }
+  },
+  "seller_flagged": {
+    "about": null,
+    "domains": [
+      {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "quickgadgets.example",
+        "expires": 1830297600000
+      }
+    ],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 1,
+    "id": "87d7b1f8336b4d4d405e95d75167ad2c253b66b16490378a8a305f5197abd2a0",
+    "name": "Quick Gadgets",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 3,
+    "restricted": false,
+    "restriction": {
+      "distinct_flaggers": 3,
+      "hidden_listings": 1
+    },
+    "retired": null,
+    "revoked": null,
+    "role": "seller",
+    "seller_reviews": {
+      "total": 3,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": "https://quickgadgets.example/",
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "NL",
+      "expires": 1830297600000,
+      "legal_name": "Quick Gadgets BV",
+      "level": "business"
+    }
+  },
+  "seller_good": {
+    "about": null,
+    "domains": [
+      {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "goodshop.example",
+        "expires": 1830297600000
+      }
+    ],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+    "name": "Goodshop",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 13,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "seller",
+    "seller_reviews": {
+      "total": 14,
+      "with_valid_receipt": 3
+    },
+    "status": "ok",
+    "url": "https://goodshop.example/",
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "DE",
+      "expires": 1830297600000,
+      "legal_name": "Goodshop GmbH",
+      "level": "business"
+    }
+  },
+  "seller_maker": {
+    "about": null,
+    "domains": [
+      {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "clayandkiln.example",
+        "expires": 1830297600000
+      }
+    ],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "bc79036ee28c5137dc5fa1d0dd0fab233bfc6dfcbe5e53f3ea91409b636d4270",
+    "name": "Clay & Kiln",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 3,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "seller",
+    "seller_reviews": {
+      "total": 1,
+      "with_valid_receipt": 1
+    },
+    "status": "ok",
+    "url": "https://clayandkiln.example/",
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "IE",
+      "expires": 1830297600000,
+      "legal_name": "Clay & Kiln Studio",
+      "level": "business"
+    }
+  },
+  "seller_phish": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "bf1f528ac533c4c97f214855f72d3e15d80d386c4a964aec4082d2c58233b3b8",
+    "name": "G00dshop Deals",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 2,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "seller",
+    "seller_reviews": {
+      "total": 8,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": null
+  },
+  "seller_restricted": {
+    "about": null,
+    "domains": [
+      {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "shadyimports.example",
+        "expires": 1830297600000
+      }
+    ],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 3,
+    "id": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+    "name": "Shady Imports",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 7,
+    "restricted": true,
+    "restriction": {
+      "distinct_flaggers": 9,
+      "hidden_listings": 3
+    },
+    "retired": null,
+    "revoked": null,
+    "role": "seller",
+    "seller_reviews": {
+      "total": 2,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": "https://shadyimports.example/",
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "US",
+      "expires": 1830297600000,
+      "legal_name": "Shady Imports LLC",
+      "level": "business"
+    }
+  },
+  "seller_restricted_alt": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "2cd7e872edae12bc0ada5dbda66c5c781155a7be4e09eb599ced64def8c1e715",
+    "name": "Shady Imports Outlet",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 2,
+    "restricted": true,
+    "restriction": {
+      "distinct_flaggers": 9,
+      "hidden_listings": 3
+    },
+    "retired": null,
+    "revoked": null,
+    "role": "seller",
+    "seller_reviews": {
+      "total": 1,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "US",
+      "expires": 1830297600000,
+      "legal_name": "Shady Imports LLC",
+      "level": "business"
+    }
+  },
+  "seller_second": {
+    "about": null,
+    "domains": [
+      {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "hearthandtrail.example",
+        "expires": 1830297600000
+      }
+    ],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "3348943ae67709f50d40e0ed00992c46ea99dd9019d09b36dd1ca96747c7033f",
+    "name": "Hearth & Trail",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 7,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "seller",
+    "seller_reviews": {
+      "total": 30,
+      "with_valid_receipt": 1
+    },
+    "status": "ok",
+    "url": "https://hearthandtrail.example/",
+    "verified": {
+      "attestor": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+      "country": "GB",
+      "expires": 1830297600000,
+      "legal_name": "Hearth & Trail Ltd",
+      "level": "business"
+    }
+  },
+  "seller_unverified": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "64159d9e1ae8190d4e0724f352fa2cd0174b624b5133923540b26fe364ab54c6",
+    "name": "Bargain Barn",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 4,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "seller",
+    "seller_reviews": {
+      "total": 8,
+      "with_valid_receipt": 1
+    },
+    "status": "ok",
+    "url": null,
+    "verified": null
+  },
+  "sybil_b_0": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "9c2d8a099fc4c84035c5df0aa4c28dd17b0b93fbb99c568df781593f9b231e93",
+    "name": "Puzzle Fan 0",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 2,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "country": "US",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "sybil_b_1": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "9d8677588108284bbf634826588386924cefb2b45e72d8adcebcbb12adf6e3b5",
+    "name": "Puzzle Fan 1",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 2,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "buyer",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "country": "US",
+      "expires": 1830297600000,
+      "legal_name": null,
+      "level": "person"
+    }
+  },
+  "time_traveler": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "0eedeb90afadbffbff302318bac55b9f832e60eba9b51dd160b99f0dca587fe7",
+    "name": "Tomorrow Deals",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 1,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "seller",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": null
+  },
+  "vandal": {
+    "about": null,
+    "domains": [],
+    "fork_evidence": null,
+    "fork_seq": null,
+    "hidden_listing_count": 0,
+    "id": "814e5755945f7f3c8c0a8b8a9573dbb46d83435582c777316cdf5ab62c1aafb9",
+    "name": "xX_vandal_Xx",
+    "profile": {
+      "appeal": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "redaction": null,
+      "status": "visible"
+    },
+    "profile_status": "visible",
+    "record_count": 7,
+    "restricted": false,
+    "restriction": null,
+    "retired": null,
+    "revoked": null,
+    "role": "other",
+    "seller_reviews": {
+      "total": 0,
+      "with_valid_receipt": 0
+    },
+    "status": "ok",
+    "url": null,
+    "verified": null
+  }
+}

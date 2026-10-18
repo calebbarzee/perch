@@ -1,0 +1,233 @@
+{
+  "attributes": {},
+  "brand": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+        "record": "3da45b7f74f8f5ec162297d768f42bc6eadaa7d24b83a1ff48e539b73fa8dd7b",
+        "verified": true
+      }
+    ],
+    "value": "Kestrel"
+  },
+  "category": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+        "record": "3da45b7f74f8f5ec162297d768f42bc6eadaa7d24b83a1ff48e539b73fa8dd7b",
+        "verified": true
+      }
+    ],
+    "value": "toys/puzzles"
+  },
+  "description": null,
+  "excluded_sources": {
+    "forked": 0,
+    "hidden": 0,
+    "retracted": 0,
+    "revoked": 0,
+    "unavailable": 0
+  },
+  "gtin": "00000020000912",
+  "images": [],
+  "key": "gtin:00000020000912",
+  "listings": [
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "goodshop.example",
+        "expires": 1830297600000
+      },
+      "domain_verified": true,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "439bad3bc86ea345b6a5935a2e2e923c7c45603dd7b1ba3a9581ff9919675335",
+      "latest": "439bad3bc86ea345b6a5935a2e2e923c7c45603dd7b1ba3a9581ff9919675335",
+      "location": null,
+      "price": {
+        "amount": 1999,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 1999,
+          "currency": "EUR",
+          "record": "439bad3bc86ea345b6a5935a2e2e923c7c45603dd7b1ba3a9581ff9919675335",
+          "source": "seller",
+          "ts": 1768089600014
+        }
+      ],
+      "product": "gtin:00000020000912",
+      "redaction": null,
+      "seller": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+      "seller_name": "Goodshop",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "visible",
+      "title": null,
+      "updated_ts": 1768089600014,
+      "url": "https://www.goodshop.example/p/kestrel-puzzle-500"
+    }
+  ],
+  "moderation": {
+    "appeal": null,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "redaction": null,
+    "status": "visible"
+  },
+  "mpn": null,
+  "name": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+        "record": "3da45b7f74f8f5ec162297d768f42bc6eadaa7d24b83a1ff48e539b73fa8dd7b",
+        "verified": true
+      }
+    ],
+    "value": "Kestrel Wooden Puzzle 500"
+  },
+  "price_range": {
+    "EUR": {
+      "count": 1,
+      "excluded_unverified_domain": 0,
+      "max": 1999,
+      "median": 1999,
+      "min": 1999
+    }
+  },
+  "ratings": {
+    "count": 3,
+    "excluded": {
+      "forked": 0,
+      "hidden": 0,
+      "retracted": 0,
+      "revoked": 0,
+      "seller": 0,
+      "superseded": 0,
+      "unavailable": 0
+    },
+    "histogram": [
+      0,
+      0,
+      1,
+      0,
+      2
+    ],
+    "mean": 4.33,
+    "verified_identity": {
+      "count": 3,
+      "histogram": [
+        0,
+        0,
+        1,
+        0,
+        2
+      ],
+      "mean": 4.33
+    },
+    "verified_purchase": {
+      "count": 0,
+      "histogram": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": null
+    }
+  },
+  "reviews": [
+    {
+      "appeal": null,
+      "author": "9d8677588108284bbf634826588386924cefb2b45e72d8adcebcbb12adf6e3b5",
+      "author_name": "Puzzle Fan 1",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "bc3a94e338c8f2f450a148a6833fa346745949e92fda314402f4dbca837ab6d4",
+      "latest": "bc3a94e338c8f2f450a148a6833fa346745949e92fda314402f4dbca837ab6d4",
+      "listing": null,
+      "purchase": "none",
+      "rating": 5,
+      "redaction": null,
+      "status": "visible",
+      "text": "Amazing puzzle!!!",
+      "title": null,
+      "ts": 1785024000001,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "9c2d8a099fc4c84035c5df0aa4c28dd17b0b93fbb99c568df781593f9b231e93",
+      "author_name": "Puzzle Fan 0",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "1f5a1c725e29ef4e0b3c6a1c9333b426d11845ab2015e4f728c82ed27e0b2f25",
+      "latest": "1f5a1c725e29ef4e0b3c6a1c9333b426d11845ab2015e4f728c82ed27e0b2f25",
+      "listing": null,
+      "purchase": "none",
+      "rating": 5,
+      "redaction": null,
+      "status": "visible",
+      "text": "Amazing puzzle!!!",
+      "title": null,
+      "ts": 1785024000000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "720949b9e4863b5e5193f9c63ca4612ad2f9fb9b5e969d1d351c5a4acb384d76",
+      "author_name": "Community Member 2",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "e42e098926610e37bf78437277182c541454de3225b9a9be7dd2525be0f8c503",
+      "latest": "e42e098926610e37bf78437277182c541454de3225b9a9be7dd2525be0f8c503",
+      "listing": null,
+      "purchase": "none",
+      "rating": 3,
+      "redaction": null,
+      "status": "visible",
+      "text": "Pieces fit loosely.",
+      "title": null,
+      "ts": 1773273600000,
+      "verified_purchase": false
+    }
+  ]
+}

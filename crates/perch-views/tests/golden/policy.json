@@ -1,0 +1,37 @@
+{
+  "hash": "9783c924571e363e8b25413f55dbb01cd59737bd953b5dc18570c2cfc702c1cc",
+  "policy": {
+    "flag_threshold": 3,
+    "flag_thresholds": {
+      "product": 5,
+      "review": 5
+    },
+    "flags_require_verified": true,
+    "future_ts_tolerance_ms": 600000,
+    "now": 1790553600000,
+    "price_requires_domain_verified": true,
+    "seller_hidden_listing_limit": 3,
+    "seller_min_distinct_flaggers": 9,
+    "trusted_attestors": [
+      {
+        "author": "01c6b877d1a5ccc379a1dbf0cee80fa1a20bcda9c39337e8921b1c1b7c043287",
+        "kinds": [
+          "attest.domain",
+          "attest.identity",
+          "attest.revoke"
+        ],
+        "not_after_seq": null
+      },
+      {
+        "author": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "kinds": [
+          "attest.domain",
+          "attest.identity",
+          "attest.revoke"
+        ],
+        "not_after_seq": null
+      }
+    ],
+    "verified_purchase_requires_verified_buyer": true
+  }
+}

@@ -1,0 +1,746 @@
+{
+  "cable_shady": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "domain": "shadyimports.example",
+      "expires": 1830297600000
+    },
+    "domain_verified": true,
+    "flags": {
+      "count": 3,
+      "counted": 3,
+      "reasons": {
+        "counterfeit": 3
+      }
+    },
+    "id": "93d04ec0b92ed343e91958c8cf33933bc3fba517c88f77cd43b321888bf9f02f",
+    "latest": "93d04ec0b92ed343e91958c8cf33933bc3fba517c88f77cd43b321888bf9f02f",
+    "location": null,
+    "price": {
+      "amount": 499,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 499,
+        "currency": "EUR",
+        "record": "93d04ec0b92ed343e91958c8cf33933bc3fba517c88f77cd43b321888bf9f02f",
+        "source": "seller",
+        "ts": 1768089600011
+      }
+    ],
+    "product": "mpn:voltix:vx-c2m",
+    "redaction": null,
+    "seller": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+    "seller_name": "Shady Imports",
+    "seller_restricted": true,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "hidden",
+    "title": null,
+    "updated_ts": 1768089600011,
+    "url": "https://shadyimports.example/vx-c2m"
+  },
+  "charger_shady": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "domain": "shadyimports.example",
+      "expires": 1830297600000
+    },
+    "domain_verified": true,
+    "flags": {
+      "count": 3,
+      "counted": 3,
+      "reasons": {
+        "counterfeit": 3
+      }
+    },
+    "id": "46830b63b4111c1242a29d3cb160662802a747adc6327ac04fed9366865bac44",
+    "latest": "46830b63b4111c1242a29d3cb160662802a747adc6327ac04fed9366865bac44",
+    "location": null,
+    "price": {
+      "amount": 1999,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 1999,
+        "currency": "EUR",
+        "record": "46830b63b4111c1242a29d3cb160662802a747adc6327ac04fed9366865bac44",
+        "source": "seller",
+        "ts": 1768089600010
+      }
+    ],
+    "product": "gtin:02000090000049",
+    "redaction": null,
+    "seller": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+    "seller_name": "Shady Imports",
+    "seller_restricted": true,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "hidden",
+    "title": null,
+    "updated_ts": 1768089600010,
+    "url": "https://shadyimports.example/voltix-65w"
+  },
+  "headphones_good": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "domain": "goodshop.example",
+      "expires": 1830297600000
+    },
+    "domain_verified": true,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "id": "e0102edc870197bb1f61b0e91b225eb6bf215b9fad18d09ebc43a937839e214d",
+    "latest": "84cfad507fd89ae6ef76b55261b80c90cd305dbd5cac23fe68a91e802d3500ef",
+    "location": null,
+    "price": {
+      "amount": 11999,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 12999,
+        "currency": "EUR",
+        "record": "e0102edc870197bb1f61b0e91b225eb6bf215b9fad18d09ebc43a937839e214d",
+        "source": "seller",
+        "ts": 1768089600005
+      },
+      {
+        "amount": 12999,
+        "currency": "EUR",
+        "record": "9c1e386e1b2a0ab1e845de7d0d145fea4a64b50ca16a39868ab73fc770f17fe2",
+        "source": "observation",
+        "ts": 1771113000000
+      },
+      {
+        "amount": 11999,
+        "currency": "EUR",
+        "record": "84cfad507fd89ae6ef76b55261b80c90cd305dbd5cac23fe68a91e802d3500ef",
+        "source": "seller",
+        "ts": 1774137600000
+      }
+    ],
+    "product": "gtin:00200090000021",
+    "redaction": null,
+    "seller": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+    "seller_name": "Goodshop",
+    "seller_restricted": false,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "visible",
+    "title": null,
+    "updated_ts": 1774137600000,
+    "url": "https://www.goodshop.example/p/cobalt-h300"
+  },
+  "headphones_hidden": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "domain": "quickgadgets.example",
+      "expires": 1830297600000
+    },
+    "domain_verified": true,
+    "flags": {
+      "count": 7,
+      "counted": 3,
+      "reasons": {
+        "counterfeit": 2,
+        "fraud": 1,
+        "other": 4
+      }
+    },
+    "id": "f3b8f17b05fa5d8f3866d36e8529e0d71dfab9d9ad4f2783c43ef40f3112e73d",
+    "latest": "f3b8f17b05fa5d8f3866d36e8529e0d71dfab9d9ad4f2783c43ef40f3112e73d",
+    "location": null,
+    "price": {
+      "amount": 8999,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 8999,
+        "currency": "EUR",
+        "record": "f3b8f17b05fa5d8f3866d36e8529e0d71dfab9d9ad4f2783c43ef40f3112e73d",
+        "source": "seller",
+        "ts": 1768089600006
+      }
+    ],
+    "product": "gtin:00200090000021",
+    "redaction": null,
+    "seller": "87d7b1f8336b4d4d405e95d75167ad2c253b66b16490378a8a305f5197abd2a0",
+    "seller_name": "Quick Gadgets",
+    "seller_restricted": false,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "hidden",
+    "title": "Cobalt H300 headphones ORIGINAL",
+    "updated_ts": 1768089600006,
+    "url": "https://www.quickgadgets.example/h300"
+  },
+  "headphones_restored": {
+    "appeal": {
+      "note": "These are genuine EU units. Invoice from Cobalt available on request.",
+      "record": "59e9ff246cac7693436ba4b696eb8b43b70ff2ed569b16a368854cb55f11050b",
+      "ts": 1784764800000
+    },
+    "appealed": true,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "domain": "soundcorner.example",
+      "expires": 1830297600000
+    },
+    "domain_verified": true,
+    "flags": {
+      "count": 1,
+      "counted": 1,
+      "reasons": {
+        "misleading": 1
+      }
+    },
+    "id": "223a461531fd8efa60bd6f8085ec16330a0c0046c0f61a07b80a335ec6276bab",
+    "latest": "223a461531fd8efa60bd6f8085ec16330a0c0046c0f61a07b80a335ec6276bab",
+    "location": null,
+    "price": {
+      "amount": 11999,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 11999,
+        "currency": "EUR",
+        "record": "223a461531fd8efa60bd6f8085ec16330a0c0046c0f61a07b80a335ec6276bab",
+        "source": "seller",
+        "ts": 1768089600007
+      }
+    ],
+    "product": "gtin:00200090000021",
+    "redaction": null,
+    "seller": "f1c4c1b5c9d1e56aedd98a2680ca45876cc551d43c995e052fb9b70bf521434a",
+    "seller_name": "Sound Corner",
+    "seller_restricted": false,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "visible",
+    "title": null,
+    "updated_ts": 1768089600007,
+    "url": "https://soundcorner.example/cobalt-h300"
+  },
+  "kettle_gbp": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "domain": "hearthandtrail.example",
+      "expires": 1830297600000
+    },
+    "domain_verified": true,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "id": "3e85b9af5cbfad5999b5522e5ca52be4c20ea45472738e4e8a343647e9891615",
+    "latest": "3e85b9af5cbfad5999b5522e5ca52be4c20ea45472738e4e8a343647e9891615",
+    "location": null,
+    "price": {
+      "amount": 4299,
+      "currency": "GBP"
+    },
+    "price_history": [
+      {
+        "amount": 4299,
+        "currency": "GBP",
+        "record": "3e85b9af5cbfad5999b5522e5ca52be4c20ea45472738e4e8a343647e9891615",
+        "source": "seller",
+        "ts": 1768089600002
+      }
+    ],
+    "product": "gtin:02000090000018",
+    "redaction": null,
+    "seller": "3348943ae67709f50d40e0ed00992c46ea99dd9019d09b36dd1ca96747c7033f",
+    "seller_name": "Hearth & Trail",
+    "seller_restricted": false,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "visible",
+    "title": null,
+    "updated_ts": 1768089600002,
+    "url": "https://hearthandtrail.example/uk/alder-kettle"
+  },
+  "kettle_good": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "domain": "goodshop.example",
+      "expires": 1830297600000
+    },
+    "domain_verified": true,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "id": "9fde227c3972c816116bbad75591eecefeb83afd2e13a2d5013f837161ae00dc",
+    "latest": "30445f22c095a963f6852faa11a4437a52bd9eb6798fd04f9f836976d3ba4523",
+    "location": null,
+    "price": {
+      "amount": 4799,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 4999,
+        "currency": "EUR",
+        "record": "9fde227c3972c816116bbad75591eecefeb83afd2e13a2d5013f837161ae00dc",
+        "source": "seller",
+        "ts": 1768089600000
+      },
+      {
+        "amount": 4999,
+        "currency": "EUR",
+        "record": "7b0d8d3d0f16f5d61ae17192b5ec40159d65ec38277c5e93d22116e1464409c0",
+        "source": "observation",
+        "ts": 1769814000000
+      },
+      {
+        "amount": 4499,
+        "currency": "EUR",
+        "record": "83ece7aef2fa0bddc3b8a4a98323b8757f52b17ed6daa35d4800960614c17c7a",
+        "source": "seller",
+        "ts": 1772409600000
+      },
+      {
+        "amount": 4499,
+        "currency": "EUR",
+        "record": "699770895c8ae562797cb274c96c2143361a5f6092690189c1ac3065c5fdd0c6",
+        "source": "observation",
+        "ts": 1774998000000
+      },
+      {
+        "amount": 4799,
+        "currency": "EUR",
+        "record": "30445f22c095a963f6852faa11a4437a52bd9eb6798fd04f9f836976d3ba4523",
+        "source": "seller",
+        "ts": 1777593600000
+      },
+      {
+        "amount": 4799,
+        "currency": "EUR",
+        "record": "468bd71605bd9c31a3a47273d35018ce5ac3e7885a7b71e72037e5469b91b1e8",
+        "source": "observation",
+        "ts": 1780182000016
+      }
+    ],
+    "product": "gtin:02000090000018",
+    "redaction": null,
+    "seller": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+    "seller_name": "Goodshop",
+    "seller_restricted": false,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "visible",
+    "title": "Alder Kettle 1.7 L, stainless",
+    "updated_ts": 1777593600000,
+    "url": "https://www.goodshop.example/p/alder-kettle-1-7"
+  },
+  "kettle_phish": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": null,
+    "domain_verified": false,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "id": "f9eb450928a3333bdf2bd559c782ddc40dbe17733d2706f90d4f4248161ddc34",
+    "latest": "f9eb450928a3333bdf2bd559c782ddc40dbe17733d2706f90d4f4248161ddc34",
+    "location": null,
+    "price": {
+      "amount": 1999,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 1999,
+        "currency": "EUR",
+        "record": "f9eb450928a3333bdf2bd559c782ddc40dbe17733d2706f90d4f4248161ddc34",
+        "source": "seller",
+        "ts": 1768089600004
+      },
+      {
+        "amount": 1999,
+        "currency": "EUR",
+        "record": "5848d18ad269545a06755a929795c4b1513f44fe5b89460ad3dae06ac5616c9f",
+        "source": "observation",
+        "ts": 1770681000001
+      }
+    ],
+    "product": "gtin:02000090000018",
+    "redaction": null,
+    "seller": "bf1f528ac533c4c97f214855f72d3e15d80d386c4a964aec4082d2c58233b3b8",
+    "seller_name": "G00dshop Deals",
+    "seller_restricted": false,
+    "seller_status": "ok",
+    "seller_verified": false,
+    "ships_to": [],
+    "status": "visible",
+    "title": "Alder Kettle 1.7 L - 60% OFF TODAY",
+    "updated_ts": 1768089600004,
+    "url": "https://goodshop-deals.example/alder-kettle-sale"
+  },
+  "kettle_second": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "domain": "hearthandtrail.example",
+      "expires": 1830297600000
+    },
+    "domain_verified": true,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "id": "b7952b85bd40bafea066e3c14bf36df7bd1061a3a72fb180d950956ba00c6acc",
+    "latest": "8f3d109008766ae90710b66ced3b70dd8993dc82e6eb5406be478a4f20f766bf",
+    "location": null,
+    "price": {
+      "amount": 5199,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 5299,
+        "currency": "EUR",
+        "record": "b7952b85bd40bafea066e3c14bf36df7bd1061a3a72fb180d950956ba00c6acc",
+        "source": "seller",
+        "ts": 1768089600001
+      },
+      {
+        "amount": 5199,
+        "currency": "EUR",
+        "record": "8f3d109008766ae90710b66ced3b70dd8993dc82e6eb5406be478a4f20f766bf",
+        "source": "seller",
+        "ts": 1772841600000
+      }
+    ],
+    "product": "gtin:02000090000018",
+    "redaction": null,
+    "seller": "3348943ae67709f50d40e0ed00992c46ea99dd9019d09b36dd1ca96747c7033f",
+    "seller_name": "Hearth & Trail",
+    "seller_restricted": false,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "retracted",
+    "title": null,
+    "updated_ts": 1772841600000,
+    "url": "https://hearthandtrail.example/alder-kettle"
+  },
+  "kettle_unverified": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": null,
+    "domain_verified": false,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "id": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
+    "latest": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
+    "location": null,
+    "price": {
+      "amount": 3999,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 3999,
+        "currency": "EUR",
+        "record": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
+        "source": "seller",
+        "ts": 1768089600003
+      }
+    ],
+    "product": "gtin:02000090000018",
+    "redaction": null,
+    "seller": "64159d9e1ae8190d4e0724f352fa2cd0174b624b5133923540b26fe364ab54c6",
+    "seller_name": "Bargain Barn",
+    "seller_restricted": false,
+    "seller_status": "ok",
+    "seller_verified": false,
+    "ships_to": [],
+    "status": "visible",
+    "title": null,
+    "updated_ts": 1768089600003,
+    "url": "https://bargainbarn.example/kettle"
+  },
+  "lamp_alt": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": null,
+    "domain_verified": false,
+    "flags": {
+      "count": 2,
+      "counted": 1,
+      "reasons": {
+        "counterfeit": 2
+      }
+    },
+    "id": "5606a7770c9175b5c0967bd06dfcc1a44ca7abad9bfd348f012b5cdd00e1d4b6",
+    "latest": "5606a7770c9175b5c0967bd06dfcc1a44ca7abad9bfd348f012b5cdd00e1d4b6",
+    "location": null,
+    "price": {
+      "amount": 2799,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 2799,
+        "currency": "EUR",
+        "record": "5606a7770c9175b5c0967bd06dfcc1a44ca7abad9bfd348f012b5cdd00e1d4b6",
+        "source": "seller",
+        "ts": 1768089600012
+      }
+    ],
+    "product": "mpn:lumen:lx-200",
+    "redaction": null,
+    "seller": "2cd7e872edae12bc0ada5dbda66c5c781155a7be4e09eb599ced64def8c1e715",
+    "seller_name": "Shady Imports Outlet",
+    "seller_restricted": true,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "visible",
+    "title": null,
+    "updated_ts": 1768089600012,
+    "url": "https://outlet.shadyimports.example/lx200"
+  },
+  "lamp_shady": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "domain": "shadyimports.example",
+      "expires": 1830297600000
+    },
+    "domain_verified": true,
+    "flags": {
+      "count": 3,
+      "counted": 3,
+      "reasons": {
+        "counterfeit": 3
+      }
+    },
+    "id": "0f9e0b65dc434c31fb15c61eac2f91b1f706d9c5c7c898421bf2998d6e2c7f3f",
+    "latest": "0f9e0b65dc434c31fb15c61eac2f91b1f706d9c5c7c898421bf2998d6e2c7f3f",
+    "location": null,
+    "price": {
+      "amount": 2999,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 2999,
+        "currency": "EUR",
+        "record": "0f9e0b65dc434c31fb15c61eac2f91b1f706d9c5c7c898421bf2998d6e2c7f3f",
+        "source": "seller",
+        "ts": 1768089600009
+      }
+    ],
+    "product": "mpn:lumen:lx-200",
+    "redaction": null,
+    "seller": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+    "seller_name": "Shady Imports",
+    "seller_restricted": true,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "hidden",
+    "title": null,
+    "updated_ts": 1768089600009,
+    "url": "https://shadyimports.example/lx200"
+  },
+  "mug_maker": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "domain": "clayandkiln.example",
+      "expires": 1830297600000
+    },
+    "domain_verified": true,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "id": "5e595a4958168ffacec96680bd0ec504ef1b7b719874150f60bb7a1d5a2892d6",
+    "latest": "5e595a4958168ffacec96680bd0ec504ef1b7b719874150f60bb7a1d5a2892d6",
+    "location": null,
+    "price": {
+      "amount": 3400,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 3400,
+        "currency": "EUR",
+        "record": "5e595a4958168ffacec96680bd0ec504ef1b7b719874150f60bb7a1d5a2892d6",
+        "source": "seller",
+        "ts": 1768089600013
+      }
+    ],
+    "product": "rec:4b00b2e61d067c8b3f259fd96ffb769865d56449234ee3351b089fa231f47597",
+    "redaction": null,
+    "seller": "bc79036ee28c5137dc5fa1d0dd0fab233bfc6dfcbe5e53f3ea91409b636d4270",
+    "seller_name": "Clay & Kiln",
+    "seller_restricted": false,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "visible",
+    "title": null,
+    "updated_ts": 1768089600013,
+    "url": "https://clayandkiln.example/mugs/blue"
+  },
+  "puzzle_good": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "domain": "goodshop.example",
+      "expires": 1830297600000
+    },
+    "domain_verified": true,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "id": "439bad3bc86ea345b6a5935a2e2e923c7c45603dd7b1ba3a9581ff9919675335",
+    "latest": "439bad3bc86ea345b6a5935a2e2e923c7c45603dd7b1ba3a9581ff9919675335",
+    "location": null,
+    "price": {
+      "amount": 1999,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 1999,
+        "currency": "EUR",
+        "record": "439bad3bc86ea345b6a5935a2e2e923c7c45603dd7b1ba3a9581ff9919675335",
+        "source": "seller",
+        "ts": 1768089600014
+      }
+    ],
+    "product": "gtin:00000020000912",
+    "redaction": null,
+    "seller": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+    "seller_name": "Goodshop",
+    "seller_restricted": false,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "visible",
+    "title": null,
+    "updated_ts": 1768089600014,
+    "url": "https://www.goodshop.example/p/kestrel-puzzle-500"
+  },
+  "tent_second": {
+    "appeal": null,
+    "appealed": false,
+    "availability": "in_stock",
+    "condition": "new",
+    "domain": {
+      "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+      "domain": "hearthandtrail.example",
+      "expires": 1830297600000
+    },
+    "domain_verified": true,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "id": "99ab50a86e0fd1ae4b122de9d96c5b28aff3dccc7be6eb0f7dde28e56f7e96e1",
+    "latest": "99ab50a86e0fd1ae4b122de9d96c5b28aff3dccc7be6eb0f7dde28e56f7e96e1",
+    "location": null,
+    "price": {
+      "amount": 19999,
+      "currency": "EUR"
+    },
+    "price_history": [
+      {
+        "amount": 19999,
+        "currency": "EUR",
+        "record": "99ab50a86e0fd1ae4b122de9d96c5b28aff3dccc7be6eb0f7dde28e56f7e96e1",
+        "source": "seller",
+        "ts": 1768089600008
+      }
+    ],
+    "product": "gtin:02000090000032",
+    "redaction": null,
+    "seller": "3348943ae67709f50d40e0ed00992c46ea99dd9019d09b36dd1ca96747c7033f",
+    "seller_name": "Hearth & Trail",
+    "seller_restricted": false,
+    "seller_status": "ok",
+    "seller_verified": true,
+    "ships_to": [],
+    "status": "visible",
+    "title": null,
+    "updated_ts": 1768089600008,
+    "url": "https://hearthandtrail.example/fjord-trail-2"
+  }
+}

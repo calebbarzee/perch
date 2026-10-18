@@ -1,0 +1,220 @@
+{
+  "attributes": {},
+  "brand": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+        "record": "f468086c7827581ca7a909cdb451c76d29f2cd9312341998dabf31bc57abf752",
+        "verified": true
+      }
+    ],
+    "value": "Lumen"
+  },
+  "category": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+        "record": "f468086c7827581ca7a909cdb451c76d29f2cd9312341998dabf31bc57abf752",
+        "verified": true
+      }
+    ],
+    "value": "home/lighting"
+  },
+  "description": null,
+  "excluded_sources": {
+    "forked": 0,
+    "hidden": 0,
+    "retracted": 0,
+    "revoked": 0,
+    "unavailable": 0
+  },
+  "gtin": null,
+  "images": [],
+  "key": "mpn:lumen:lx-200",
+  "listings": [
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": null,
+      "domain_verified": false,
+      "flags": {
+        "count": 2,
+        "counted": 1,
+        "reasons": {
+          "counterfeit": 2
+        }
+      },
+      "id": "5606a7770c9175b5c0967bd06dfcc1a44ca7abad9bfd348f012b5cdd00e1d4b6",
+      "latest": "5606a7770c9175b5c0967bd06dfcc1a44ca7abad9bfd348f012b5cdd00e1d4b6",
+      "location": null,
+      "price": {
+        "amount": 2799,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 2799,
+          "currency": "EUR",
+          "record": "5606a7770c9175b5c0967bd06dfcc1a44ca7abad9bfd348f012b5cdd00e1d4b6",
+          "source": "seller",
+          "ts": 1768089600012
+        }
+      ],
+      "product": "mpn:lumen:lx-200",
+      "redaction": null,
+      "seller": "2cd7e872edae12bc0ada5dbda66c5c781155a7be4e09eb599ced64def8c1e715",
+      "seller_name": "Shady Imports Outlet",
+      "seller_restricted": true,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "visible",
+      "title": null,
+      "updated_ts": 1768089600012,
+      "url": "https://outlet.shadyimports.example/lx200"
+    },
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "shadyimports.example",
+        "expires": 1830297600000
+      },
+      "domain_verified": true,
+      "flags": {
+        "count": 3,
+        "counted": 3,
+        "reasons": {
+          "counterfeit": 3
+        }
+      },
+      "id": "0f9e0b65dc434c31fb15c61eac2f91b1f706d9c5c7c898421bf2998d6e2c7f3f",
+      "latest": "0f9e0b65dc434c31fb15c61eac2f91b1f706d9c5c7c898421bf2998d6e2c7f3f",
+      "location": null,
+      "price": {
+        "amount": 2999,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 2999,
+          "currency": "EUR",
+          "record": "0f9e0b65dc434c31fb15c61eac2f91b1f706d9c5c7c898421bf2998d6e2c7f3f",
+          "source": "seller",
+          "ts": 1768089600009
+        }
+      ],
+      "product": "mpn:lumen:lx-200",
+      "redaction": null,
+      "seller": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+      "seller_name": "Shady Imports",
+      "seller_restricted": true,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "hidden",
+      "title": null,
+      "updated_ts": 1768089600009,
+      "url": "https://shadyimports.example/lx200"
+    }
+  ],
+  "moderation": {
+    "appeal": null,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "redaction": null,
+    "status": "visible"
+  },
+  "mpn": "LX-200",
+  "name": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6123b0ad4a5c08927c3dff4f0e05f6179cc3c243d398ee37b5bc6754dfa2cca2",
+        "record": "f468086c7827581ca7a909cdb451c76d29f2cd9312341998dabf31bc57abf752",
+        "verified": true
+      }
+    ],
+    "value": "Lumen LX-200 Desk Lamp"
+  },
+  "price_range": {},
+  "ratings": {
+    "count": 1,
+    "excluded": {
+      "forked": 0,
+      "hidden": 0,
+      "retracted": 0,
+      "revoked": 0,
+      "seller": 0,
+      "superseded": 0,
+      "unavailable": 0
+    },
+    "histogram": [
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    "mean": 2,
+    "verified_identity": {
+      "count": 1,
+      "histogram": [
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "mean": 2
+    },
+    "verified_purchase": {
+      "count": 0,
+      "histogram": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": null
+    }
+  },
+  "reviews": [
+    {
+      "appeal": null,
+      "author": "28277189f777b777f187f40a9ecdbcf2139866566c0efd47ca57b974ba0cbc67",
+      "author_name": "Bob",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "84c6961b140ddf2e7b1f44c111eaf2ce26b009ddce8f5de8f20b8346341f9dab",
+      "latest": "84c6961b140ddf2e7b1f44c111eaf2ce26b009ddce8f5de8f20b8346341f9dab",
+      "listing": null,
+      "purchase": "none",
+      "rating": 2,
+      "redaction": null,
+      "status": "visible",
+      "text": "Flickers at low brightness.",
+      "title": null,
+      "ts": 1782345600000,
+      "verified_purchase": false
+    }
+  ]
+}

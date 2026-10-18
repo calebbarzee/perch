@@ -1,0 +1,404 @@
+{
+  "attributes": {
+    "battery": {
+      "conflicts": [],
+      "sources": [
+        {
+          "author": "f1c4c1b5c9d1e56aedd98a2680ca45876cc551d43c995e052fb9b70bf521434a",
+          "record": "309e8dd009f0e67b61037640ef7426950d9662d0d03fe046cbad0bebf58c96ef",
+          "verified": true
+        }
+      ],
+      "value": "30 h"
+    },
+    "bluetooth": {
+      "conflicts": [],
+      "sources": [
+        {
+          "author": "f1c4c1b5c9d1e56aedd98a2680ca45876cc551d43c995e052fb9b70bf521434a",
+          "record": "309e8dd009f0e67b61037640ef7426950d9662d0d03fe046cbad0bebf58c96ef",
+          "verified": true
+        }
+      ],
+      "value": "5.3"
+    }
+  },
+  "brand": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "f1c4c1b5c9d1e56aedd98a2680ca45876cc551d43c995e052fb9b70bf521434a",
+        "record": "309e8dd009f0e67b61037640ef7426950d9662d0d03fe046cbad0bebf58c96ef",
+        "verified": true
+      }
+    ],
+    "value": "Cobalt"
+  },
+  "category": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "f1c4c1b5c9d1e56aedd98a2680ca45876cc551d43c995e052fb9b70bf521434a",
+        "record": "309e8dd009f0e67b61037640ef7426950d9662d0d03fe046cbad0bebf58c96ef",
+        "verified": true
+      }
+    ],
+    "value": "electronics/headphones"
+  },
+  "description": null,
+  "excluded_sources": {
+    "forked": 0,
+    "hidden": 0,
+    "retracted": 0,
+    "revoked": 0,
+    "unavailable": 0
+  },
+  "gtin": "00200090000021",
+  "images": [],
+  "key": "gtin:00200090000021",
+  "listings": [
+    {
+      "appeal": {
+        "note": "These are genuine EU units. Invoice from Cobalt available on request.",
+        "record": "59e9ff246cac7693436ba4b696eb8b43b70ff2ed569b16a368854cb55f11050b",
+        "ts": 1784764800000
+      },
+      "appealed": true,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "soundcorner.example",
+        "expires": 1830297600000
+      },
+      "domain_verified": true,
+      "flags": {
+        "count": 1,
+        "counted": 1,
+        "reasons": {
+          "misleading": 1
+        }
+      },
+      "id": "223a461531fd8efa60bd6f8085ec16330a0c0046c0f61a07b80a335ec6276bab",
+      "latest": "223a461531fd8efa60bd6f8085ec16330a0c0046c0f61a07b80a335ec6276bab",
+      "location": null,
+      "price": {
+        "amount": 11999,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 11999,
+          "currency": "EUR",
+          "record": "223a461531fd8efa60bd6f8085ec16330a0c0046c0f61a07b80a335ec6276bab",
+          "source": "seller",
+          "ts": 1768089600007
+        }
+      ],
+      "product": "gtin:00200090000021",
+      "redaction": null,
+      "seller": "f1c4c1b5c9d1e56aedd98a2680ca45876cc551d43c995e052fb9b70bf521434a",
+      "seller_name": "Sound Corner",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "visible",
+      "title": null,
+      "updated_ts": 1768089600007,
+      "url": "https://soundcorner.example/cobalt-h300"
+    },
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "goodshop.example",
+        "expires": 1830297600000
+      },
+      "domain_verified": true,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "e0102edc870197bb1f61b0e91b225eb6bf215b9fad18d09ebc43a937839e214d",
+      "latest": "84cfad507fd89ae6ef76b55261b80c90cd305dbd5cac23fe68a91e802d3500ef",
+      "location": null,
+      "price": {
+        "amount": 11999,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 12999,
+          "currency": "EUR",
+          "record": "e0102edc870197bb1f61b0e91b225eb6bf215b9fad18d09ebc43a937839e214d",
+          "source": "seller",
+          "ts": 1768089600005
+        },
+        {
+          "amount": 12999,
+          "currency": "EUR",
+          "record": "9c1e386e1b2a0ab1e845de7d0d145fea4a64b50ca16a39868ab73fc770f17fe2",
+          "source": "observation",
+          "ts": 1771113000000
+        },
+        {
+          "amount": 11999,
+          "currency": "EUR",
+          "record": "84cfad507fd89ae6ef76b55261b80c90cd305dbd5cac23fe68a91e802d3500ef",
+          "source": "seller",
+          "ts": 1774137600000
+        }
+      ],
+      "product": "gtin:00200090000021",
+      "redaction": null,
+      "seller": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+      "seller_name": "Goodshop",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "visible",
+      "title": null,
+      "updated_ts": 1774137600000,
+      "url": "https://www.goodshop.example/p/cobalt-h300"
+    },
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "quickgadgets.example",
+        "expires": 1830297600000
+      },
+      "domain_verified": true,
+      "flags": {
+        "count": 7,
+        "counted": 3,
+        "reasons": {
+          "counterfeit": 2,
+          "fraud": 1,
+          "other": 4
+        }
+      },
+      "id": "f3b8f17b05fa5d8f3866d36e8529e0d71dfab9d9ad4f2783c43ef40f3112e73d",
+      "latest": "f3b8f17b05fa5d8f3866d36e8529e0d71dfab9d9ad4f2783c43ef40f3112e73d",
+      "location": null,
+      "price": {
+        "amount": 8999,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 8999,
+          "currency": "EUR",
+          "record": "f3b8f17b05fa5d8f3866d36e8529e0d71dfab9d9ad4f2783c43ef40f3112e73d",
+          "source": "seller",
+          "ts": 1768089600006
+        }
+      ],
+      "product": "gtin:00200090000021",
+      "redaction": null,
+      "seller": "87d7b1f8336b4d4d405e95d75167ad2c253b66b16490378a8a305f5197abd2a0",
+      "seller_name": "Quick Gadgets",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "hidden",
+      "title": "Cobalt H300 headphones ORIGINAL",
+      "updated_ts": 1768089600006,
+      "url": "https://www.quickgadgets.example/h300"
+    }
+  ],
+  "moderation": {
+    "appeal": null,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "redaction": null,
+    "status": "visible"
+  },
+  "mpn": null,
+  "name": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "f1c4c1b5c9d1e56aedd98a2680ca45876cc551d43c995e052fb9b70bf521434a",
+        "record": "309e8dd009f0e67b61037640ef7426950d9662d0d03fe046cbad0bebf58c96ef",
+        "verified": true
+      }
+    ],
+    "value": "Cobalt H-300 Wireless Headphones"
+  },
+  "price_range": {
+    "EUR": {
+      "count": 2,
+      "excluded_unverified_domain": 0,
+      "max": 11999,
+      "median": 11999,
+      "min": 11999
+    }
+  },
+  "ratings": {
+    "count": 3,
+    "excluded": {
+      "forked": 0,
+      "hidden": 0,
+      "retracted": 0,
+      "revoked": 1,
+      "seller": 0,
+      "superseded": 0,
+      "unavailable": 1
+    },
+    "histogram": [
+      1,
+      0,
+      0,
+      1,
+      1
+    ],
+    "mean": 3.33,
+    "verified_identity": {
+      "count": 3,
+      "histogram": [
+        1,
+        0,
+        0,
+        1,
+        1
+      ],
+      "mean": 3.33
+    },
+    "verified_purchase": {
+      "count": 0,
+      "histogram": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": null
+    }
+  },
+  "reviews": [
+    {
+      "appeal": null,
+      "author": "680a4ac37bd33e6a89ad525df24ded96882bd997dacfc5687504058981c82b1f",
+      "author_name": "Gina",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": false,
+      "excluded_reason": "unavailable",
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "3ff35529a64d20a040045176a67c5bf98bdd26fda0825bddc3674bb7145cd702",
+      "latest": "46cdd811492bccf9d2bf6b5e7419fcbb1e4385b670fcca8197f94b3d308be96c",
+      "listing": null,
+      "purchase": "none",
+      "rating": null,
+      "redaction": {
+        "by": null,
+        "note": null,
+        "product": null,
+        "reason": null,
+        "record": null
+      },
+      "status": "unavailable",
+      "text": null,
+      "title": null,
+      "ts": 1771200000000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "706d9fa43a59dcb14163c5a9843d9e33fa7c930f4a62201977c44852cba2ee26",
+      "author_name": "Judy",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "5aea654a14cb5d21ac04ebb57676a0873646e4c741615fbbd63b0cafcb830866",
+      "latest": "5aea654a14cb5d21ac04ebb57676a0873646e4c741615fbbd63b0cafcb830866",
+      "listing": null,
+      "purchase": "none",
+      "rating": 4,
+      "redaction": null,
+      "status": "visible",
+      "text": "Good battery life.",
+      "title": null,
+      "ts": 1771027200000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "3fbc3a79f7a62b98fa9b57694b9ced1362def18511aabe5a6a84957d00c355ba",
+      "author_name": "Bob",
+      "author_status": "revoked",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "c2c308653f72ba4df84936dfe1ab3c64077f1d223298c8faa49c0a66ceed4d7f",
+      "latest": "c2c308653f72ba4df84936dfe1ab3c64077f1d223298c8faa49c0a66ceed4d7f",
+      "listing": null,
+      "purchase": "none",
+      "rating": 5,
+      "redaction": null,
+      "status": "visible",
+      "text": "Great sound for the price.",
+      "title": null,
+      "ts": 1770940800000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "59e693378d6d8c0ee3afa975f22c878d7b97a3e0415151788501f968fc29ea54",
+      "author_name": "Ivan",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 7,
+        "counted": 5,
+        "reasons": {
+          "misleading": 2,
+          "spam": 5
+        }
+      },
+      "id": "0c332c4ceabf3254b0caa96cab57360617e7b3ce968bc83da1eb48e1a664562f",
+      "latest": "0c332c4ceabf3254b0caa96cab57360617e7b3ce968bc83da1eb48e1a664562f",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "hidden",
+      "text": "Left ear cup cracked after two days of normal use.",
+      "title": "Broke in two days",
+      "ts": 1770681600000,
+      "verified_purchase": false
+    }
+  ]
+}

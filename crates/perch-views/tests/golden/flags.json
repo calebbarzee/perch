@@ -1,0 +1,254 @@
+{
+  "headphones_hidden": [
+    {
+      "author": "a51f95d6c988f181ac520daa3f3bd7a85d678c6f7d21b6f7fc26935ba0e53cf4",
+      "author_name": "Community Member 9",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": "Box and serial number do not match the brand's.",
+      "reason": "counterfeit",
+      "record": "835a1862f4847cce1bbeed11ec6b659f526436247a9bc4b344fe88a598ac2b1e",
+      "ts": 1784592000000
+    },
+    {
+      "author": "e3222bef245cf4e59d4e3e661ea1fec07f9a01efd85a891bb87228d442de1775",
+      "author_name": "Community Member 10",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": "Box and serial number do not match the brand's.",
+      "reason": "counterfeit",
+      "record": "8fc0ea787cc9f1c451136136c684fe314ddd50c0b0eb9786296aea2930085288",
+      "ts": 1784592000001
+    },
+    {
+      "author": "fb873605948cefc8edfa1ee4284a05df0b945fb0121c9a8c3dcf6b51b794992d",
+      "author_name": "Community Member 11",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": "Box and serial number do not match the brand's.",
+      "reason": "fraud",
+      "record": "1857bd2d098d38f2da500f6283c0161981018f6d2fa34d4995381a88c594b8c4",
+      "ts": 1784592000002
+    },
+    {
+      "author": "94c18fa3c02cce8d83320a52bc46619dce0535931579318bc8e3ed270234d927",
+      "author_name": "Camper100",
+      "author_verified": false,
+      "counted": false,
+      "excluded_reason": "unverified",
+      "note": null,
+      "reason": "other",
+      "record": "16e6ae863fb4f5f3fab3131b389a31c07bdd6d2c122d3717d8e363ddc8b1d8a3",
+      "ts": 1784592000003
+    },
+    {
+      "author": "c8be75e137c757f299f816aa16b8457d87ab5b3a0cb7ee7bdaec33af12cce571",
+      "author_name": null,
+      "author_verified": false,
+      "counted": false,
+      "excluded_reason": "unverified",
+      "note": null,
+      "reason": "other",
+      "record": "62d7bfa27c6c683bb3b59f71a73400aa0339254bf92945225cbbd9034e92e156",
+      "ts": 1784592000004
+    },
+    {
+      "author": "ddb8b6f5bb2aa6712b699e50adcadcce1cf698ebcf327af83a68b7db2b5f7ce3",
+      "author_name": "Dave",
+      "author_verified": false,
+      "counted": false,
+      "excluded_reason": "unverified",
+      "note": null,
+      "reason": "other",
+      "record": "74ddceeb9cea32d9b0226898966c84e11f8fc7b5f2cc704bb2bf1b84a250ce39",
+      "ts": 1784592000005
+    },
+    {
+      "author": "87d7b1f8336b4d4d405e95d75167ad2c253b66b16490378a8a305f5197abd2a0",
+      "author_name": "Quick Gadgets",
+      "author_verified": true,
+      "counted": false,
+      "excluded_reason": "self",
+      "note": null,
+      "reason": "other",
+      "record": "7a9dface555968de171285ed5c3c0abb8a55ecd58ef93f3b3836667c33ea3264",
+      "ts": 1784592000006
+    }
+  ],
+  "headphones_hidden_review": [
+    {
+      "author": "34231636fce34da5dca65970e43ba86b44c7aaece0610274bf8e5ec05a9ddca9",
+      "author_name": "Community Member 3",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": null,
+      "reason": "spam",
+      "record": "41d5ea1bbb02d5161f0064609ce4d67d267847423b584c789f21c2e353bcc5ad",
+      "ts": 1784937600006
+    },
+    {
+      "author": "e8bf961dff77869f72cd12425040bb7038b686c845125c493f57238c2f6c73c2",
+      "author_name": "Community Member 4",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": null,
+      "reason": "spam",
+      "record": "ca8ca2083043782f6a46e3c6f35acb64eb4a0f6676d9c01cece022f5a4808b64",
+      "ts": 1784937600007
+    },
+    {
+      "author": "e649a3024a62a39cbcf1008ed51cc4cf8909d6749ba212421d1af9a9343fe6a4",
+      "author_name": "Community Member 5",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": null,
+      "reason": "spam",
+      "record": "2e8ff96238286fb98345eb68e4c6aa30056748953513af2860860f7efef2afc8",
+      "ts": 1784937600008
+    },
+    {
+      "author": "56037b6192fb4a7a65f3bd9746dbade42177fec4d4049ec1826beb550dddf4eb",
+      "author_name": "Community Member 6",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": null,
+      "reason": "spam",
+      "record": "40e47c03f4b1b7832facba275e7a31708daeb284c5310db304b9ab991dbe53ef",
+      "ts": 1784937600009
+    },
+    {
+      "author": "0e99bfe79d7c2410376f13b074969691e96b17fd28cd134e8fecfbe821f303ab",
+      "author_name": "Community Member 7",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": null,
+      "reason": "spam",
+      "record": "5e2ab8f09db9906c25fb7ea47107754284639a74c29475bd07838aa68de0f1a3",
+      "ts": 1784937600010
+    },
+    {
+      "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+      "author_name": "Goodshop",
+      "author_verified": true,
+      "counted": false,
+      "excluded_reason": "product_seller",
+      "note": "Customer misused the product.",
+      "reason": "misleading",
+      "record": "720d68dc02fe20aaec95b86fd36544e51742565457c13f77eac67bd04dcde7c3",
+      "ts": 1784937600011
+    },
+    {
+      "author": "f1c4c1b5c9d1e56aedd98a2680ca45876cc551d43c995e052fb9b70bf521434a",
+      "author_name": "Sound Corner",
+      "author_verified": true,
+      "counted": false,
+      "excluded_reason": "product_seller",
+      "note": "Customer misused the product.",
+      "reason": "misleading",
+      "record": "776d1f7743177687f1f56ee1a02513eeeb278b3cb81156ea57490b58bee12fc6",
+      "ts": 1784937600012
+    }
+  ],
+  "headphones_restored": [
+    {
+      "author": "839fdb0df55e09d27ee70d3afa9e4731c8149dd978907655b51076b5107998fd",
+      "author_name": "Community Member 0",
+      "author_verified": true,
+      "counted": false,
+      "excluded_reason": "retracted",
+      "note": "Looks like a grey import.",
+      "reason": "misleading",
+      "record": "95fee85efb078a1aeeafcc6995dc22251ab4e374e0c943e3fdce2b46d9d07c91",
+      "ts": 1784678400000
+    },
+    {
+      "author": "5d47701e07b42f0b6352ff7898d6def159c835d07b0cc11d1d51cb042a78fd74",
+      "author_name": "Community Member 1",
+      "author_verified": true,
+      "counted": false,
+      "excluded_reason": "retracted",
+      "note": "Looks like a grey import.",
+      "reason": "misleading",
+      "record": "a9c8f458c4372deeb5013d7495b5a647c52edc3a2a1ec93fef5f42e57276fbac",
+      "ts": 1784678400001
+    },
+    {
+      "author": "720949b9e4863b5e5193f9c63ca4612ad2f9fb9b5e969d1d351c5a4acb384d76",
+      "author_name": "Community Member 2",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": "Looks like a grey import.",
+      "reason": "misleading",
+      "record": "a41c53c9c19aa66785ab4f8179e2ec7be85e9f6f608341f5cfebfdcba3fe0844",
+      "ts": 1784678400002
+    }
+  ],
+  "lamp_alt": [
+    {
+      "author": "378779efaa7bfe5049a589a8388532f9a9b0d2c6f32d76f90ceb856dafc36a15",
+      "author_name": "Alice",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": null,
+      "reason": "counterfeit",
+      "record": "802376dade056a988707fe6ffcf858a7c06c563149c36608900df916ec6881ca",
+      "ts": 1785110400000
+    },
+    {
+      "author": "b5cc12ff3274b79042d0f202d89365364706d57762e41da045ca42f886247865",
+      "author_name": "Alice (phone)",
+      "author_verified": true,
+      "counted": false,
+      "excluded_reason": "duplicate_person",
+      "note": null,
+      "reason": "counterfeit",
+      "record": "4fde966e6a42eb921fc898b249d696ef90a05e2e214ba36129d0c4cafdff2417",
+      "ts": 1785110400001
+    }
+  ],
+  "lamp_shady": [
+    {
+      "author": "839fdb0df55e09d27ee70d3afa9e4731c8149dd978907655b51076b5107998fd",
+      "author_name": "Community Member 0",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": null,
+      "reason": "counterfeit",
+      "record": "1c7a897848aa8c3ad81f4e453d90efd0cc9fa4b01b76d549451bf5b4e2643628",
+      "ts": 1784851200000
+    },
+    {
+      "author": "5d47701e07b42f0b6352ff7898d6def159c835d07b0cc11d1d51cb042a78fd74",
+      "author_name": "Community Member 1",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": null,
+      "reason": "counterfeit",
+      "record": "f29077f2b128c0433c992e78398ea37370615ea244867457cfbc9aa69f6484f9",
+      "ts": 1784851200001
+    },
+    {
+      "author": "720949b9e4863b5e5193f9c63ca4612ad2f9fb9b5e969d1d351c5a4acb384d76",
+      "author_name": "Community Member 2",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "note": null,
+      "reason": "counterfeit",
+      "record": "dca0743e9ff6872931a0edc0c25b8203486dc436df3e1f0491226f4b019770a5",
+      "ts": 1784851200002
+    }
+  ]
+}

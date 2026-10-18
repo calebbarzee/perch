@@ -4,5 +4,15 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+description = "Deterministic Perch views and the Policy type"
 
 [dependencies]
+perch-core = { workspace = true }
+perch-store = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+perch-demo = { workspace = true }
+proptest = { workspace = true }

@@ -1,0 +1,1618 @@
+{
+  "2000090000018|price": [
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 109.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "gtin exact \"2000090000018\" +100",
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    }
+  ],
+  "2000090000018|rating_count": [
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 109.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "gtin exact \"2000090000018\" +100",
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    }
+  ],
+  "2000090000018|rating_mean": [
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 109.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "gtin exact \"2000090000018\" +100",
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    }
+  ],
+  "2000090000018|relevance": [
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 109.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "gtin exact \"2000090000018\" +100",
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    }
+  ],
+  "alder kettle|price": [
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 69.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "name exact \"alder\" +30",
+        "name exact \"kettle\" +30",
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    }
+  ],
+  "alder kettle|rating_count": [
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 69.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "name exact \"alder\" +30",
+        "name exact \"kettle\" +30",
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    }
+  ],
+  "alder kettle|rating_mean": [
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 69.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "name exact \"alder\" +30",
+        "name exact \"kettle\" +30",
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    }
+  ],
+  "alder kettle|relevance": [
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 69.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "name exact \"alder\" +30",
+        "name exact \"kettle\" +30",
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    }
+  ],
+  "kettle|price": [
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 39.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "name exact \"kettle\" +30",
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    }
+  ],
+  "kettle|rating_count": [
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 39.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "name exact \"kettle\" +30",
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    }
+  ],
+  "kettle|rating_mean": [
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 39.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "name exact \"kettle\" +30",
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    }
+  ],
+  "kettle|relevance": [
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 39.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "name exact \"kettle\" +30",
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    }
+  ],
+  "lx|price": [
+    {
+      "brand": "Lumen",
+      "category": "home/lighting",
+      "key": "mpn:lumen:lx-200",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Lumen LX-200 Desk Lamp",
+      "rating_count": 1,
+      "rating_mean": 2,
+      "rating_smoothed": 2.83,
+      "score": 28.33,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"lx\" +30",
+        "rating 2.83 from 1 verified-identity reviews -1.67",
+        "no price +0"
+      ]
+    }
+  ],
+  "lx|rating_count": [
+    {
+      "brand": "Lumen",
+      "category": "home/lighting",
+      "key": "mpn:lumen:lx-200",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Lumen LX-200 Desk Lamp",
+      "rating_count": 1,
+      "rating_mean": 2,
+      "rating_smoothed": 2.83,
+      "score": 28.33,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"lx\" +30",
+        "rating 2.83 from 1 verified-identity reviews -1.67",
+        "no price +0"
+      ]
+    }
+  ],
+  "lx|rating_mean": [
+    {
+      "brand": "Lumen",
+      "category": "home/lighting",
+      "key": "mpn:lumen:lx-200",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Lumen LX-200 Desk Lamp",
+      "rating_count": 1,
+      "rating_mean": 2,
+      "rating_smoothed": 2.83,
+      "score": 28.33,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"lx\" +30",
+        "rating 2.83 from 1 verified-identity reviews -1.67",
+        "no price +0"
+      ]
+    }
+  ],
+  "lx|relevance": [
+    {
+      "brand": "Lumen",
+      "category": "home/lighting",
+      "key": "mpn:lumen:lx-200",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Lumen LX-200 Desk Lamp",
+      "rating_count": 1,
+      "rating_mean": 2,
+      "rating_smoothed": 2.83,
+      "score": 28.33,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"lx\" +30",
+        "rating 2.83 from 1 verified-identity reviews -1.67",
+        "no price +0"
+      ]
+    }
+  ],
+  "nomatch|price": [],
+  "nomatch|rating_count": [],
+  "nomatch|rating_mean": [],
+  "nomatch|relevance": [],
+  "tent|price": [
+    {
+      "brand": "Fjord",
+      "category": "outdoor/tents",
+      "key": "gtin:02000090000032",
+      "min_price": {
+        "amount": 19999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Fjord Trail 2-Person Tent",
+      "rating_count": 5,
+      "rating_mean": 4.6,
+      "rating_smoothed": 3.8,
+      "score": 43,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"tent\" +30",
+        "rating 3.8 from 5 verified-identity reviews +8",
+        "has price +5"
+      ]
+    }
+  ],
+  "tent|rating_count": [
+    {
+      "brand": "Fjord",
+      "category": "outdoor/tents",
+      "key": "gtin:02000090000032",
+      "min_price": {
+        "amount": 19999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Fjord Trail 2-Person Tent",
+      "rating_count": 5,
+      "rating_mean": 4.6,
+      "rating_smoothed": 3.8,
+      "score": 43,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"tent\" +30",
+        "rating 3.8 from 5 verified-identity reviews +8",
+        "has price +5"
+      ]
+    }
+  ],
+  "tent|rating_mean": [
+    {
+      "brand": "Fjord",
+      "category": "outdoor/tents",
+      "key": "gtin:02000090000032",
+      "min_price": {
+        "amount": 19999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Fjord Trail 2-Person Tent",
+      "rating_count": 5,
+      "rating_mean": 4.6,
+      "rating_smoothed": 3.8,
+      "score": 43,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"tent\" +30",
+        "rating 3.8 from 5 verified-identity reviews +8",
+        "has price +5"
+      ]
+    }
+  ],
+  "tent|relevance": [
+    {
+      "brand": "Fjord",
+      "category": "outdoor/tents",
+      "key": "gtin:02000090000032",
+      "min_price": {
+        "amount": 19999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Fjord Trail 2-Person Tent",
+      "rating_count": 5,
+      "rating_mean": 4.6,
+      "rating_smoothed": 3.8,
+      "score": 43,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"tent\" +30",
+        "rating 3.8 from 5 verified-identity reviews +8",
+        "has price +5"
+      ]
+    }
+  ],
+  "voltix|price": [
+    {
+      "brand": "Voltix",
+      "category": "electronics/chargers",
+      "key": "gtin:02000090000049",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix 65 W USB-C Charger",
+      "rating_count": 1,
+      "rating_mean": 1,
+      "rating_smoothed": 2.67,
+      "score": 26.67,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"voltix\" +30",
+        "rating 2.67 from 1 verified-identity reviews -3.33",
+        "no price +0"
+      ]
+    },
+    {
+      "brand": "Voltix",
+      "category": "electronics/cables",
+      "key": "mpn:voltix:vx-c2m",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix USB-C Cable 2 m",
+      "rating_count": 0,
+      "rating_mean": null,
+      "rating_smoothed": 3,
+      "score": 30,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"voltix\" +30",
+        "rating 3 from 0 verified-identity reviews +0",
+        "no price +0"
+      ]
+    }
+  ],
+  "voltix|rating_count": [
+    {
+      "brand": "Voltix",
+      "category": "electronics/chargers",
+      "key": "gtin:02000090000049",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix 65 W USB-C Charger",
+      "rating_count": 1,
+      "rating_mean": 1,
+      "rating_smoothed": 2.67,
+      "score": 26.67,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"voltix\" +30",
+        "rating 2.67 from 1 verified-identity reviews -3.33",
+        "no price +0"
+      ]
+    },
+    {
+      "brand": "Voltix",
+      "category": "electronics/cables",
+      "key": "mpn:voltix:vx-c2m",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix USB-C Cable 2 m",
+      "rating_count": 0,
+      "rating_mean": null,
+      "rating_smoothed": 3,
+      "score": 30,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"voltix\" +30",
+        "rating 3 from 0 verified-identity reviews +0",
+        "no price +0"
+      ]
+    }
+  ],
+  "voltix|rating_mean": [
+    {
+      "brand": "Voltix",
+      "category": "electronics/cables",
+      "key": "mpn:voltix:vx-c2m",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix USB-C Cable 2 m",
+      "rating_count": 0,
+      "rating_mean": null,
+      "rating_smoothed": 3,
+      "score": 30,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"voltix\" +30",
+        "rating 3 from 0 verified-identity reviews +0",
+        "no price +0"
+      ]
+    },
+    {
+      "brand": "Voltix",
+      "category": "electronics/chargers",
+      "key": "gtin:02000090000049",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix 65 W USB-C Charger",
+      "rating_count": 1,
+      "rating_mean": 1,
+      "rating_smoothed": 2.67,
+      "score": 26.67,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"voltix\" +30",
+        "rating 2.67 from 1 verified-identity reviews -3.33",
+        "no price +0"
+      ]
+    }
+  ],
+  "voltix|relevance": [
+    {
+      "brand": "Voltix",
+      "category": "electronics/cables",
+      "key": "mpn:voltix:vx-c2m",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix USB-C Cable 2 m",
+      "rating_count": 0,
+      "rating_mean": null,
+      "rating_smoothed": 3,
+      "score": 30,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"voltix\" +30",
+        "rating 3 from 0 verified-identity reviews +0",
+        "no price +0"
+      ]
+    },
+    {
+      "brand": "Voltix",
+      "category": "electronics/chargers",
+      "key": "gtin:02000090000049",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix 65 W USB-C Charger",
+      "rating_count": 1,
+      "rating_mean": 1,
+      "rating_smoothed": 2.67,
+      "score": 26.67,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "name exact \"voltix\" +30",
+        "rating 2.67 from 1 verified-identity reviews -3.33",
+        "no price +0"
+      ]
+    }
+  ],
+  "|price": [
+    {
+      "brand": "Kestrel",
+      "category": "toys/puzzles",
+      "key": "gtin:00000020000912",
+      "min_price": {
+        "amount": 1999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Kestrel Wooden Puzzle 500",
+      "rating_count": 3,
+      "rating_mean": 4.33,
+      "rating_smoothed": 3.5,
+      "score": 10,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3.5 from 3 verified-identity reviews +5",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Clay & Kiln",
+      "category": "home/kitchen",
+      "key": "rec:4b00b2e61d067c8b3f259fd96ffb769865d56449234ee3351b089fa231f47597",
+      "min_price": {
+        "amount": 3400,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Hand-thrown Mug, Blue Glaze",
+      "rating_count": 1,
+      "rating_mean": 5,
+      "rating_smoothed": 3.33,
+      "score": 8.33,
+      "verified_purchase_count": 1,
+      "verified_purchase_mean": 5,
+      "why": [
+        "rating 3.33 from 1 verified-identity reviews +3.33",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Ironleaf",
+      "category": "home/lighting",
+      "key": "gtin:00200000000028",
+      "min_price": {
+        "amount": 3899,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Ironleaf LED Bulb I-101",
+      "rating_count": 5,
+      "rating_mean": 4.6,
+      "rating_smoothed": 3.8,
+      "score": 13,
+      "verified_purchase_count": 3,
+      "verified_purchase_mean": 4.33,
+      "why": [
+        "rating 3.8 from 5 verified-identity reviews +8",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 9.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Cobalt",
+      "category": "electronics/headphones",
+      "key": "gtin:00200090000021",
+      "min_price": {
+        "amount": 11999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Cobalt H-300 Wireless Headphones",
+      "rating_count": 3,
+      "rating_mean": 3.33,
+      "rating_smoothed": 3.12,
+      "score": 6.25,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3.12 from 3 verified-identity reviews +1.25",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Fjord",
+      "category": "outdoor/tents",
+      "key": "gtin:02000090000032",
+      "min_price": {
+        "amount": 19999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Fjord Trail 2-Person Tent",
+      "rating_count": 5,
+      "rating_mean": 4.6,
+      "rating_smoothed": 3.8,
+      "score": 13,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3.8 from 5 verified-identity reviews +8",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Cobalt",
+      "category": "electronics/headphones",
+      "key": "gtin:02000000000046",
+      "min_price": {
+        "amount": 27499,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Cobalt Wireless Headphones O-103",
+      "rating_count": 0,
+      "rating_mean": null,
+      "rating_smoothed": 3,
+      "score": 5,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3 from 0 verified-identity reviews +0",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Yarrow",
+      "category": "office/furniture",
+      "key": "gtin:02000000000015",
+      "min_price": {
+        "amount": 33099,
+        "currency": "GBP"
+      },
+      "moderation_status": "visible",
+      "name": "Yarrow Office Chair R-100",
+      "rating_count": 6,
+      "rating_mean": 4.5,
+      "rating_smoothed": 3.82,
+      "score": 13.18,
+      "verified_purchase_count": 5,
+      "verified_purchase_mean": 4.4,
+      "why": [
+        "rating 3.82 from 6 verified-identity reviews +8.18",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Granite",
+      "category": "home/vacuums",
+      "key": "gtin:02000000000039",
+      "min_price": {
+        "amount": 44699,
+        "currency": "GBP"
+      },
+      "moderation_status": "visible",
+      "name": "Granite Robot Vacuum A-102",
+      "rating_count": 4,
+      "rating_mean": 2.5,
+      "rating_smoothed": 2.78,
+      "score": 2.78,
+      "verified_purchase_count": 4,
+      "verified_purchase_mean": 2.5,
+      "why": [
+        "rating 2.78 from 4 verified-identity reviews -2.22",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Voltix",
+      "category": "electronics/chargers",
+      "key": "gtin:02000090000049",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix 65 W USB-C Charger",
+      "rating_count": 1,
+      "rating_mean": 1,
+      "rating_smoothed": 2.67,
+      "score": -3.33,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 2.67 from 1 verified-identity reviews -3.33",
+        "no price +0"
+      ]
+    },
+    {
+      "brand": "Lumen",
+      "category": "home/lighting",
+      "key": "mpn:lumen:lx-200",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Lumen LX-200 Desk Lamp",
+      "rating_count": 1,
+      "rating_mean": 2,
+      "rating_smoothed": 2.83,
+      "score": -1.67,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 2.83 from 1 verified-identity reviews -1.67",
+        "no price +0"
+      ]
+    },
+    {
+      "brand": "Voltix",
+      "category": "electronics/cables",
+      "key": "mpn:voltix:vx-c2m",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix USB-C Cable 2 m",
+      "rating_count": 0,
+      "rating_mean": null,
+      "rating_smoothed": 3,
+      "score": 0,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3 from 0 verified-identity reviews +0",
+        "no price +0"
+      ]
+    }
+  ],
+  "|rating_count": [
+    {
+      "brand": "Yarrow",
+      "category": "office/furniture",
+      "key": "gtin:02000000000015",
+      "min_price": {
+        "amount": 33099,
+        "currency": "GBP"
+      },
+      "moderation_status": "visible",
+      "name": "Yarrow Office Chair R-100",
+      "rating_count": 6,
+      "rating_mean": 4.5,
+      "rating_smoothed": 3.82,
+      "score": 13.18,
+      "verified_purchase_count": 5,
+      "verified_purchase_mean": 4.4,
+      "why": [
+        "rating 3.82 from 6 verified-identity reviews +8.18",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 9.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Ironleaf",
+      "category": "home/lighting",
+      "key": "gtin:00200000000028",
+      "min_price": {
+        "amount": 3899,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Ironleaf LED Bulb I-101",
+      "rating_count": 5,
+      "rating_mean": 4.6,
+      "rating_smoothed": 3.8,
+      "score": 13,
+      "verified_purchase_count": 3,
+      "verified_purchase_mean": 4.33,
+      "why": [
+        "rating 3.8 from 5 verified-identity reviews +8",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Fjord",
+      "category": "outdoor/tents",
+      "key": "gtin:02000090000032",
+      "min_price": {
+        "amount": 19999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Fjord Trail 2-Person Tent",
+      "rating_count": 5,
+      "rating_mean": 4.6,
+      "rating_smoothed": 3.8,
+      "score": 13,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3.8 from 5 verified-identity reviews +8",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Granite",
+      "category": "home/vacuums",
+      "key": "gtin:02000000000039",
+      "min_price": {
+        "amount": 44699,
+        "currency": "GBP"
+      },
+      "moderation_status": "visible",
+      "name": "Granite Robot Vacuum A-102",
+      "rating_count": 4,
+      "rating_mean": 2.5,
+      "rating_smoothed": 2.78,
+      "score": 2.78,
+      "verified_purchase_count": 4,
+      "verified_purchase_mean": 2.5,
+      "why": [
+        "rating 2.78 from 4 verified-identity reviews -2.22",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Kestrel",
+      "category": "toys/puzzles",
+      "key": "gtin:00000020000912",
+      "min_price": {
+        "amount": 1999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Kestrel Wooden Puzzle 500",
+      "rating_count": 3,
+      "rating_mean": 4.33,
+      "rating_smoothed": 3.5,
+      "score": 10,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3.5 from 3 verified-identity reviews +5",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Cobalt",
+      "category": "electronics/headphones",
+      "key": "gtin:00200090000021",
+      "min_price": {
+        "amount": 11999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Cobalt H-300 Wireless Headphones",
+      "rating_count": 3,
+      "rating_mean": 3.33,
+      "rating_smoothed": 3.12,
+      "score": 6.25,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3.12 from 3 verified-identity reviews +1.25",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Clay & Kiln",
+      "category": "home/kitchen",
+      "key": "rec:4b00b2e61d067c8b3f259fd96ffb769865d56449234ee3351b089fa231f47597",
+      "min_price": {
+        "amount": 3400,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Hand-thrown Mug, Blue Glaze",
+      "rating_count": 1,
+      "rating_mean": 5,
+      "rating_smoothed": 3.33,
+      "score": 8.33,
+      "verified_purchase_count": 1,
+      "verified_purchase_mean": 5,
+      "why": [
+        "rating 3.33 from 1 verified-identity reviews +3.33",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Lumen",
+      "category": "home/lighting",
+      "key": "mpn:lumen:lx-200",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Lumen LX-200 Desk Lamp",
+      "rating_count": 1,
+      "rating_mean": 2,
+      "rating_smoothed": 2.83,
+      "score": -1.67,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 2.83 from 1 verified-identity reviews -1.67",
+        "no price +0"
+      ]
+    },
+    {
+      "brand": "Voltix",
+      "category": "electronics/chargers",
+      "key": "gtin:02000090000049",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix 65 W USB-C Charger",
+      "rating_count": 1,
+      "rating_mean": 1,
+      "rating_smoothed": 2.67,
+      "score": -3.33,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 2.67 from 1 verified-identity reviews -3.33",
+        "no price +0"
+      ]
+    },
+    {
+      "brand": "Cobalt",
+      "category": "electronics/headphones",
+      "key": "gtin:02000000000046",
+      "min_price": {
+        "amount": 27499,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Cobalt Wireless Headphones O-103",
+      "rating_count": 0,
+      "rating_mean": null,
+      "rating_smoothed": 3,
+      "score": 5,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3 from 0 verified-identity reviews +0",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Voltix",
+      "category": "electronics/cables",
+      "key": "mpn:voltix:vx-c2m",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix USB-C Cable 2 m",
+      "rating_count": 0,
+      "rating_mean": null,
+      "rating_smoothed": 3,
+      "score": 0,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3 from 0 verified-identity reviews +0",
+        "no price +0"
+      ]
+    }
+  ],
+  "|rating_mean": [
+    {
+      "brand": "Yarrow",
+      "category": "office/furniture",
+      "key": "gtin:02000000000015",
+      "min_price": {
+        "amount": 33099,
+        "currency": "GBP"
+      },
+      "moderation_status": "visible",
+      "name": "Yarrow Office Chair R-100",
+      "rating_count": 6,
+      "rating_mean": 4.5,
+      "rating_smoothed": 3.82,
+      "score": 13.18,
+      "verified_purchase_count": 5,
+      "verified_purchase_mean": 4.4,
+      "why": [
+        "rating 3.82 from 6 verified-identity reviews +8.18",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Ironleaf",
+      "category": "home/lighting",
+      "key": "gtin:00200000000028",
+      "min_price": {
+        "amount": 3899,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Ironleaf LED Bulb I-101",
+      "rating_count": 5,
+      "rating_mean": 4.6,
+      "rating_smoothed": 3.8,
+      "score": 13,
+      "verified_purchase_count": 3,
+      "verified_purchase_mean": 4.33,
+      "why": [
+        "rating 3.8 from 5 verified-identity reviews +8",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Fjord",
+      "category": "outdoor/tents",
+      "key": "gtin:02000090000032",
+      "min_price": {
+        "amount": 19999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Fjord Trail 2-Person Tent",
+      "rating_count": 5,
+      "rating_mean": 4.6,
+      "rating_smoothed": 3.8,
+      "score": 13,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3.8 from 5 verified-identity reviews +8",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Kestrel",
+      "category": "toys/puzzles",
+      "key": "gtin:00000020000912",
+      "min_price": {
+        "amount": 1999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Kestrel Wooden Puzzle 500",
+      "rating_count": 3,
+      "rating_mean": 4.33,
+      "rating_smoothed": 3.5,
+      "score": 10,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3.5 from 3 verified-identity reviews +5",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 9.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Clay & Kiln",
+      "category": "home/kitchen",
+      "key": "rec:4b00b2e61d067c8b3f259fd96ffb769865d56449234ee3351b089fa231f47597",
+      "min_price": {
+        "amount": 3400,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Hand-thrown Mug, Blue Glaze",
+      "rating_count": 1,
+      "rating_mean": 5,
+      "rating_smoothed": 3.33,
+      "score": 8.33,
+      "verified_purchase_count": 1,
+      "verified_purchase_mean": 5,
+      "why": [
+        "rating 3.33 from 1 verified-identity reviews +3.33",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Cobalt",
+      "category": "electronics/headphones",
+      "key": "gtin:00200090000021",
+      "min_price": {
+        "amount": 11999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Cobalt H-300 Wireless Headphones",
+      "rating_count": 3,
+      "rating_mean": 3.33,
+      "rating_smoothed": 3.12,
+      "score": 6.25,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3.12 from 3 verified-identity reviews +1.25",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Cobalt",
+      "category": "electronics/headphones",
+      "key": "gtin:02000000000046",
+      "min_price": {
+        "amount": 27499,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Cobalt Wireless Headphones O-103",
+      "rating_count": 0,
+      "rating_mean": null,
+      "rating_smoothed": 3,
+      "score": 5,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3 from 0 verified-identity reviews +0",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Voltix",
+      "category": "electronics/cables",
+      "key": "mpn:voltix:vx-c2m",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix USB-C Cable 2 m",
+      "rating_count": 0,
+      "rating_mean": null,
+      "rating_smoothed": 3,
+      "score": 0,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3 from 0 verified-identity reviews +0",
+        "no price +0"
+      ]
+    },
+    {
+      "brand": "Lumen",
+      "category": "home/lighting",
+      "key": "mpn:lumen:lx-200",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Lumen LX-200 Desk Lamp",
+      "rating_count": 1,
+      "rating_mean": 2,
+      "rating_smoothed": 2.83,
+      "score": -1.67,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 2.83 from 1 verified-identity reviews -1.67",
+        "no price +0"
+      ]
+    },
+    {
+      "brand": "Granite",
+      "category": "home/vacuums",
+      "key": "gtin:02000000000039",
+      "min_price": {
+        "amount": 44699,
+        "currency": "GBP"
+      },
+      "moderation_status": "visible",
+      "name": "Granite Robot Vacuum A-102",
+      "rating_count": 4,
+      "rating_mean": 2.5,
+      "rating_smoothed": 2.78,
+      "score": 2.78,
+      "verified_purchase_count": 4,
+      "verified_purchase_mean": 2.5,
+      "why": [
+        "rating 2.78 from 4 verified-identity reviews -2.22",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Voltix",
+      "category": "electronics/chargers",
+      "key": "gtin:02000090000049",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix 65 W USB-C Charger",
+      "rating_count": 1,
+      "rating_mean": 1,
+      "rating_smoothed": 2.67,
+      "score": -3.33,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 2.67 from 1 verified-identity reviews -3.33",
+        "no price +0"
+      ]
+    }
+  ],
+  "|relevance": [
+    {
+      "brand": "Yarrow",
+      "category": "office/furniture",
+      "key": "gtin:02000000000015",
+      "min_price": {
+        "amount": 33099,
+        "currency": "GBP"
+      },
+      "moderation_status": "visible",
+      "name": "Yarrow Office Chair R-100",
+      "rating_count": 6,
+      "rating_mean": 4.5,
+      "rating_smoothed": 3.82,
+      "score": 13.18,
+      "verified_purchase_count": 5,
+      "verified_purchase_mean": 4.4,
+      "why": [
+        "rating 3.82 from 6 verified-identity reviews +8.18",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Ironleaf",
+      "category": "home/lighting",
+      "key": "gtin:00200000000028",
+      "min_price": {
+        "amount": 3899,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Ironleaf LED Bulb I-101",
+      "rating_count": 5,
+      "rating_mean": 4.6,
+      "rating_smoothed": 3.8,
+      "score": 13,
+      "verified_purchase_count": 3,
+      "verified_purchase_mean": 4.33,
+      "why": [
+        "rating 3.8 from 5 verified-identity reviews +8",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Fjord",
+      "category": "outdoor/tents",
+      "key": "gtin:02000090000032",
+      "min_price": {
+        "amount": 19999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Fjord Trail 2-Person Tent",
+      "rating_count": 5,
+      "rating_mean": 4.6,
+      "rating_smoothed": 3.8,
+      "score": 13,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3.8 from 5 verified-identity reviews +8",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Kestrel",
+      "category": "toys/puzzles",
+      "key": "gtin:00000020000912",
+      "min_price": {
+        "amount": 1999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Kestrel Wooden Puzzle 500",
+      "rating_count": 3,
+      "rating_mean": 4.33,
+      "rating_smoothed": 3.5,
+      "score": 10,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3.5 from 3 verified-identity reviews +5",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Alder",
+      "category": "kitchen/kettles",
+      "key": "gtin:02000090000018",
+      "min_price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Alder Kettle 1.7 L",
+      "rating_count": 6,
+      "rating_mean": 3.83,
+      "rating_smoothed": 3.45,
+      "score": 9.55,
+      "verified_purchase_count": 2,
+      "verified_purchase_mean": 4.5,
+      "why": [
+        "rating 3.45 from 6 verified-identity reviews +4.55",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Clay & Kiln",
+      "category": "home/kitchen",
+      "key": "rec:4b00b2e61d067c8b3f259fd96ffb769865d56449234ee3351b089fa231f47597",
+      "min_price": {
+        "amount": 3400,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Hand-thrown Mug, Blue Glaze",
+      "rating_count": 1,
+      "rating_mean": 5,
+      "rating_smoothed": 3.33,
+      "score": 8.33,
+      "verified_purchase_count": 1,
+      "verified_purchase_mean": 5,
+      "why": [
+        "rating 3.33 from 1 verified-identity reviews +3.33",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Cobalt",
+      "category": "electronics/headphones",
+      "key": "gtin:00200090000021",
+      "min_price": {
+        "amount": 11999,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Cobalt H-300 Wireless Headphones",
+      "rating_count": 3,
+      "rating_mean": 3.33,
+      "rating_smoothed": 3.12,
+      "score": 6.25,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3.12 from 3 verified-identity reviews +1.25",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Cobalt",
+      "category": "electronics/headphones",
+      "key": "gtin:02000000000046",
+      "min_price": {
+        "amount": 27499,
+        "currency": "EUR"
+      },
+      "moderation_status": "visible",
+      "name": "Cobalt Wireless Headphones O-103",
+      "rating_count": 0,
+      "rating_mean": null,
+      "rating_smoothed": 3,
+      "score": 5,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3 from 0 verified-identity reviews +0",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Granite",
+      "category": "home/vacuums",
+      "key": "gtin:02000000000039",
+      "min_price": {
+        "amount": 44699,
+        "currency": "GBP"
+      },
+      "moderation_status": "visible",
+      "name": "Granite Robot Vacuum A-102",
+      "rating_count": 4,
+      "rating_mean": 2.5,
+      "rating_smoothed": 2.78,
+      "score": 2.78,
+      "verified_purchase_count": 4,
+      "verified_purchase_mean": 2.5,
+      "why": [
+        "rating 2.78 from 4 verified-identity reviews -2.22",
+        "has price +5"
+      ]
+    },
+    {
+      "brand": "Voltix",
+      "category": "electronics/cables",
+      "key": "mpn:voltix:vx-c2m",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix USB-C Cable 2 m",
+      "rating_count": 0,
+      "rating_mean": null,
+      "rating_smoothed": 3,
+      "score": 0,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 3 from 0 verified-identity reviews +0",
+        "no price +0"
+      ]
+    },
+    {
+      "brand": "Lumen",
+      "category": "home/lighting",
+      "key": "mpn:lumen:lx-200",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Lumen LX-200 Desk Lamp",
+      "rating_count": 1,
+      "rating_mean": 2,
+      "rating_smoothed": 2.83,
+      "score": -1.67,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 2.83 from 1 verified-identity reviews -1.67",
+        "no price +0"
+      ]
+    },
+    {
+      "brand": "Voltix",
+      "category": "electronics/chargers",
+      "key": "gtin:02000090000049",
+      "min_price": null,
+      "moderation_status": "visible",
+      "name": "Voltix 65 W USB-C Charger",
+      "rating_count": 1,
+      "rating_mean": 1,
+      "rating_smoothed": 2.67,
+      "score": -3.33,
+      "verified_purchase_count": 0,
+      "verified_purchase_mean": null,
+      "why": [
+        "rating 2.67 from 1 verified-identity reviews -3.33",
+        "no price +0"
+      ]
+    }
+  ]
+}

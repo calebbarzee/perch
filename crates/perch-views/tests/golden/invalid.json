@@ -1,0 +1,30 @@
+[
+  [
+    "17ba81edacc52585eb5b173397eb032f1c644c81e61b7b5e05fc22e02ef3ab35",
+    "schema:rating"
+  ],
+  [
+    "19e33f4744f06e44e8388445c9b0c94c26c139d386f3e9239d6a94c475a42a84",
+    "schema:url"
+  ],
+  [
+    "1a32ee25c952c20f2a1b82a708a01bd12bb17de9e063ada7d834c4d1f708f101",
+    "appeal:author"
+  ],
+  [
+    "407adee16d4ebda7048e1d75b80226a9cdb95646a58b3f8c6cb166baadab9817",
+    "retract:author"
+  ],
+  [
+    "42baaf43c38ede84cde1ec7e8c4c9c2314aad9267dd7c18c4c1b5d2cb19df673",
+    "replaces:author"
+  ],
+  [
+    "b5d8439cab3273df35f90843334d546aa55c77c53419e5e032f2f0eed7286f56",
+    "schema:gtin"
+  ],
+  [
+    "e017dddd1f51cb5cd6b87d78e2d567adca51916af9c35e4fe9f47e6019932751",
+    "fixed:product"
+  ]
+]

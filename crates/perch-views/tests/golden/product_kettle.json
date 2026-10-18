@@ -1,0 +1,871 @@
+{
+  "attributes": {
+    "capacity": {
+      "conflicts": [],
+      "sources": [
+        {
+          "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+          "record": "bdeb21780c8b8731db13f5c3d80741b65acfe1783e7bbce9c2ad3da8eb9b6457",
+          "verified": true
+        },
+        {
+          "author": "64159d9e1ae8190d4e0724f352fa2cd0174b624b5133923540b26fe364ab54c6",
+          "record": "2ea8beb1a5208b34c502dd9b9157d3865d07c6e875b2d0346d1c4fd314380c4f",
+          "verified": false
+        },
+        {
+          "author": "8a00b849b0cf558ef0ce1a39ebc3b03cd92653dac3623bc2b790dbad7e645512",
+          "record": "1ea6287208b6a74193f9bc9dca1a37eed1bb7d42ea54a458369bcbf2cb86aa8d",
+          "verified": false
+        }
+      ],
+      "value": "1.7 L"
+    },
+    "color": {
+      "conflicts": [],
+      "sources": [
+        {
+          "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+          "record": "bdeb21780c8b8731db13f5c3d80741b65acfe1783e7bbce9c2ad3da8eb9b6457",
+          "verified": true
+        }
+      ],
+      "value": "steel"
+    },
+    "material": {
+      "conflicts": [],
+      "sources": [
+        {
+          "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+          "record": "bdeb21780c8b8731db13f5c3d80741b65acfe1783e7bbce9c2ad3da8eb9b6457",
+          "verified": true
+        }
+      ],
+      "value": "stainless steel"
+    },
+    "power": {
+      "conflicts": [
+        {
+          "sources": [
+            {
+              "author": "64159d9e1ae8190d4e0724f352fa2cd0174b624b5133923540b26fe364ab54c6",
+              "record": "2ea8beb1a5208b34c502dd9b9157d3865d07c6e875b2d0346d1c4fd314380c4f",
+              "verified": false
+            },
+            {
+              "author": "8a00b849b0cf558ef0ce1a39ebc3b03cd92653dac3623bc2b790dbad7e645512",
+              "record": "1ea6287208b6a74193f9bc9dca1a37eed1bb7d42ea54a458369bcbf2cb86aa8d",
+              "verified": false
+            }
+          ],
+          "value": "3000 W"
+        }
+      ],
+      "sources": [
+        {
+          "author": "59e693378d6d8c0ee3afa975f22c878d7b97a3e0415151788501f968fc29ea54",
+          "record": "ee997f6a403493cd2cdc1b3556cafdaf9bf41dc2fc2949edaf9ad111e9e28168",
+          "verified": true
+        },
+        {
+          "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+          "record": "bdeb21780c8b8731db13f5c3d80741b65acfe1783e7bbce9c2ad3da8eb9b6457",
+          "verified": true
+        }
+      ],
+      "value": "2200 W"
+    }
+  },
+  "brand": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "59e693378d6d8c0ee3afa975f22c878d7b97a3e0415151788501f968fc29ea54",
+        "record": "ee997f6a403493cd2cdc1b3556cafdaf9bf41dc2fc2949edaf9ad111e9e28168",
+        "verified": true
+      },
+      {
+        "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+        "record": "bdeb21780c8b8731db13f5c3d80741b65acfe1783e7bbce9c2ad3da8eb9b6457",
+        "verified": true
+      },
+      {
+        "author": "64159d9e1ae8190d4e0724f352fa2cd0174b624b5133923540b26fe364ab54c6",
+        "record": "2ea8beb1a5208b34c502dd9b9157d3865d07c6e875b2d0346d1c4fd314380c4f",
+        "verified": false
+      },
+      {
+        "author": "8a00b849b0cf558ef0ce1a39ebc3b03cd92653dac3623bc2b790dbad7e645512",
+        "record": "1ea6287208b6a74193f9bc9dca1a37eed1bb7d42ea54a458369bcbf2cb86aa8d",
+        "verified": false
+      }
+    ],
+    "value": "Alder"
+  },
+  "category": {
+    "conflicts": [
+      {
+        "sources": [
+          {
+            "author": "64159d9e1ae8190d4e0724f352fa2cd0174b624b5133923540b26fe364ab54c6",
+            "record": "2ea8beb1a5208b34c502dd9b9157d3865d07c6e875b2d0346d1c4fd314380c4f",
+            "verified": false
+          },
+          {
+            "author": "8a00b849b0cf558ef0ce1a39ebc3b03cd92653dac3623bc2b790dbad7e645512",
+            "record": "1ea6287208b6a74193f9bc9dca1a37eed1bb7d42ea54a458369bcbf2cb86aa8d",
+            "verified": false
+          }
+        ],
+        "value": "kitchen/appliances"
+      }
+    ],
+    "sources": [
+      {
+        "author": "59e693378d6d8c0ee3afa975f22c878d7b97a3e0415151788501f968fc29ea54",
+        "record": "ee997f6a403493cd2cdc1b3556cafdaf9bf41dc2fc2949edaf9ad111e9e28168",
+        "verified": true
+      },
+      {
+        "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+        "record": "bdeb21780c8b8731db13f5c3d80741b65acfe1783e7bbce9c2ad3da8eb9b6457",
+        "verified": true
+      }
+    ],
+    "value": "kitchen/kettles"
+  },
+  "description": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+        "record": "bdeb21780c8b8731db13f5c3d80741b65acfe1783e7bbce9c2ad3da8eb9b6457",
+        "verified": true
+      }
+    ],
+    "value": "Electric kettle, 1.7 litres, automatic shut-off, limescale filter."
+  },
+  "excluded_sources": {
+    "forked": 0,
+    "hidden": 0,
+    "retracted": 0,
+    "revoked": 0,
+    "unavailable": 0
+  },
+  "gtin": "02000090000018",
+  "images": [
+    {
+      "author_verified": true,
+      "sha256": "f61c9e3bf7d3dcd23112e61237473f5f90e936c0dc52a53c7ee1182483980239",
+      "url": "https://www.goodshop.example/img/alder-kettle.jpg"
+    },
+    {
+      "author_verified": false,
+      "sha256": null,
+      "url": "https://bargainbarn.example/img/kettle.jpg"
+    }
+  ],
+  "key": "gtin:02000090000018",
+  "listings": [
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": null,
+      "domain_verified": false,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "f9eb450928a3333bdf2bd559c782ddc40dbe17733d2706f90d4f4248161ddc34",
+      "latest": "f9eb450928a3333bdf2bd559c782ddc40dbe17733d2706f90d4f4248161ddc34",
+      "location": null,
+      "price": {
+        "amount": 1999,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 1999,
+          "currency": "EUR",
+          "record": "f9eb450928a3333bdf2bd559c782ddc40dbe17733d2706f90d4f4248161ddc34",
+          "source": "seller",
+          "ts": 1768089600004
+        },
+        {
+          "amount": 1999,
+          "currency": "EUR",
+          "record": "5848d18ad269545a06755a929795c4b1513f44fe5b89460ad3dae06ac5616c9f",
+          "source": "observation",
+          "ts": 1770681000001
+        }
+      ],
+      "product": "gtin:02000090000018",
+      "redaction": null,
+      "seller": "bf1f528ac533c4c97f214855f72d3e15d80d386c4a964aec4082d2c58233b3b8",
+      "seller_name": "G00dshop Deals",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": false,
+      "ships_to": [],
+      "status": "visible",
+      "title": "Alder Kettle 1.7 L - 60% OFF TODAY",
+      "updated_ts": 1768089600004,
+      "url": "https://goodshop-deals.example/alder-kettle-sale"
+    },
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": null,
+      "domain_verified": false,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
+      "latest": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
+      "location": null,
+      "price": {
+        "amount": 3999,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 3999,
+          "currency": "EUR",
+          "record": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
+          "source": "seller",
+          "ts": 1768089600003
+        }
+      ],
+      "product": "gtin:02000090000018",
+      "redaction": null,
+      "seller": "64159d9e1ae8190d4e0724f352fa2cd0174b624b5133923540b26fe364ab54c6",
+      "seller_name": "Bargain Barn",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": false,
+      "ships_to": [],
+      "status": "visible",
+      "title": null,
+      "updated_ts": 1768089600003,
+      "url": "https://bargainbarn.example/kettle"
+    },
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "goodshop.example",
+        "expires": 1830297600000
+      },
+      "domain_verified": true,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "9fde227c3972c816116bbad75591eecefeb83afd2e13a2d5013f837161ae00dc",
+      "latest": "30445f22c095a963f6852faa11a4437a52bd9eb6798fd04f9f836976d3ba4523",
+      "location": null,
+      "price": {
+        "amount": 4799,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 4999,
+          "currency": "EUR",
+          "record": "9fde227c3972c816116bbad75591eecefeb83afd2e13a2d5013f837161ae00dc",
+          "source": "seller",
+          "ts": 1768089600000
+        },
+        {
+          "amount": 4999,
+          "currency": "EUR",
+          "record": "7b0d8d3d0f16f5d61ae17192b5ec40159d65ec38277c5e93d22116e1464409c0",
+          "source": "observation",
+          "ts": 1769814000000
+        },
+        {
+          "amount": 4499,
+          "currency": "EUR",
+          "record": "83ece7aef2fa0bddc3b8a4a98323b8757f52b17ed6daa35d4800960614c17c7a",
+          "source": "seller",
+          "ts": 1772409600000
+        },
+        {
+          "amount": 4499,
+          "currency": "EUR",
+          "record": "699770895c8ae562797cb274c96c2143361a5f6092690189c1ac3065c5fdd0c6",
+          "source": "observation",
+          "ts": 1774998000000
+        },
+        {
+          "amount": 4799,
+          "currency": "EUR",
+          "record": "30445f22c095a963f6852faa11a4437a52bd9eb6798fd04f9f836976d3ba4523",
+          "source": "seller",
+          "ts": 1777593600000
+        },
+        {
+          "amount": 4799,
+          "currency": "EUR",
+          "record": "468bd71605bd9c31a3a47273d35018ce5ac3e7885a7b71e72037e5469b91b1e8",
+          "source": "observation",
+          "ts": 1780182000016
+        }
+      ],
+      "product": "gtin:02000090000018",
+      "redaction": null,
+      "seller": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+      "seller_name": "Goodshop",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "visible",
+      "title": "Alder Kettle 1.7 L, stainless",
+      "updated_ts": 1777593600000,
+      "url": "https://www.goodshop.example/p/alder-kettle-1-7"
+    },
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "hearthandtrail.example",
+        "expires": 1830297600000
+      },
+      "domain_verified": true,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "3e85b9af5cbfad5999b5522e5ca52be4c20ea45472738e4e8a343647e9891615",
+      "latest": "3e85b9af5cbfad5999b5522e5ca52be4c20ea45472738e4e8a343647e9891615",
+      "location": null,
+      "price": {
+        "amount": 4299,
+        "currency": "GBP"
+      },
+      "price_history": [
+        {
+          "amount": 4299,
+          "currency": "GBP",
+          "record": "3e85b9af5cbfad5999b5522e5ca52be4c20ea45472738e4e8a343647e9891615",
+          "source": "seller",
+          "ts": 1768089600002
+        }
+      ],
+      "product": "gtin:02000090000018",
+      "redaction": null,
+      "seller": "3348943ae67709f50d40e0ed00992c46ea99dd9019d09b36dd1ca96747c7033f",
+      "seller_name": "Hearth & Trail",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "visible",
+      "title": null,
+      "updated_ts": 1768089600002,
+      "url": "https://hearthandtrail.example/uk/alder-kettle"
+    },
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "hearthandtrail.example",
+        "expires": 1830297600000
+      },
+      "domain_verified": true,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "b7952b85bd40bafea066e3c14bf36df7bd1061a3a72fb180d950956ba00c6acc",
+      "latest": "8f3d109008766ae90710b66ced3b70dd8993dc82e6eb5406be478a4f20f766bf",
+      "location": null,
+      "price": {
+        "amount": 5199,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 5299,
+          "currency": "EUR",
+          "record": "b7952b85bd40bafea066e3c14bf36df7bd1061a3a72fb180d950956ba00c6acc",
+          "source": "seller",
+          "ts": 1768089600001
+        },
+        {
+          "amount": 5199,
+          "currency": "EUR",
+          "record": "8f3d109008766ae90710b66ced3b70dd8993dc82e6eb5406be478a4f20f766bf",
+          "source": "seller",
+          "ts": 1772841600000
+        }
+      ],
+      "product": "gtin:02000090000018",
+      "redaction": null,
+      "seller": "3348943ae67709f50d40e0ed00992c46ea99dd9019d09b36dd1ca96747c7033f",
+      "seller_name": "Hearth & Trail",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "retracted",
+      "title": null,
+      "updated_ts": 1772841600000,
+      "url": "https://hearthandtrail.example/alder-kettle"
+    }
+  ],
+  "moderation": {
+    "appeal": null,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "redaction": null,
+    "status": "visible"
+  },
+  "mpn": null,
+  "name": {
+    "conflicts": [
+      {
+        "sources": [
+          {
+            "author": "64159d9e1ae8190d4e0724f352fa2cd0174b624b5133923540b26fe364ab54c6",
+            "record": "2ea8beb1a5208b34c502dd9b9157d3865d07c6e875b2d0346d1c4fd314380c4f",
+            "verified": false
+          },
+          {
+            "author": "8a00b849b0cf558ef0ce1a39ebc3b03cd92653dac3623bc2b790dbad7e645512",
+            "record": "1ea6287208b6a74193f9bc9dca1a37eed1bb7d42ea54a458369bcbf2cb86aa8d",
+            "verified": false
+          }
+        ],
+        "value": "Alder Kettle 1.7L Stainless Steel 3000W"
+      }
+    ],
+    "sources": [
+      {
+        "author": "59e693378d6d8c0ee3afa975f22c878d7b97a3e0415151788501f968fc29ea54",
+        "record": "ee997f6a403493cd2cdc1b3556cafdaf9bf41dc2fc2949edaf9ad111e9e28168",
+        "verified": true
+      },
+      {
+        "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+        "record": "bdeb21780c8b8731db13f5c3d80741b65acfe1783e7bbce9c2ad3da8eb9b6457",
+        "verified": true
+      }
+    ],
+    "value": "Alder Kettle 1.7 L"
+  },
+  "price_range": {
+    "EUR": {
+      "count": 1,
+      "excluded_unverified_domain": 2,
+      "max": 4799,
+      "median": 4799,
+      "min": 4799
+    },
+    "GBP": {
+      "count": 1,
+      "excluded_unverified_domain": 0,
+      "max": 4299,
+      "median": 4299,
+      "min": 4299
+    }
+  },
+  "ratings": {
+    "count": 8,
+    "excluded": {
+      "forked": 1,
+      "hidden": 0,
+      "retracted": 1,
+      "revoked": 0,
+      "seller": 1,
+      "superseded": 1,
+      "unavailable": 1
+    },
+    "histogram": [
+      0,
+      2,
+      1,
+      2,
+      3
+    ],
+    "mean": 3.75,
+    "verified_identity": {
+      "count": 6,
+      "histogram": [
+        0,
+        2,
+        0,
+        1,
+        3
+      ],
+      "mean": 3.83
+    },
+    "verified_purchase": {
+      "count": 2,
+      "histogram": [
+        0,
+        0,
+        0,
+        1,
+        1
+      ],
+      "mean": 4.5
+    }
+  },
+  "reviews": [
+    {
+      "appeal": null,
+      "author": "074b3e84cc0259214d4f329f485d0a4a416234e4400a6853a6369117576f3eb7",
+      "author_name": "Carol",
+      "author_status": "retired",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "d399af62d0e9986b807943621b0038b4e8bae1f69c4ec7e709636e70f39eafa2",
+      "latest": "1d9e535177c3a0fefed42cbb70ed5708e334b937635e2877a038369b04a6416f",
+      "listing": "7b47b41677754036d78c25d9f7d0cbcf26adb3fb2cb1b75422bb494065474762",
+      "purchase": "seller_unverified",
+      "rating": 2,
+      "redaction": null,
+      "status": "visible",
+      "text": "Update: the switch broke after three months.",
+      "title": "Switch broke",
+      "ts": 1775433600000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "fb873605948cefc8edfa1ee4284a05df0b945fb0121c9a8c3dcf6b51b794992d",
+      "author_name": "Community Member 11",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": false,
+      "excluded_reason": "retracted",
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "abd3bf1666a9550ee0144a54d367da020b32d600589cc701fb799d6e267a67a2",
+      "latest": "abd3bf1666a9550ee0144a54d367da020b32d600589cc701fb799d6e267a67a2",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "retracted",
+      "text": "Wrong product review, sorry.",
+      "title": null,
+      "ts": 1770508800000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "ddb8b6f5bb2aa6712b699e50adcadcce1cf698ebcf327af83a68b7db2b5f7ce3",
+      "author_name": "Dave",
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "88c5c37515989c4278911ec7effe172a68c1255c4b02f6c0a746f820bc7398e8",
+      "latest": "88c5c37515989c4278911ec7effe172a68c1255c4b02f6c0a746f820bc7398e8",
+      "listing": null,
+      "purchase": "none",
+      "rating": 3,
+      "redaction": null,
+      "status": "visible",
+      "text": "Average.",
+      "title": null,
+      "ts": 1770422400000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "6d7061427f4370c9c6fa9a0d7ce5b02b7d66cf10a459a23c3eb1874dc6565c07",
+      "author_name": "Mallory",
+      "author_status": "forked",
+      "author_verified": true,
+      "counted": false,
+      "excluded_reason": "forked",
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "507136064ee0e57746a8f22960297558c156506e8e67d2f63f9ee0150743322d",
+      "latest": "507136064ee0e57746a8f22960297558c156506e8e67d2f63f9ee0150743322d",
+      "listing": null,
+      "purchase": "none",
+      "rating": 2,
+      "redaction": null,
+      "status": "visible",
+      "text": "Meh.",
+      "title": null,
+      "ts": 1770336000000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "46cca90f08e946206308ae612727a20e867833c09db57cd6f095b613010a72c4",
+      "author_name": "Frank",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": false,
+      "excluded_reason": "unavailable",
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "b61b4be0849489c6a403c258d7d2bc2513d41891bee3d22bd21da54c8d176b63",
+      "latest": "b61b4be0849489c6a403c258d7d2bc2513d41891bee3d22bd21da54c8d176b63",
+      "listing": null,
+      "purchase": "none",
+      "rating": null,
+      "redaction": {
+        "by": "06828685b1db91e859894abd12450775c275eea5eb13de3f7da0d7e356d66666",
+        "note": "Removed a phone number and a home address.",
+        "product": "gtin:02000090000018",
+        "reason": "personal_data",
+        "record": "ac9b8ace12c61b5f97e07d80ec5d0eeb5f49b961e1e52d5980cc1f7a881e7e7d"
+      },
+      "status": "unavailable",
+      "text": null,
+      "title": null,
+      "ts": 1770249600000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "e3222bef245cf4e59d4e3e661ea1fec07f9a01efd85a891bb87228d442de1775",
+      "author_name": "Community Member 10",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "d4e3fb9fd03365806fe04389bfb1c9fd07425164d4423cdd0cb9ab47335c3524",
+      "latest": "d4e3fb9fd03365806fe04389bfb1c9fd07425164d4423cdd0cb9ab47335c3524",
+      "listing": "b7952b85bd40bafea066e3c14bf36df7bd1061a3a72fb180d950956ba00c6acc",
+      "purchase": "verified",
+      "rating": 4,
+      "redaction": null,
+      "status": "visible",
+      "text": "Solid. The seller later removed the listing.",
+      "title": null,
+      "ts": 1770163200000,
+      "verified_purchase": true
+    },
+    {
+      "appeal": null,
+      "author": "a51f95d6c988f181ac520daa3f3bd7a85d678c6f7d21b6f7fc26935ba0e53cf4",
+      "author_name": "Community Member 9",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "109eb0c4801518d53c2239b72975e06e1267019c4cf715ac97e912909c5bd5a2",
+      "latest": "109eb0c4801518d53c2239b72975e06e1267019c4cf715ac97e912909c5bd5a2",
+      "listing": "9fde227c3972c816116bbad75591eecefeb83afd2e13a2d5013f837161ae00dc",
+      "purchase": "receipt_invalid",
+      "rating": 5,
+      "redaction": null,
+      "status": "visible",
+      "text": "Perfect.",
+      "title": null,
+      "ts": 1770076800000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "6a4bf07b8110cbb6f379e8c6370a056447ca22c8949a1bf9c05a6752706b81ed",
+      "author_name": "Goodshop",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": false,
+      "excluded_reason": "seller",
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "5566076aab69d701a0756035f72297722c4e48d43d4fd5b25e6cac151121c648",
+      "latest": "5566076aab69d701a0756035f72297722c4e48d43d4fd5b25e6cac151121c648",
+      "listing": "9fde227c3972c816116bbad75591eecefeb83afd2e13a2d5013f837161ae00dc",
+      "purchase": "self",
+      "rating": 5,
+      "redaction": null,
+      "status": "visible",
+      "text": "Customers love it.",
+      "title": "Our best seller",
+      "ts": 1769990400000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "8a00b849b0cf558ef0ce1a39ebc3b03cd92653dac3623bc2b790dbad7e645512",
+      "author_name": "Henry",
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "16ebf14425f59a0ffa05792028ad4b1ff0503153c75ccaeebc12f4f627183cb0",
+      "latest": "16ebf14425f59a0ffa05792028ad4b1ff0503153c75ccaeebc12f4f627183cb0",
+      "listing": "9fde227c3972c816116bbad75591eecefeb83afd2e13a2d5013f837161ae00dc",
+      "purchase": "buyer_unverified",
+      "rating": 4,
+      "redaction": null,
+      "status": "visible",
+      "text": "Good kettle, fast delivery.",
+      "title": null,
+      "ts": 1769904000000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "59e693378d6d8c0ee3afa975f22c878d7b97a3e0415151788501f968fc29ea54",
+      "author_name": "Ivan",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "e9bf3a9337e94a23863c32458f47806638747fb7ee8ad9d8725cb6f93a663571",
+      "latest": "e9bf3a9337e94a23863c32458f47806638747fb7ee8ad9d8725cb6f93a663571",
+      "listing": "e0102edc870197bb1f61b0e91b225eb6bf215b9fad18d09ebc43a937839e214d",
+      "purchase": "wrong_product",
+      "rating": 2,
+      "redaction": null,
+      "status": "visible",
+      "text": "Limescale after a month.",
+      "title": null,
+      "ts": 1769644800000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "706d9fa43a59dcb14163c5a9843d9e33fa7c930f4a62201977c44852cba2ee26",
+      "author_name": "Judy",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "0ee409aa5efd32eb1624dfdb33f12bbe7404d1da97c98ed862f043034f59e3f8",
+      "latest": "0ee409aa5efd32eb1624dfdb33f12bbe7404d1da97c98ed862f043034f59e3f8",
+      "listing": "9fde227c3972c816116bbad75591eecefeb83afd2e13a2d5013f837161ae00dc",
+      "purchase": "receipt_invalid",
+      "rating": 5,
+      "redaction": null,
+      "status": "visible",
+      "text": "Great kettle.",
+      "title": null,
+      "ts": 1769558400000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "378779efaa7bfe5049a589a8388532f9a9b0d2c6f32d76f90ceb856dafc36a15",
+      "author_name": "Alice",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "28ec4be7c2f9c8e3674aa404bd454b1edac6e5d0ba06f92c93a779d0a6b42e90",
+      "latest": "28ec4be7c2f9c8e3674aa404bd454b1edac6e5d0ba06f92c93a779d0a6b42e90",
+      "listing": "9fde227c3972c816116bbad75591eecefeb83afd2e13a2d5013f837161ae00dc",
+      "purchase": "verified",
+      "rating": 5,
+      "redaction": null,
+      "status": "visible",
+      "text": "Boils a full kettle in under four minutes. Lid is fine after a week.",
+      "title": "Quiet and fast",
+      "ts": 1769385600000,
+      "verified_purchase": true
+    },
+    {
+      "appeal": null,
+      "author": "b5cc12ff3274b79042d0f202d89365364706d57762e41da045ca42f886247865",
+      "author_name": "Alice (phone)",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": false,
+      "excluded_reason": "superseded",
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "bc15a31e2df6b34cdca55f5f20c54a3da2a2da51df4d0504291021bf623cfa24",
+      "latest": "bc15a31e2df6b34cdca55f5f20c54a3da2a2da51df4d0504291021bf623cfa24",
+      "listing": null,
+      "purchase": "none",
+      "rating": 3,
+      "redaction": null,
+      "status": "visible",
+      "text": "First impressions: boils fast, lid feels loose.",
+      "title": null,
+      "ts": 1769299200000,
+      "verified_purchase": false
+    }
+  ]
+}

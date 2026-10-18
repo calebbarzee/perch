@@ -1,0 +1,731 @@
+{
+  "attributes": {
+    "season": {
+      "conflicts": [],
+      "sources": [
+        {
+          "author": "3348943ae67709f50d40e0ed00992c46ea99dd9019d09b36dd1ca96747c7033f",
+          "record": "153949d8b1b8df703e7663b54897cc6d6a39bff6b3de6ca736f3e7e333e7bb48",
+          "verified": true
+        }
+      ],
+      "value": "3"
+    },
+    "weight": {
+      "conflicts": [],
+      "sources": [
+        {
+          "author": "3348943ae67709f50d40e0ed00992c46ea99dd9019d09b36dd1ca96747c7033f",
+          "record": "153949d8b1b8df703e7663b54897cc6d6a39bff6b3de6ca736f3e7e333e7bb48",
+          "verified": true
+        }
+      ],
+      "value": "2.1 kg"
+    }
+  },
+  "brand": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "3348943ae67709f50d40e0ed00992c46ea99dd9019d09b36dd1ca96747c7033f",
+        "record": "153949d8b1b8df703e7663b54897cc6d6a39bff6b3de6ca736f3e7e333e7bb48",
+        "verified": true
+      }
+    ],
+    "value": "Fjord"
+  },
+  "category": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "3348943ae67709f50d40e0ed00992c46ea99dd9019d09b36dd1ca96747c7033f",
+        "record": "153949d8b1b8df703e7663b54897cc6d6a39bff6b3de6ca736f3e7e333e7bb48",
+        "verified": true
+      }
+    ],
+    "value": "outdoor/tents"
+  },
+  "description": null,
+  "excluded_sources": {
+    "forked": 0,
+    "hidden": 0,
+    "retracted": 0,
+    "revoked": 0,
+    "unavailable": 0
+  },
+  "gtin": "02000090000032",
+  "images": [],
+  "key": "gtin:02000090000032",
+  "listings": [
+    {
+      "appeal": null,
+      "appealed": false,
+      "availability": "in_stock",
+      "condition": "new",
+      "domain": {
+        "attestor": "5a0a82d70d66e3a1e62c820dbd5877a4678e3c1f2b2edd1ac9443063ef5ce283",
+        "domain": "hearthandtrail.example",
+        "expires": 1830297600000
+      },
+      "domain_verified": true,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "99ab50a86e0fd1ae4b122de9d96c5b28aff3dccc7be6eb0f7dde28e56f7e96e1",
+      "latest": "99ab50a86e0fd1ae4b122de9d96c5b28aff3dccc7be6eb0f7dde28e56f7e96e1",
+      "location": null,
+      "price": {
+        "amount": 19999,
+        "currency": "EUR"
+      },
+      "price_history": [
+        {
+          "amount": 19999,
+          "currency": "EUR",
+          "record": "99ab50a86e0fd1ae4b122de9d96c5b28aff3dccc7be6eb0f7dde28e56f7e96e1",
+          "source": "seller",
+          "ts": 1768089600008
+        }
+      ],
+      "product": "gtin:02000090000032",
+      "redaction": null,
+      "seller": "3348943ae67709f50d40e0ed00992c46ea99dd9019d09b36dd1ca96747c7033f",
+      "seller_name": "Hearth & Trail",
+      "seller_restricted": false,
+      "seller_status": "ok",
+      "seller_verified": true,
+      "ships_to": [],
+      "status": "visible",
+      "title": null,
+      "updated_ts": 1768089600008,
+      "url": "https://hearthandtrail.example/fjord-trail-2"
+    }
+  ],
+  "moderation": {
+    "appeal": null,
+    "flags": {
+      "count": 0,
+      "counted": 0,
+      "reasons": {}
+    },
+    "redaction": null,
+    "status": "visible"
+  },
+  "mpn": null,
+  "name": {
+    "conflicts": [],
+    "sources": [
+      {
+        "author": "3348943ae67709f50d40e0ed00992c46ea99dd9019d09b36dd1ca96747c7033f",
+        "record": "153949d8b1b8df703e7663b54897cc6d6a39bff6b3de6ca736f3e7e333e7bb48",
+        "verified": true
+      }
+    ],
+    "value": "Fjord Trail 2-Person Tent"
+  },
+  "price_range": {
+    "EUR": {
+      "count": 1,
+      "excluded_unverified_domain": 0,
+      "max": 19999,
+      "median": 19999,
+      "min": 19999
+    }
+  },
+  "ratings": {
+    "count": 22,
+    "excluded": {
+      "forked": 0,
+      "hidden": 0,
+      "retracted": 0,
+      "revoked": 0,
+      "seller": 0,
+      "superseded": 0,
+      "unavailable": 0
+    },
+    "histogram": [
+      16,
+      1,
+      0,
+      2,
+      3
+    ],
+    "mean": 1.86,
+    "verified_identity": {
+      "count": 5,
+      "histogram": [
+        0,
+        0,
+        0,
+        2,
+        3
+      ],
+      "mean": 4.6
+    },
+    "verified_purchase": {
+      "count": 0,
+      "histogram": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean": null
+    }
+  },
+  "reviews": [
+    {
+      "appeal": null,
+      "author": "919e2a45d9f600e7053d4640da397f1a4035b3224ce61a0225da812754d76e27",
+      "author_name": null,
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "25d35b9dfc9ceda0afec37bbe84d1a01fff2dedc2e21024395cf3f6ba98d06f7",
+      "latest": "25d35b9dfc9ceda0afec37bbe84d1a01fff2dedc2e21024395cf3f6ba98d06f7",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Terrible tent.",
+      "title": "AVOID",
+      "ts": 1780185600015,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "3cf70dc4eef9c45063285568112b6c98a6935348ca11b3ab9ecb00c349dd65eb",
+      "author_name": "Camper114",
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "aaf1a7a88d9b43593e6ede5f40078c4487e380e60082c340d21eed8cf8374947",
+      "latest": "aaf1a7a88d9b43593e6ede5f40078c4487e380e60082c340d21eed8cf8374947",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Fell apart.",
+      "title": null,
+      "ts": 1780185600014,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "087c0751b053fc78c3e5ffe3de0888cc0797c099509bda95ab141b6e79fd1f03",
+      "author_name": null,
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "5325c9d26b14f3ee1cc62495870768a3dec23a7eb30ae3756b47f3aacfea88f8",
+      "latest": "5325c9d26b14f3ee1cc62495870768a3dec23a7eb30ae3756b47f3aacfea88f8",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Do not buy.",
+      "title": null,
+      "ts": 1780185600013,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "616358872e4ffd2976668f7eb7416fb304411ba49c0e385ba383fbefa028dd6a",
+      "author_name": "Camper112",
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "f4628dd844030c8da91d94461a65cb9f11219b30b04b67fc6a2f2d8ad4e16cae",
+      "latest": "f4628dd844030c8da91d94461a65cb9f11219b30b04b67fc6a2f2d8ad4e16cae",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Worst purchase ever.",
+      "title": "AVOID",
+      "ts": 1780185600012,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "8acca0f5d796de7afc56c0bb94d9aa546c4c2ec0e2d352592d38a773b152106b",
+      "author_name": null,
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "a1055cbbdb4179ce89d22eb42eb45649d45d50d83b26bbebe3df906d8f1713cd",
+      "latest": "a1055cbbdb4179ce89d22eb42eb45649d45d50d83b26bbebe3df906d8f1713cd",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Leaks. Avoid.",
+      "title": null,
+      "ts": 1780185600011,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "71b6f56c68e84101f468f2e78da911dc8baa27b0a1cf804d61a1151a43cbe224",
+      "author_name": "Camper110",
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "7d1eb8d66d887a6c10706cf4e59bb301f068b0ff3de4c2b56d5c6450c1b4433b",
+      "latest": "7d1eb8d66d887a6c10706cf4e59bb301f068b0ff3de4c2b56d5c6450c1b4433b",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Terrible tent.",
+      "title": null,
+      "ts": 1780185600010,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "4ef45ad6237b895dfa04c5ea286adea2825687cd10ac783d5f46bf993b4875ae",
+      "author_name": null,
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "0da0a6f4e4b6fa0449e57e6f2c46581a4407fd47af08f3e9e6f9b052e0707b7f",
+      "latest": "0da0a6f4e4b6fa0449e57e6f2c46581a4407fd47af08f3e9e6f9b052e0707b7f",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Fell apart.",
+      "title": "AVOID",
+      "ts": 1780185600009,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "850383c5f19bbcc27b4127d7025e1d4d30d7c3d79617ede18da31f83094fdc75",
+      "author_name": "Camper108",
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "53052aa7884ddd8293a47816617dba28c8103a244d30f0fa623d518b3a32837d",
+      "latest": "53052aa7884ddd8293a47816617dba28c8103a244d30f0fa623d518b3a32837d",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Do not buy.",
+      "title": null,
+      "ts": 1780185600008,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "3c56c02b7fb70005e9896211e2568bb3b78243f54e45410ccc95aff7504ed553",
+      "author_name": null,
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "eae16a801de8491a2ed2d6c43573dd834c95ec30aa8d54ecd0002aea8d128f90",
+      "latest": "eae16a801de8491a2ed2d6c43573dd834c95ec30aa8d54ecd0002aea8d128f90",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Worst purchase ever.",
+      "title": null,
+      "ts": 1780185600007,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "6e1d544e4bec7dd42ab9bc438f7c7ebb59ee5514254bbb7b3346c614379b0e77",
+      "author_name": "Camper106",
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "96048f5f29d1031c59de40d5ce59d268419c6f5ed5e53d3ff9b7073c83fbc00f",
+      "latest": "96048f5f29d1031c59de40d5ce59d268419c6f5ed5e53d3ff9b7073c83fbc00f",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Leaks. Avoid.",
+      "title": "AVOID",
+      "ts": 1780185600006,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "71d6b4f7b4711feed69cae2ad0540d1a42b26202da6c2e4b3eb892479637d06c",
+      "author_name": null,
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "432c851b7beb0683c0521bc0cf7ee3cf4bebe44d6c260a2ef55abf6b80dfb25f",
+      "latest": "432c851b7beb0683c0521bc0cf7ee3cf4bebe44d6c260a2ef55abf6b80dfb25f",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Terrible tent.",
+      "title": null,
+      "ts": 1780185600005,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "624fa399bda8157d3fc11dabde59f3fcd42951e1390c6b88a905b7b1af662e6b",
+      "author_name": "Camper104",
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "05f41951979bdec3588f86da788cd146a8d4e199b45e10a74f690188aa51ec7e",
+      "latest": "05f41951979bdec3588f86da788cd146a8d4e199b45e10a74f690188aa51ec7e",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Fell apart.",
+      "title": null,
+      "ts": 1780185600004,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "9d5e30b4a5dd858b2b3eff29040cc81067517b180fdefa71b14c937c9149485e",
+      "author_name": null,
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "679fb1a9cfe9bd5023036317bad8a5b9fb79b417e33db6619b83cc9f812b945f",
+      "latest": "679fb1a9cfe9bd5023036317bad8a5b9fb79b417e33db6619b83cc9f812b945f",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Do not buy.",
+      "title": "AVOID",
+      "ts": 1780185600003,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "ae91afdf8e9cf0f8e508fba384172d5a88c86cdb9b3a20d79af8296360787100",
+      "author_name": "Camper102",
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "47cac5929b050e08aa42138864e7d5feb525a45a9d1ec17896a3b5373ee43fd5",
+      "latest": "47cac5929b050e08aa42138864e7d5feb525a45a9d1ec17896a3b5373ee43fd5",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Worst purchase ever.",
+      "title": null,
+      "ts": 1780185600002,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "c8be75e137c757f299f816aa16b8457d87ab5b3a0cb7ee7bdaec33af12cce571",
+      "author_name": null,
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "a59e7167b72e35063c23c6356fc6e3b1a688ad73e5a87e90c3ada54b11002175",
+      "latest": "a59e7167b72e35063c23c6356fc6e3b1a688ad73e5a87e90c3ada54b11002175",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Leaks. Avoid.",
+      "title": null,
+      "ts": 1780185600001,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "94c18fa3c02cce8d83320a52bc46619dce0535931579318bc8e3ed270234d927",
+      "author_name": "Camper100",
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "125494e3398e6e990217efcb81273f779ad46b88321ab95e20340fbaf477a253",
+      "latest": "125494e3398e6e990217efcb81273f779ad46b88321ab95e20340fbaf477a253",
+      "listing": null,
+      "purchase": "none",
+      "rating": 1,
+      "redaction": null,
+      "status": "visible",
+      "text": "Terrible tent.",
+      "title": "AVOID",
+      "ts": 1780185600000,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "027790c6a3040a3f22c655806d66b020bed98c322e67c8bb6638a69632184864",
+      "author_name": "Erin",
+      "author_status": "ok",
+      "author_verified": false,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "193b4c9ab6260478384751b05f92a45ed3aa18ef2c4bf4827df56fcf4aa5e21c",
+      "latest": "193b4c9ab6260478384751b05f92a45ed3aa18ef2c4bf4827df56fcf4aa5e21c",
+      "listing": null,
+      "purchase": "none",
+      "rating": 2,
+      "redaction": null,
+      "status": "visible",
+      "text": "Zipper snagged often.",
+      "title": null,
+      "ts": 1771545600005,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "5d47701e07b42f0b6352ff7898d6def159c835d07b0cc11d1d51cb042a78fd74",
+      "author_name": "Community Member 1",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "53266877c46e0cbfad0b5c779e5274a2c97c3a2fed9a58013adaacb2891615c5",
+      "latest": "53266877c46e0cbfad0b5c779e5274a2c97c3a2fed9a58013adaacb2891615c5",
+      "listing": null,
+      "purchase": "none",
+      "rating": 5,
+      "redaction": null,
+      "status": "visible",
+      "text": "Third season with it, no problems.",
+      "title": null,
+      "ts": 1771545600004,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "839fdb0df55e09d27ee70d3afa9e4731c8149dd978907655b51076b5107998fd",
+      "author_name": "Community Member 0",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "28e2476952b312e4477bfb348ddca9d521e84143edd9cb7577a0709050728509",
+      "latest": "28e2476952b312e4477bfb348ddca9d521e84143edd9cb7577a0709050728509",
+      "listing": null,
+      "purchase": "none",
+      "rating": 4,
+      "redaction": null,
+      "status": "visible",
+      "text": "Good tent, poles feel solid.",
+      "title": null,
+      "ts": 1771545600003,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "706d9fa43a59dcb14163c5a9843d9e33fa7c930f4a62201977c44852cba2ee26",
+      "author_name": "Judy",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "9926e1d3b2adb2e0bb7d2dfd3ca2f6788381ee9d60e76ce3b80f1653374d5658",
+      "latest": "9926e1d3b2adb2e0bb7d2dfd3ca2f6788381ee9d60e76ce3b80f1653374d5658",
+      "listing": null,
+      "purchase": "none",
+      "rating": 5,
+      "redaction": null,
+      "status": "visible",
+      "text": "Roomy for two with packs.",
+      "title": null,
+      "ts": 1771545600002,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "59e693378d6d8c0ee3afa975f22c878d7b97a3e0415151788501f968fc29ea54",
+      "author_name": "Ivan",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "909c22301422ea6e654a0294d44569bfa1bf24c6414edb0b0cb051ddcbe71f7b",
+      "latest": "909c22301422ea6e654a0294d44569bfa1bf24c6414edb0b0cb051ddcbe71f7b",
+      "listing": null,
+      "purchase": "none",
+      "rating": 4,
+      "redaction": null,
+      "status": "visible",
+      "text": "Easy to pitch; a bit heavy.",
+      "title": null,
+      "ts": 1771545600001,
+      "verified_purchase": false
+    },
+    {
+      "appeal": null,
+      "author": "378779efaa7bfe5049a589a8388532f9a9b0d2c6f32d76f90ceb856dafc36a15",
+      "author_name": "Alice",
+      "author_status": "ok",
+      "author_verified": true,
+      "counted": true,
+      "excluded_reason": null,
+      "flags": {
+        "count": 0,
+        "counted": 0,
+        "reasons": {}
+      },
+      "id": "179f7a285511838cd073dc9a7fbfecb3cdfa7c5b4f12e10d75af7f71742eeabf",
+      "latest": "179f7a285511838cd073dc9a7fbfecb3cdfa7c5b4f12e10d75af7f71742eeabf",
+      "listing": null,
+      "purchase": "none",
+      "rating": 5,
+      "redaction": null,
+      "status": "visible",
+      "text": "Dry after a night of heavy rain.",
+      "title": null,
+      "ts": 1771545600000,
+      "verified_purchase": false
+    }
+  ]
+}

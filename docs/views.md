@@ -175,7 +175,7 @@ Body schemas are the ones in 4.5, with these details.
 - Integers must be in 0 to 2^53 − 1 unless 4.5 says otherwise.
 - `URL`: [WHATWG URL](https://url.spec.whatwg.org/) parse, scheme `https`, no username or password, a domain host (not an IP address), ≤ 2048 characters. perch-core provides the parser and the host in IDNA ToASCII form.
 - `Price.currency` must be in perch-core's ISO 4217 table; `Price.amount` is an integer ≥ 0.
-- Country codes must be in perch-core's ISO 3166-1 alpha-2 table.
+- Country codes are two ASCII uppercase letters ([ISO 3166-1](https://www.iso.org/iso-3166-country-codes.html) alpha-2 syntax). perch-core does not check that a code is assigned.
 - `gtin` check digits are validated by perch-core.
 - `observation.observed_at ≤ r.ts`; otherwise `schema:observed_at`.
 - `review.receipt` must be an object with exactly the fields `listing` (Hex64), `buyer` (Hex64), `purchased_at` (integer), `nonce` (Hex64), and `sig` (128 hex). Any other shape gives `schema:receipt`. Unlike the body, a receipt may not carry extra fields, because they would not be signed. A receipt whose signature fails is schema-valid; it affects only `purchase` (§9.2).
@@ -261,7 +261,7 @@ A listing is **domain verified** (7.4) when `host(listing.url)` equals `d` or en
 
 Restriction is computed per person (7.3, 7.6). For a person `P`:
 
-- **Restriction-hidden listings**: listing chains authored by any key of `P`, with a reference version, where `counted_flags(C) ≥ threshold("listing")`. Retraction and body removal do not matter here. Otherwise a seller could retract hidden listings to clear the count.
+- **Restriction-hidden listings**: listing chains authored by any key of `P` whose reference version is active (§3.2), where `counted_flags(C) ≥ threshold("listing")`. Retraction and body removal do not matter here. Otherwise a seller could retract hidden listings to clear the count. A listing chain without flags cannot be hidden, so an implementation may skip reading it; the related set (§14) relies on this.
 - `hidden_listings(P)` = their number.
 - `distinct_flaggers(P)` = number of distinct persons with a counted flag on any of those listings.
 - `P` is **restricted** when either holds:
@@ -292,7 +292,7 @@ For each used live flag, the first matching rule gives its `excluded_reason`:
 |---|---|---|
 | 1 | `forked` | The flagger is excluded-forked. |
 | 2 | `self` | The flagger's person equals the person of `T`'s author (7.6). |
-| 3 | `product_seller` | `T` is a review, and the flagger's person equals the person of any author of a listing chain whose reference version has the review's product (7.6). Listing status does not matter. |
+| 3 | `product_seller` | `T` is a review, and the flagger's person equals the person of any **seller of the product**: an author of a listing chain whose reference version has the review's product and is active (7.6). Listing status does not matter. |
 | 4 | `unverified` | `flags_require_verified` is true and the flagger is not verified. |
 | 5 | `duplicate_person` | Another flag of the same person on `T` passed rules 1–4, and its author is lower (hex). One flag per person counts. |
 | — | `null` | The flag counts. |
@@ -328,7 +328,8 @@ When `latest(C)` has no body, `redaction` is a `Redaction` object. Otherwise it 
 
 - Notices are active `redact` records with a body that are valid and whose `target` equals `latest(C).id` exactly (5.3). There is no root resolution.
 - The notice used is the first by (author verified first, `ts` ascending, `id` ascending).
-- `Redaction = { record, by, reason, note|null }` from that notice, or all four `null` when no notice exists.
+- `Redaction = { record, by, reason, note|null, product|null }` from that notice, or all five `null` when no notice exists.
+- `product` is the notice's optional `product` field (4.5). It is stated by the notice's author, a node operator, not by the removed record. Views use it only to place a chain that has no body at all (§9.1, §8.1).
 
 ### 7.6 Moderation object
 
@@ -350,7 +351,7 @@ For a listing chain `C` with latest version `L` and reference version `R`:
 | `seller_restricted` | §6 |
 | `seller_status` | §5.4 |
 | `domain_verified`, `domain` | §5.5, using `L.url`. `false`/`null` when `L` has no body. |
-| `product` | `R.body.product` (fixed) |
+| `product` | `R.body.product` (fixed). For a chain without any body: the `product` of its redaction notice (§7.5). |
 | `title` | `L.body.title` or `null` |
 | `url`, `price`, `availability`, `condition` | From `L`; `null` when `L` has no body |
 | `ships_to` | `L.body.ships_to` in record order, or `[]` |
@@ -362,7 +363,7 @@ For a listing chain `C` with latest version `L` and reference version `R`:
 | `redaction` | §7.5 |
 | `price_history` | §8.2 |
 
-`listing_view(store, policy, id)` accepts any member ID and returns the view of its chain, or `null` if the ID is unknown, not a listing, or the chain has no latest version.
+`listing_view(store, policy, id)` accepts any member ID and returns the view of its chain, or `null` if the ID is unknown, not a listing, the chain has no latest version, or the chain has neither a reference version nor a notice naming a product.
 
 ### 8.2 Price history
 
@@ -398,7 +399,12 @@ Hidden listings do not feed prices. A minimum price is a summary of one listing'
 
 ### 9.1 Reviews of a product
 
-The reviews of product key `K` are review chains whose reference version has `product = K` and that have a latest version.
+The reviews of product key `K` are review chains that have a latest version and either:
+
+- a reference version with `product = K`; or
+- no reference version (no member has a body), and a redaction notice (§7.5) with `product = K` on the latest version.
+
+The same rule selects the listing chains of `K`. The second case places records whose only body was removed; it is attributed to the notice's author.
 
 ### 9.2 Verified purchase
 
@@ -407,7 +413,7 @@ For a review with latest version `V` (body present), `purchase` is the first mat
 | Order | `purchase` | Condition |
 |---|---|---|
 | 1 | `none` | `V.body.receipt` is absent. |
-| 2 | `receipt_invalid` | Any of: `receipt.listing` is not a root ID of a listing chain in the store; the listing root is not active (below the seller's fork seq, revoke cut, and retirement, and not future); the listing chain has no reference version; the signature does not verify strictly under the listing chain's author (perch-core `verify_receipt`); `receipt.buyer ≠ V.author`. |
+| 2 | `receipt_invalid` | Any of: `receipt.listing` is not in the store or is not a `listing` (a member ID resolves to its chain root, 4.6); the listing root is not active (below the seller's fork seq, revoke cut, and retirement, and not future); the listing chain has no reference version; the signature does not verify strictly under the listing chain's author (perch-core `verify_receipt`); `receipt.buyer ≠ V.author`. |
 | 3 | `wrong_product` | The listing's reference version has `product ≠ V.body.product`. |
 | 4 | `self` | The review author's person equals the seller's person. |
 | 5 | `seller_unverified` | The seller is not verified. |
@@ -549,7 +555,11 @@ Query tokens are `tokens(q)`, deduplicated with the first occurrence kept, and l
 
 ### 11.2 Matching and text score
 
-For each product key with a latest version for at least one product, listing, or review chain, and with `moderation.status` `visible`, the fields are:
+Candidates are the product keys of product chains with a reference version (§10.2), plus `gtin:` keys named by a GTIN query token (below) for which a product, listing, or review chain with a latest version exists. A key without product chains therefore matches only by GTIN.
+
+Products whose `moderation.status` is not `visible` are hits too. They come after all visible hits (§11.7) and carry `moderation_status`, so the app can show that a hidden product exists without showing it among the results.
+
+The fields of a candidate are:
 
 | Field | Tokens | Exact | Prefix |
 |---|---|---|---|
@@ -570,7 +580,7 @@ From `verified_identity` reviews only (7.8):
 
 - `n` = count, `S` = sum of ratings.
 - `smoothed = (15 + S) / (n + 5)`. This is the posterior mean of a Dirichlet prior with one pseudo-rating at each star level ([Miller 2014](https://www.evanmiller.org/ranking-items-with-star-ratings.html)). With no reviews it is 3. Each real review moves it less while the count is small.
-- `rating_points = round2(10 × (smoothed − 3))`, from −20 to +20.
+- `rating_points = round2(10 × (smoothed − 3)) = round2(10 × (S − 3n) / (n + 5))`, greater than −20 and less than +20.
 - `offer_points` = 5 if `min_price` is not null, else 0.
 
 Miller ranks by a lower credible bound, which needs a square root. Perch uses the posterior mean, which is an exact fraction, to avoid floating-point results (§12).
@@ -595,6 +605,7 @@ Numbers use the format in §12.2. `<sign>` is `+` for values ≥ 0 and `-` other
 | `name`, `brand` | `name.value`, `brand.value` |
 | `category` | `category.value` or `null` |
 | `score`, `why` | §11.4 |
+| `moderation_status` | `ProductView.moderation.status` (§10.3) |
 | `rating_mean`, `rating_count` | `verified_identity.mean`, `verified_identity.count` |
 | `rating_smoothed` | `round2(smoothed)` |
 | `verified_purchase_count`, `verified_purchase_mean` | From `ratings.verified_purchase` |
@@ -609,7 +620,9 @@ Numbers use the format in §12.2. `<sign>` is `+` for values ≥ 0 and `-` other
 
 ### 11.7 Sort orders
 
-| `sort` | Order |
+Every order first places `visible` hits before the others (§11.2).
+
+| `sort` | Order within each group |
 |---|---|
 | `relevance` | `score` descending, then `key` |
 | `price` | Group 0: `min_price.currency = C`, by `amount` ascending. Group 1: other currencies, by `(currency, amount)`. Group 2: no price. Then `key`. |
@@ -619,6 +632,8 @@ Numbers use the format in §12.2. `<sign>` is `+` for values ≥ 0 and `-` other
 `rating_mean` sorts by the smoothed value, so a product with one 5-star review does not outrank a product with 100 reviews averaging 4.8. Both values are shown.
 
 The result is the first `limit` hits after sorting. Comparisons use exact fractions, not the rounded output values.
+
+Rating and offer points add less than 25 to a hit's text points. For `relevance`, an implementation may therefore stop scoring once `limit` hits have a score at least 25 above the text points of every remaining hit. The result is the same. perch-views does this, and it computes the verified-purchase fields only for the returned hits, because they need receipt signature checks and do not affect any sort order.
 
 Every component of `score` appears in `why`, which meets the transparency aim of the EU [Digital Services Act, Article 27](https://eur-lex.europa.eu/eli/reg/2022/2065/oj): explain the main ranking parameters and let users change them. A user changes them through the policy, or by sorting.
 
@@ -703,7 +718,7 @@ Rule 7 follows only trusted attestors. Untrusted keys could otherwise attest eac
 |---|---|
 | `id` | The author |
 | `name`, `role`, `url`, `about` | §10.1 |
-| `profile` | Moderation of the profile chain (§7.6), or `null` |
+| `profile`, `profile_status` | Moderation of the profile chain (§7.6) and its status, or `null` |
 | `verified` | From the author's counting `attest.identity` with the lowest `(attestor, person, root)`: `{ level, legal_name|null, country|null, attestor, expires }`, or `null` |
 | `domains` | One entry `{ domain, attestor, expires }` per counting `attest.domain`, sorted by `(domain, attestor)` |
 | `status` | §5.4 |
@@ -713,6 +728,7 @@ Rule 7 follows only trusted attestors. Untrusted keys could otherwise attest eac
 | `retired` | `{ seq: retire_seq, successor|null }` when `retire_seq < ∞`, else `null` |
 | `record_count` | Number of the author's active records |
 | `hidden_listing_count` | Number of the author's listing chains with status `hidden` |
+| `seller_reviews` | `{ total, with_valid_receipt }`. The products this author lists are the reference products of the author's listing chains whose reference version is active. `total` counts the counted reviews (§9.3) of those products. `with_valid_receipt` counts those whose receipt passes row 2 of §9.2 with this author as the listing's seller. A low ratio can show that a seller gives receipts selectively (threat-model R8). |
 
 ### 15.2 author_records
 
@@ -763,6 +779,10 @@ RecordStatus { semantic_valid, reason|null, root, versions: [id], ignored|null }
 3. **Tier 3**: all others.
 
 `referenced_by_tier1(store, admission, id)` answers rule 2 for a single record ID. A node can then classify an incoming log before storing it.
+
+### 15.6 Reusing results across queries
+
+`Views::new(store, policy)` memoizes intermediate results for one batch of queries. `Views::into_cache()` returns them as a `ViewCache`. `Views::with_cache(store, policy, cache)` reuses them. A cache is valid only for unchanged store contents and an equal policy. Callers discard it after any insert, body fill, or body removal. As a safety net, `with_cache` discards a cache whose policy, record count, body-less count, or fork evidence differ. Results with and without a cache are byte-identical.
 
 ## 16. Research notes
 
