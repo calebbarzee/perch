@@ -425,12 +425,14 @@ For a review with latest version `V` (body present), `purchase` is the first mat
 | Order | `purchase` | Condition |
 |---|---|---|
 | 1 | `none` | `V.body.receipt` is absent. |
-| 2 | `receipt_invalid` | Any of: `receipt.listing` is not in the store or is not a `listing` (a member ID resolves to its chain root, 4.6); the listing root is not active (below the seller's fork seq, revoke cut, and retirement, and not future); the listing chain has no reference version; the signature does not verify strictly under the listing chain's author (perch-core `verify_receipt`); `receipt.buyer ≠ V.author`. |
-| 3 | `wrong_product` | The listing's reference version has `product ≠ V.body.product`. |
-| 4 | `self` | The review author's person equals the seller's person. |
-| 5 | `seller_unverified` | The seller is not verified. |
-| 6 | `buyer_unverified` | `verified_purchase_requires_verified_buyer` is true and the review author is not verified. |
-| 7 | `verified` | Otherwise. |
+| 2 | `receipt_invalid` | `receipt.listing` is not in the store or is not a `listing` (a member ID resolves to its chain root, 4.6); or the listing root is not active (below the seller's fork seq, revoke cut, and retirement, and not future). |
+| 3 | `listing_unavailable` | The listing root's body is missing in this store (removed or not yet received). The receipt cannot be checked here; the outcome changes when the body arrives (4.7). |
+| 4 | `receipt_invalid` | The listing root's body fails the schema; or the signature does not verify strictly under the listing chain's author (perch-core `verify_receipt`); or `receipt.buyer ≠ V.author`. |
+| 5 | `wrong_product` | The listing root has `product ≠ V.body.product`. |
+| 6 | `self` | The review author's person equals the seller's person. |
+| 7 | `seller_unverified` | The seller is not verified. |
+| 8 | `buyer_unverified` | `verified_purchase_requires_verified_buyer` is true and the review author is not verified. |
+| 9 | `verified` | Otherwise. |
 
 `verified_purchase = (purchase == "verified")`.
 
@@ -508,11 +510,14 @@ Each product chain with key `K` and a latest version has a status (§3.6). Produ
 
 - The **source chains** are the `visible` chains. Facts come from them only (7.6). When no chain is visible, every fact is empty (`name.value` and `brand.value` are `""`).
 
+Hiding applies per product chain, never to the key as a whole (7.6). Flags on one chain never hide another author's chain, and a hidden chain's text never appears, even when another key later publishes a product record for the same key: that record is a separate claim, flagged on its own.
+
 `ProductView.moderation.status`:
 
-1. `hidden` when at least one chain is `hidden` and no `visible` chain has a verified author (7.6). One new key therefore cannot un-hide a product by publishing a fresh product record.
-2. Otherwise the first of `visible`, `retracted`, `unavailable` that any chain of `K` has.
-3. `visible` when `K` has no product chains. `moderation.flags` is the union over all chains of `K`: `count` = distinct flagging authors over all chains, `counted` = distinct persons with a counted flag on any chain, `reasons` over the used live flags of all chains. `moderation.appeal` is the appeal with the highest `(ts, record)` over all chains. `moderation.redaction` is the redaction of the lowest-root unavailable chain when the status is `unavailable`, else `null`.
+1. `visible` when any chain is `visible`;
+2. `hidden` when `K` has product chains and all of them are `hidden`;
+3. otherwise the first of `retracted`, `unavailable` that any chain has;
+4. `visible` when `K` has no product chains. `moderation.flags` is the union over all chains of `K`: `count` = distinct flagging authors over all chains, `counted` = distinct persons with a counted flag on any chain, `reasons` over the used live flags of all chains. `moderation.appeal` is the appeal with the highest `(ts, record)` over all chains. `moderation.redaction` is the redaction of the lowest-root unavailable chain when the status is `unavailable`, else `null`.
 
 `ProductView.excluded_sources` = `{ hidden, retracted, unavailable, forked, revoked }`: the number of product chains of `K` not used as sources, by reason (`revoked`: all members with a body have `seq > revoke_cut`). Every hidden chain counts in `hidden`.
 
@@ -583,7 +588,14 @@ The fields of a candidate are:
 | `brand` | Tokens of every candidate value of `brand` | 20 | 10 |
 | `category` | Tokens of every candidate value of `category` | 10 | 5 |
 
-Candidate values come from visible chains only (§10.3). Matching every value, not only the displayed one, means unverified keys cannot hide a product from search by outvoting its name (7.8). The hit still shows the displayed values.
+A product has a **verified source** when at least one of its visible product chains has a verified author. Which values a field matches depends on that (7.8):
+
+| Product | Values matched for `name`, `mpn`, `brand`, `category` |
+|---|---|
+| With a verified source | Values from visible chains by verified authors only. A free key therefore cannot add matches ("iphone") to the product. |
+| Without a verified source | Every value from every visible chain (the displayed value and its conflicts). Unverified keys therefore cannot rename the product out of search. |
+
+Values come from visible chains only (§10.3). The hit still shows the displayed values (the facts of §10.4).
 
 - **Exact**: a field token equals the query token.
 - **Prefix**: a field token starts with the query token and is longer, and the query token has at least 2 characters.
@@ -622,6 +634,7 @@ Numbers use the format in §12.2. `<sign>` is `+` for values ≥ 0 and `-` other
 | `category` | `category.value` or `null` |
 | `score`, `why` | §11.4 |
 | `moderation_status` | `ProductView.moderation.status` (§10.3) |
+| `verified_source` | The product has a verified source (§11.2) |
 | `rating_mean`, `rating_count` | `verified_identity.mean`, `verified_identity.count` |
 | `rating_smoothed` | `round2(smoothed)` |
 | `verified_purchase_count`, `verified_purchase_mean` | From `ratings.verified_purchase` |
@@ -636,7 +649,13 @@ Numbers use the format in §12.2. `<sign>` is `+` for values ≥ 0 and `-` other
 
 ### 11.7 Sort orders
 
-Every order first places `visible` hits before the others (§11.2).
+Every order first groups hits, then sorts within each group:
+
+1. products with a verified source (`verified_source: true`);
+2. other products whose `moderation.status` is `visible`;
+3. products whose `moderation.status` is not `visible`.
+
+Creating keys therefore cannot move a product above any product with a verified source (7.8).
 
 | `sort` | Order within each group |
 |---|---|
@@ -649,7 +668,7 @@ Every order first places `visible` hits before the others (§11.2).
 
 The result is the first `limit` hits after sorting. Comparisons use exact fractions, not the rounded output values.
 
-Rating and offer points add less than 25 to a hit's text points. For `relevance`, an implementation may therefore stop scoring once `limit` hits have a score at least 25 above the text points of every remaining hit. The result is the same. perch-views does this, and it computes the verified-purchase fields only for the returned hits, because they need receipt signature checks and do not affect any sort order.
+Rating and offer points add less than 25 to a hit's text points. For `relevance`, an implementation may therefore stop scoring a group once enough hits of that group have a score at least 25 above the text points of every remaining hit in it. The result is the same. perch-views does this, and it computes the verified-purchase fields only for the returned hits, because they need receipt signature checks and do not affect any sort order.
 
 Every component of `score` appears in `why`, which meets the transparency aim of the EU [Digital Services Act, Article 27](https://eur-lex.europa.eu/eli/reg/2022/2065/oj): explain the main ranking parameters and let users change them. A user changes them through the policy, or by sorting.
 
@@ -748,7 +767,7 @@ Rule 7 follows only trusted attestors. Untrusted keys could otherwise attest eac
 | `retired` | `{ seq: retire_seq, successor|null }` when `retire_seq < ∞`, else `null` |
 | `record_count` | Number of the author's active records |
 | `hidden_listing_count` | Number of the author's listing chains with status `hidden` |
-| `seller_reviews` | `{ total, with_valid_receipt }`. The products this author lists are the reference products of the author's listing chains whose reference version is active. `total` counts the counted reviews (§9.3) of those products. `with_valid_receipt` counts those whose receipt passes row 2 of §9.2 with this author as the listing's seller. A low ratio can show that a seller gives receipts selectively (threat-model R8). |
+| `seller_reviews` | `{ total, with_valid_receipt }`. The products this author lists are the reference products of the author's listing chains whose reference version is active. `total` counts the counted reviews (§9.3) of those products. `with_valid_receipt` counts those whose receipt passes rows 2 to 4 of §9.2 with this author as the listing's seller. A low ratio can show that a seller gives receipts selectively (threat-model R8). |
 
 ### 15.2 author_records
 

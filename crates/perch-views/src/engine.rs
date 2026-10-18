@@ -1415,6 +1415,10 @@ impl<'a, S: Store + ?Sized> Views<'a, S> {
         if !self.active(root_rec) {
             return invalid;
         }
+        // The root's body is missing here: the receipt cannot be checked yet (4.7).
+        if !root_rec.has_body() {
+            return Purchase { outcome: "listing_unavailable", receipt_seller: None };
+        }
         let Some(lprod) = reference_product(&lbase).cloned() else { return invalid };
         let seller = lbase.author;
         if rc.verify(&seller).is_err() || rc.buyer != author {

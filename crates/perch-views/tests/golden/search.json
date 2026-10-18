@@ -16,6 +16,7 @@
       "score": 109.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "gtin exact \"2000090000018\" +100",
         "rating 3.45 from 6 verified-identity reviews +4.55",
@@ -40,6 +41,7 @@
       "score": 109.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "gtin exact \"2000090000018\" +100",
         "rating 3.45 from 6 verified-identity reviews +4.55",
@@ -64,6 +66,7 @@
       "score": 109.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "gtin exact \"2000090000018\" +100",
         "rating 3.45 from 6 verified-identity reviews +4.55",
@@ -88,6 +91,7 @@
       "score": 109.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "gtin exact \"2000090000018\" +100",
         "rating 3.45 from 6 verified-identity reviews +4.55",
@@ -112,6 +116,7 @@
       "score": 69.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "name exact \"alder\" +30",
         "name exact \"kettle\" +30",
@@ -137,6 +142,7 @@
       "score": 69.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "name exact \"alder\" +30",
         "name exact \"kettle\" +30",
@@ -162,6 +168,7 @@
       "score": 69.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "name exact \"alder\" +30",
         "name exact \"kettle\" +30",
@@ -187,6 +194,7 @@
       "score": 69.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "name exact \"alder\" +30",
         "name exact \"kettle\" +30",
@@ -212,6 +220,7 @@
       "score": 39.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "name exact \"kettle\" +30",
         "rating 3.45 from 6 verified-identity reviews +4.55",
@@ -236,6 +245,7 @@
       "score": 39.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "name exact \"kettle\" +30",
         "rating 3.45 from 6 verified-identity reviews +4.55",
@@ -260,6 +270,7 @@
       "score": 39.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "name exact \"kettle\" +30",
         "rating 3.45 from 6 verified-identity reviews +4.55",
@@ -284,6 +295,7 @@
       "score": 39.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "name exact \"kettle\" +30",
         "rating 3.45 from 6 verified-identity reviews +4.55",
@@ -305,6 +317,7 @@
       "score": 28.33,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"lx\" +30",
         "rating 2.83 from 1 verified-identity reviews -1.67",
@@ -326,6 +339,7 @@
       "score": 28.33,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"lx\" +30",
         "rating 2.83 from 1 verified-identity reviews -1.67",
@@ -347,6 +361,7 @@
       "score": 28.33,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"lx\" +30",
         "rating 2.83 from 1 verified-identity reviews -1.67",
@@ -368,6 +383,7 @@
       "score": 28.33,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"lx\" +30",
         "rating 2.83 from 1 verified-identity reviews -1.67",
@@ -396,6 +412,7 @@
       "score": 43,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"tent\" +30",
         "rating 3.8 from 5 verified-identity reviews +8",
@@ -420,6 +437,7 @@
       "score": 43,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"tent\" +30",
         "rating 3.8 from 5 verified-identity reviews +8",
@@ -444,6 +462,7 @@
       "score": 43,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"tent\" +30",
         "rating 3.8 from 5 verified-identity reviews +8",
@@ -468,6 +487,7 @@
       "score": 43,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"tent\" +30",
         "rating 3.8 from 5 verified-identity reviews +8",
@@ -489,6 +509,7 @@
       "score": 26.67,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"voltix\" +30",
         "rating 2.67 from 1 verified-identity reviews -3.33",
@@ -508,6 +529,7 @@
       "score": 30,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"voltix\" +30",
         "rating 3 from 0 verified-identity reviews +0",
@@ -529,6 +551,7 @@
       "score": 26.67,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"voltix\" +30",
         "rating 2.67 from 1 verified-identity reviews -3.33",
@@ -548,6 +571,7 @@
       "score": 30,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"voltix\" +30",
         "rating 3 from 0 verified-identity reviews +0",
@@ -569,6 +593,7 @@
       "score": 30,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"voltix\" +30",
         "rating 3 from 0 verified-identity reviews +0",
@@ -588,6 +613,7 @@
       "score": 26.67,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"voltix\" +30",
         "rating 2.67 from 1 verified-identity reviews -3.33",
@@ -609,6 +635,7 @@
       "score": 30,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"voltix\" +30",
         "rating 3 from 0 verified-identity reviews +0",
@@ -628,6 +655,7 @@
       "score": 26.67,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "name exact \"voltix\" +30",
         "rating 2.67 from 1 verified-identity reviews -3.33",
@@ -652,6 +680,7 @@
       "score": 10,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3.5 from 3 verified-identity reviews +5",
         "has price +5"
@@ -673,6 +702,7 @@
       "score": 8.33,
       "verified_purchase_count": 1,
       "verified_purchase_mean": 5,
+      "verified_source": true,
       "why": [
         "rating 3.33 from 1 verified-identity reviews +3.33",
         "has price +5"
@@ -694,6 +724,7 @@
       "score": 13,
       "verified_purchase_count": 3,
       "verified_purchase_mean": 4.33,
+      "verified_source": true,
       "why": [
         "rating 3.8 from 5 verified-identity reviews +8",
         "has price +5"
@@ -715,6 +746,7 @@
       "score": 9.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "rating 3.45 from 6 verified-identity reviews +4.55",
         "has price +5"
@@ -736,6 +768,7 @@
       "score": 6.25,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3.12 from 3 verified-identity reviews +1.25",
         "has price +5"
@@ -757,6 +790,7 @@
       "score": 13,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3.8 from 5 verified-identity reviews +8",
         "has price +5"
@@ -778,6 +812,7 @@
       "score": 5,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3 from 0 verified-identity reviews +0",
         "has price +5"
@@ -799,6 +834,7 @@
       "score": 13.18,
       "verified_purchase_count": 5,
       "verified_purchase_mean": 4.4,
+      "verified_source": true,
       "why": [
         "rating 3.82 from 6 verified-identity reviews +8.18",
         "has price +5"
@@ -820,6 +856,7 @@
       "score": 2.78,
       "verified_purchase_count": 4,
       "verified_purchase_mean": 2.5,
+      "verified_source": true,
       "why": [
         "rating 2.78 from 4 verified-identity reviews -2.22",
         "has price +5"
@@ -838,6 +875,7 @@
       "score": -3.33,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 2.67 from 1 verified-identity reviews -3.33",
         "no price +0"
@@ -856,6 +894,7 @@
       "score": -1.67,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 2.83 from 1 verified-identity reviews -1.67",
         "no price +0"
@@ -874,6 +913,7 @@
       "score": 0,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3 from 0 verified-identity reviews +0",
         "no price +0"
@@ -897,6 +937,7 @@
       "score": 13.18,
       "verified_purchase_count": 5,
       "verified_purchase_mean": 4.4,
+      "verified_source": true,
       "why": [
         "rating 3.82 from 6 verified-identity reviews +8.18",
         "has price +5"
@@ -918,6 +959,7 @@
       "score": 9.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "rating 3.45 from 6 verified-identity reviews +4.55",
         "has price +5"
@@ -939,6 +981,7 @@
       "score": 13,
       "verified_purchase_count": 3,
       "verified_purchase_mean": 4.33,
+      "verified_source": true,
       "why": [
         "rating 3.8 from 5 verified-identity reviews +8",
         "has price +5"
@@ -960,6 +1003,7 @@
       "score": 13,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3.8 from 5 verified-identity reviews +8",
         "has price +5"
@@ -981,6 +1025,7 @@
       "score": 2.78,
       "verified_purchase_count": 4,
       "verified_purchase_mean": 2.5,
+      "verified_source": true,
       "why": [
         "rating 2.78 from 4 verified-identity reviews -2.22",
         "has price +5"
@@ -1002,6 +1047,7 @@
       "score": 10,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3.5 from 3 verified-identity reviews +5",
         "has price +5"
@@ -1023,6 +1069,7 @@
       "score": 6.25,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3.12 from 3 verified-identity reviews +1.25",
         "has price +5"
@@ -1044,6 +1091,7 @@
       "score": 8.33,
       "verified_purchase_count": 1,
       "verified_purchase_mean": 5,
+      "verified_source": true,
       "why": [
         "rating 3.33 from 1 verified-identity reviews +3.33",
         "has price +5"
@@ -1062,6 +1110,7 @@
       "score": -1.67,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 2.83 from 1 verified-identity reviews -1.67",
         "no price +0"
@@ -1080,6 +1129,7 @@
       "score": -3.33,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 2.67 from 1 verified-identity reviews -3.33",
         "no price +0"
@@ -1101,6 +1151,7 @@
       "score": 5,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3 from 0 verified-identity reviews +0",
         "has price +5"
@@ -1119,6 +1170,7 @@
       "score": 0,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3 from 0 verified-identity reviews +0",
         "no price +0"
@@ -1142,6 +1194,7 @@
       "score": 13.18,
       "verified_purchase_count": 5,
       "verified_purchase_mean": 4.4,
+      "verified_source": true,
       "why": [
         "rating 3.82 from 6 verified-identity reviews +8.18",
         "has price +5"
@@ -1163,6 +1216,7 @@
       "score": 13,
       "verified_purchase_count": 3,
       "verified_purchase_mean": 4.33,
+      "verified_source": true,
       "why": [
         "rating 3.8 from 5 verified-identity reviews +8",
         "has price +5"
@@ -1184,6 +1238,7 @@
       "score": 13,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3.8 from 5 verified-identity reviews +8",
         "has price +5"
@@ -1205,6 +1260,7 @@
       "score": 10,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3.5 from 3 verified-identity reviews +5",
         "has price +5"
@@ -1226,6 +1282,7 @@
       "score": 9.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "rating 3.45 from 6 verified-identity reviews +4.55",
         "has price +5"
@@ -1247,6 +1304,7 @@
       "score": 8.33,
       "verified_purchase_count": 1,
       "verified_purchase_mean": 5,
+      "verified_source": true,
       "why": [
         "rating 3.33 from 1 verified-identity reviews +3.33",
         "has price +5"
@@ -1268,6 +1326,7 @@
       "score": 6.25,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3.12 from 3 verified-identity reviews +1.25",
         "has price +5"
@@ -1289,6 +1348,7 @@
       "score": 5,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3 from 0 verified-identity reviews +0",
         "has price +5"
@@ -1307,6 +1367,7 @@
       "score": 0,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3 from 0 verified-identity reviews +0",
         "no price +0"
@@ -1325,6 +1386,7 @@
       "score": -1.67,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 2.83 from 1 verified-identity reviews -1.67",
         "no price +0"
@@ -1346,6 +1408,7 @@
       "score": 2.78,
       "verified_purchase_count": 4,
       "verified_purchase_mean": 2.5,
+      "verified_source": true,
       "why": [
         "rating 2.78 from 4 verified-identity reviews -2.22",
         "has price +5"
@@ -1364,6 +1427,7 @@
       "score": -3.33,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 2.67 from 1 verified-identity reviews -3.33",
         "no price +0"
@@ -1387,6 +1451,7 @@
       "score": 13.18,
       "verified_purchase_count": 5,
       "verified_purchase_mean": 4.4,
+      "verified_source": true,
       "why": [
         "rating 3.82 from 6 verified-identity reviews +8.18",
         "has price +5"
@@ -1408,6 +1473,7 @@
       "score": 13,
       "verified_purchase_count": 3,
       "verified_purchase_mean": 4.33,
+      "verified_source": true,
       "why": [
         "rating 3.8 from 5 verified-identity reviews +8",
         "has price +5"
@@ -1429,6 +1495,7 @@
       "score": 13,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3.8 from 5 verified-identity reviews +8",
         "has price +5"
@@ -1450,6 +1517,7 @@
       "score": 10,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3.5 from 3 verified-identity reviews +5",
         "has price +5"
@@ -1471,6 +1539,7 @@
       "score": 9.55,
       "verified_purchase_count": 2,
       "verified_purchase_mean": 4.5,
+      "verified_source": true,
       "why": [
         "rating 3.45 from 6 verified-identity reviews +4.55",
         "has price +5"
@@ -1492,6 +1561,7 @@
       "score": 8.33,
       "verified_purchase_count": 1,
       "verified_purchase_mean": 5,
+      "verified_source": true,
       "why": [
         "rating 3.33 from 1 verified-identity reviews +3.33",
         "has price +5"
@@ -1513,6 +1583,7 @@
       "score": 6.25,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3.12 from 3 verified-identity reviews +1.25",
         "has price +5"
@@ -1534,6 +1605,7 @@
       "score": 5,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3 from 0 verified-identity reviews +0",
         "has price +5"
@@ -1555,6 +1627,7 @@
       "score": 2.78,
       "verified_purchase_count": 4,
       "verified_purchase_mean": 2.5,
+      "verified_source": true,
       "why": [
         "rating 2.78 from 4 verified-identity reviews -2.22",
         "has price +5"
@@ -1573,6 +1646,7 @@
       "score": 0,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 3 from 0 verified-identity reviews +0",
         "no price +0"
@@ -1591,6 +1665,7 @@
       "score": -1.67,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 2.83 from 1 verified-identity reviews -1.67",
         "no price +0"
@@ -1609,6 +1684,7 @@
       "score": -3.33,
       "verified_purchase_count": 0,
       "verified_purchase_mean": null,
+      "verified_source": true,
       "why": [
         "rating 2.67 from 1 verified-identity reviews -3.33",
         "no price +0"

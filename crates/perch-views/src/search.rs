@@ -142,7 +142,8 @@ fn signed(n: Num) -> String {
 struct Hit {
     hit: SearchHit,
     smoothed: Ratio,
-    visible: bool,
+    /// 0: verified source; 1: visible without a verified source; 2: not visible.
+    group: u8,
 }
 
 /// A product that matched every query token, before rating and price.
@@ -152,6 +153,19 @@ struct TextHit {
     why: Vec<String>,
     text: crate::views::ProductText,
     status: Status,
+    verified_source: bool,
+}
+
+impl TextHit {
+    fn group(&self) -> u8 {
+        if self.verified_source {
+            0
+        } else if self.status == Status::Visible {
+            1
+        } else {
+            2
+        }
+    }
 }
 
 impl<S: Store + ?Sized> Views<'_, S> {
@@ -202,12 +216,10 @@ impl<S: Store + ?Sized> Views<'_, S> {
         // the top `limit` are skipped: rating and offer add less than 25 points.
         let mut hits: Vec<Hit> = Vec::new();
         if opts.sort == Sort::Relevance {
-            text_hits.sort_by(|a, b| {
-                (b.status == Status::Visible).cmp(&(a.status == Status::Visible)).then(b.points.cmp(&a.points)).then(a.key.cmp(&b.key))
-            });
-            let mut groups: Vec<Vec<TextHit>> = vec![Vec::new(), Vec::new()];
+            text_hits.sort_by(|a, b| a.group().cmp(&b.group()).then(b.points.cmp(&a.points)).then(a.key.cmp(&b.key)));
+            let mut groups: Vec<Vec<TextHit>> = vec![Vec::new(), Vec::new(), Vec::new()];
             for h in text_hits {
-                groups[usize::from(h.status != Status::Visible)].push(h);
+                groups[usize::from(h.group())].push(h);
             }
             for group in groups {
                 let need = limit.saturating_sub(hits.len());
@@ -241,8 +253,8 @@ impl<S: Store + ?Sized> Views<'_, S> {
                 n.into_iter().min_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0))).map(|(c, _)| c.to_owned())
             });
             hits.sort_by(|a, b| {
-                b.visible
-                    .cmp(&a.visible)
+                a.group
+                    .cmp(&b.group)
                     .then_with(|| match opts.sort {
                         Sort::Relevance => Ordering::Equal,
                         Sort::Price => price_key(&a.hit.min_price, sort_currency.as_deref())
@@ -275,15 +287,24 @@ impl<S: Store + ?Sized> Views<'_, S> {
             return None;
         }
         let text = self.product_text(&ps);
-        // Every candidate value counts, not only the displayed one (7.8).
-        let [names, brands, categories] = text.candidates();
-        let toks = |vals: &[&str]| -> Vec<String> {
-            let mut t: Vec<String> = vals.iter().flat_map(|v| tokens(v)).collect();
-            t.sort();
-            t.dedup();
-            t
-        };
-        let fields = [toks(&names), text.mpn.as_deref().map(tokens).unwrap_or_default(), toks(&brands), toks(&categories)];
+        // Two groups (7.8). With a verified source, only verified authors'
+        // values match; otherwise every candidate value from visible chains.
+        let verified_source = ps.sources.iter().any(|c| self.verified(&c.author()));
+        let mut fields: [Vec<String>; 4] = Default::default();
+        for c in &ps.sources {
+            if verified_source && !self.verified(&c.author()) {
+                continue;
+            }
+            let Some(Body::Product(p)) = c.latest_body() else { continue };
+            fields[0].extend(tokens(&p.name));
+            fields[1].extend(p.mpn.as_deref().map(tokens).unwrap_or_default());
+            fields[2].extend(tokens(&p.brand));
+            fields[3].extend(p.category.as_deref().map(tokens).unwrap_or_default());
+        }
+        for f in fields.iter_mut() {
+            f.sort();
+            f.dedup();
+        }
         let mut why = Vec::new();
         let mut points: i64 = 0;
         for t in qt {
@@ -291,10 +312,11 @@ impl<S: Store + ?Sized> Views<'_, S> {
             points += m.points;
             why.push(format!("{} {} \"{}\" +{}", FIELDS[m.field].0, if m.exact { "exact" } else { "prefix" }, t, m.points));
         }
-        Some(TextHit { key: pkey, points, why, text, status: ps.status })
+        Some(TextHit { key: pkey, points, why, text, status: ps.status, verified_source })
     }
 
     fn finish_hit(&self, th: TextHit, opts: &SearchOptions) -> Hit {
+        let group = th.group();
         let key = th.key.as_str();
         let mut why = th.why;
         // Rating component: verified-identity reviews only (7.8).
@@ -318,7 +340,7 @@ impl<S: Store + ?Sized> Views<'_, S> {
         why.push(if offer > 0 { "has price +5".to_owned() } else { "no price +0".to_owned() });
         let score = Num(th.points * 100 + rating_points.0 + offer * 100);
         Hit {
-            visible: th.status == Status::Visible,
+            group,
             smoothed,
             hit: SearchHit {
                 key: th.key,
@@ -328,6 +350,7 @@ impl<S: Store + ?Sized> Views<'_, S> {
                 score,
                 why,
                 moderation_status: th.status,
+                verified_source: th.verified_source,
                 rating_mean: mean(sum, n),
                 rating_count: n,
                 rating_smoothed: smoothed_num,

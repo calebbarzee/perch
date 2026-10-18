@@ -67,7 +67,7 @@ fn withheld_root_body_cannot_move_chain() {
     let v = w.views();
     let pb = v.product(kb.as_str()).unwrap();
     assert!(pb.listings.is_empty(), "the chain's root has no body, so the chain is on no product");
-    assert_eq!(pb.reviews[0].purchase, "receipt_invalid");
+    assert_eq!(pb.reviews[0].purchase, "listing_unavailable");
     assert_eq!(v.record_status(&l2.id()).unwrap().reason.as_deref(), Some("root_unavailable"));
     drop(v);
 
@@ -83,9 +83,10 @@ fn withheld_root_body_cannot_move_chain() {
     assert_eq!(pb.reviews[0].purchase, "wrong_product");
 }
 
-/// Audit #3: one fresh key cannot un-hide a product hidden by verified flags.
+/// Audit #3, revised by re-audit N1: hiding is per product chain. A hidden
+/// chain's text is never shown; a new chain is a separate claim.
 #[test]
-fn fresh_key_cannot_unhide_hidden_product() {
+fn hidden_chain_text_stays_hidden_and_new_chain_is_separate() {
     let mut w = World::new();
     let mut maker = w.key("maker");
     let p = w.put(&mut maker, "product", json!({ "name": "Counterfeit Widget", "brand": "Acme", "gtin": G1 }));
@@ -93,26 +94,88 @@ fn fresh_key_cannot_unhide_hidden_product() {
         w.flag(&mut f, p.id());
     }
     let key = ProductKey::from_gtin(G1).unwrap();
-    assert_eq!(w.views().product(key.as_str()).unwrap().moderation.status, Status::Hidden);
-    let mut sybil = w.key("sybil");
-    w.put(&mut sybil, "product", json!({ "name": "Genuine Widget", "brand": "Acme", "gtin": G1 }));
+    let pv = w.views().product(key.as_str()).unwrap();
+    assert_eq!(pv.moderation.status, Status::Hidden, "all product chains hidden");
+    assert_eq!(pv.name.value, "", "hidden chains give no facts");
+    let mut other = w.key("other");
+    w.put(&mut other, "product", json!({ "name": "Genuine Widget", "brand": "Acme", "gtin": G1 }));
     let v = w.views();
     let pv = v.product(key.as_str()).unwrap();
-    assert_eq!(pv.moderation.status, Status::Hidden);
-    assert_eq!(pv.name.value, "Genuine Widget", "facts come from visible chains only");
+    assert_eq!(pv.moderation.status, Status::Visible);
+    assert_eq!(pv.name.value, "Genuine Widget");
+    assert!(pv.name.conflicts.is_empty(), "the hidden text never appears");
     assert_eq!(pv.excluded_sources.hidden, 1);
-    let hits = v.search("genuine", &Default::default());
-    assert_eq!(hits[0].moderation_status, Status::Hidden);
-    drop(v);
-    // A verified author's visible product record does make it visible.
-    let mut verified = w.key("verified");
-    w.verify(&verified, "verified");
-    w.put(&mut verified, "product", json!({ "name": "Widget", "brand": "Acme", "gtin": G1 }));
-    assert_eq!(w.views().product(key.as_str()).unwrap().moderation.status, Status::Visible);
+    let hits = v.search("counterfeit", &Default::default());
+    assert!(hits.is_empty(), "hidden text does not match");
 }
 
-/// Audit #7: search matches every candidate value, so keys cannot rename a
-/// product out of search.
+/// Re-audit N1: flags on a spam chain never hide another author's chain.
+#[test]
+fn flagging_a_spam_chain_does_not_hide_the_honest_product() {
+    let mut w = World::new();
+    let mut maker = w.key("honest-maker");
+    w.put(&mut maker, "product", json!({ "name": "Alder Kettle", "brand": "Acme", "gtin": G1 }));
+    let mut spammer = w.key("spammer");
+    let spam = w.put(&mut spammer, "product", json!({ "name": "CALL +1-555 FOR CHEAP PILLS", "brand": "Acme", "gtin": G1 }));
+    for mut m in w.flaggers(5, "mod") {
+        w.flag(&mut m, spam.id());
+    }
+    let key = ProductKey::from_gtin(G1).unwrap();
+    let v = w.views();
+    let pv = v.product(key.as_str()).unwrap();
+    assert_eq!((pv.moderation.status, pv.name.value.as_str()), (Status::Visible, "Alder Kettle"));
+    assert_eq!(pv.excluded_sources.hidden, 1);
+    let hits = v.search("kettle", &Default::default());
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].moderation_status, Status::Visible);
+    assert!(v.search("pills", &Default::default()).is_empty());
+}
+
+/// Re-audit N2: one free key cannot add matches to a product with a
+/// verified source.
+#[test]
+fn free_key_cannot_add_matches_to_verified_product() {
+    let mut w = World::new();
+    let mut maker = w.key("maker");
+    w.verify(&maker, "maker");
+    w.put(&mut maker, "product", json!({ "name": "Alder Kettle", "brand": "Acme", "gtin": G1 }));
+    let mut stuffer = w.key("stuffer");
+    w.put(&mut stuffer, "product", json!({ "name": "iphone samsung laptop deal", "brand": "Acme", "gtin": G1 }));
+    let v = w.views();
+    assert!(v.search("iphone", &Default::default()).is_empty());
+    assert!(v.search("kettle laptop", &Default::default()).is_empty());
+    let hits = v.search("kettle", &Default::default());
+    assert_eq!(hits.len(), 1);
+    assert!(hits[0].verified_source);
+}
+
+/// Re-audit N2: no unverified-only product ranks above a product with a
+/// verified source, in any sort order.
+#[test]
+fn unverified_only_products_rank_after_verified_sources() {
+    let mut w = World::new();
+    let mut maker = w.key("maker");
+    w.verify(&maker, "maker");
+    w.put(&mut maker, "product", json!({ "name": "Plain Kettle", "brand": "Acme", "gtin": G1 }));
+    let mut seller = w.key("seller");
+    w.verify(&seller, "seller");
+    w.domain(&seller, "shop.example");
+    let kb = ProductKey::from_gtin(G2).unwrap();
+    for i in 0..3 {
+        let mut s = w.key(&format!("syb{i}"));
+        w.put(&mut s, "product", json!({ "name": "Kettle Kettle Best Kettle", "brand": "Kettle", "gtin": G2, "category": "kettle" }));
+    }
+    w.listing(&mut seller, &kb, "https://shop.example/k", 1);
+    let v = w.views();
+    for sort in [perch_views::Sort::Relevance, perch_views::Sort::Price, perch_views::Sort::RatingCount, perch_views::Sort::RatingMean] {
+        let hits = v.search("kettle", &perch_views::SearchOptions { sort, ..Default::default() });
+        let order: Vec<bool> = hits.iter().map(|h| h.verified_source).collect();
+        assert_eq!(order, vec![true, false], "{sort:?}");
+    }
+}
+
+/// Audit #7 and re-audit N2: a product without a verified source matches
+/// every candidate value, so sybils cannot rename it out of search.
 #[test]
 fn search_matches_every_candidate_value() {
     let mut w = World::new();
@@ -128,6 +191,33 @@ fn search_matches_every_candidate_value() {
     assert_eq!(v.search("alder", &Default::default()).len(), 1);
     assert_eq!(v.search("deal", &Default::default()).len(), 1);
     assert_eq!(v.search("alder", &Default::default())[0].name, "Cheap Deal Kettle");
+    assert!(!v.search("alder", &Default::default())[0].verified_source);
+}
+
+/// Re-audit N3: a missing listing root body gives `listing_unavailable`, and
+/// verified purchase returns when the body arrives.
+#[test]
+fn missing_listing_root_body_gives_listing_unavailable() {
+    let mut w = World::new();
+    let mut maker = w.key("maker");
+    let key = w.product(&mut maker, "Widget", G1);
+    let mut seller = w.key("seller");
+    w.verify(&seller, "seller");
+    let ts = w.tick();
+    let l1 = seller.publish(ts, "listing", listing_body(&key, "https://shop.example/w", 1000), None);
+    w.insert(&l1.without_body());
+    w.put_r(&mut seller, "listing", listing_body(&key, "https://shop.example/w", 900), Some(l1.id()));
+    let mut buyer = w.key("buyer");
+    w.verify(&buyer, "buyer");
+    let rc = receipt(&seller, l1.id(), &buyer);
+    w.review(&mut buyer, &key, 1, Some(&rc));
+    let pv = w.views().product(key.as_str()).unwrap();
+    assert_eq!(pv.reviews[0].purchase, "listing_unavailable");
+    assert_eq!(pv.ratings.verified_purchase.count, 0);
+    assert_eq!(w.store.insert(l1.clone()), Insert::BodyFilled);
+    let pv = w.views().product(key.as_str()).unwrap();
+    assert_eq!(pv.reviews[0].purchase, "verified");
+    assert_eq!(pv.listings[0].price.as_ref().unwrap().amount, 900);
 }
 
 /// Audit #11: integers above 2^53 - 1 are rejected; the hash never panics.

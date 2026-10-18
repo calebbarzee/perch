@@ -512,6 +512,8 @@ pub struct SearchHit {
     pub why: Vec<String>,
     /// Product moderation status.
     pub moderation_status: Status,
+    /// At least one visible product chain has a verified author (7.8).
+    pub verified_source: bool,
     /// Mean of verified-identity reviews.
     pub rating_mean: Option<Num>,
     /// Verified-identity reviews.

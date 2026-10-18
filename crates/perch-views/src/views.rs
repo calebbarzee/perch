@@ -266,12 +266,15 @@ impl<S: Store + ?Sized> Views<'_, S> {
         let visible = by_status.get(&0).cloned().unwrap_or_default();
         let hidden = by_status.get(&1).cloned().unwrap_or_default();
         ex.hidden = hidden.len() as u64;
-        // A product key is hidden when a product chain is hidden and no
-        // visible product chain has a verified author (7.6).
-        let status = if !hidden.is_empty() && !visible.iter().any(|c| self.verified(&c.author())) {
+        // Hiding applies per chain. The key is hidden only when it has
+        // product chains and all of them are hidden (7.6).
+        let total: usize = by_status.values().map(Vec::len).sum();
+        let status = if !visible.is_empty() {
+            Status::Visible
+        } else if total > 0 && hidden.len() == total {
             Status::Hidden
         } else {
-            [Status::Visible, Status::Retracted, Status::Unavailable]
+            [Status::Retracted, Status::Unavailable, Status::Hidden]
                 .into_iter()
                 .find(|s| by_status.contains_key(&status_rank(*s)))
                 .unwrap_or(Status::Visible)
@@ -520,16 +523,7 @@ pub(crate) struct ProductText {
     pub mpn: Option<String>,
 }
 
-impl ProductText {
-    /// Every candidate value of name, brand, and category (the displayed
-    /// value and its conflicts), for search matching (7.8).
-    pub fn candidates(&self) -> [Vec<&str>; 3] {
-        fn all(f: &Fact<String>) -> Vec<&str> {
-            std::iter::once(f.value.as_str()).chain(f.conflicts.iter().map(|c| c.value.as_str())).collect()
-        }
-        [all(&self.name), all(&self.brand), self.category.as_ref().map(all).unwrap_or_default()]
-    }
-}
+
 
 #[derive(Default)]
 pub(crate) struct Acc {
