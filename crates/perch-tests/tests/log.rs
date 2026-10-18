@@ -182,3 +182,126 @@ fn invalid_record_never_stored() {
     assert_eq!(s.head_seq(&l.author()), 0);
     assert!(s.export().is_empty());
 }
+
+#[test]
+fn evidence_pair_replaced_by_lower_pair() {
+    require_sut!(Store);
+    // Fork at seq 3 first, then evidence at seq 2 arrives: store must move to seq 2.
+    let l = three("log-lower");
+    let alt3 = l.fork_at(3, "profile", json!({ "name": "X3", "role": "buyer" }));
+    let alt2 = l.fork_at(2, "profile", json!({ "name": "X2", "role": "buyer" }));
+    let mut s = Store::new();
+    for r in &l.records {
+        s.ingest(&r.wire());
+    }
+    s.ingest(&alt3.wire());
+    assert_eq!(s.fork_seq(&l.author()), Some(3));
+    assert_eq!(s.head_seq(&l.author()), 2);
+    s.ingest(&alt2.wire());
+    assert_eq!(s.fork_seq(&l.author()), Some(2), "lower fork seq wins");
+    assert_eq!(s.head_seq(&l.author()), 1);
+}
+
+#[test]
+fn export_replay_reproduces_state() {
+    require_sut!(Store);
+    let l = three("log-replay-export");
+    let alt = l.fork_at(2, "profile", json!({ "name": "X", "role": "buyer" }));
+    let mut other = Log::new("log-replay-other");
+    other.profile("O", "buyer");
+    let mut s = Store::new();
+    for r in l.records.iter().chain(other.records.iter()) {
+        s.ingest(&r.wire());
+    }
+    s.ingest(&alt.wire());
+    let mut t = Store::new();
+    for line in s.export().lines() {
+        t.ingest(line);
+    }
+    assert_eq!(s.export(), t.export());
+    assert_eq!(t.fork_seq(&l.author()), Some(2));
+    assert_eq!(s.evidence(&l.author()), t.evidence(&l.author()));
+}
+
+#[test]
+fn many_forks_keep_one_pair() {
+    require_sut!(Store);
+    // 50 conflicting records at seq 2: one evidence pair, the lowest by (seq, id).
+    let l = three("log-many");
+    let alts: Vec<_> = (0..50).map(|i| l.fork_at(2, "profile", json!({ "name": format!("X{i}"), "role": "buyer" }))).collect();
+    let mut s = Store::new();
+    for r in &l.records {
+        s.ingest(&r.wire());
+    }
+    for a in &alts {
+        s.ingest(&a.wire());
+    }
+    let mut ids: Vec<String> = alts.iter().map(|a| a.id.clone()).chain([l.records[1].id.clone()]).collect();
+    ids.sort();
+    assert_eq!(s.evidence(&l.author()), Some((ids[0].clone(), ids[1].clone())));
+    let lines = s.export().lines().filter(|x| x.contains(&l.author())).count();
+    assert_eq!(lines, 3, "prefix (1) + evidence pair (2), nothing else kept");
+}
+
+#[test]
+fn sparse_store_accepts_records_without_prefix() {
+    require_sut!(Store);
+    let l = three("log-sparse");
+    let mut s = Store::new_sparse();
+    assert_eq!(s.ingest(&l.records[2].wire()), Ingest::Inserted);
+    assert!(s.has(&l.records[2].id));
+    let bad = l.records[0].wire().replace(&l.records[0].sig, &"0".repeat(128));
+    assert!(matches!(s.ingest(&bad), Ingest::Rejected(_)), "sparse stores still verify signatures");
+}
+
+/// Deliver `all` in every order (twice each, to drain gaps) and return the set
+/// of distinct final states.
+fn states(author: &str, all: &[String]) -> std::collections::BTreeSet<String> {
+    let idx: Vec<usize> = (0..all.len()).collect();
+    let mut out = std::collections::BTreeSet::new();
+    for p in permutations(&idx) {
+        let mut s = Store::new();
+        for _ in 0..2 {
+            for &i in &p {
+                s.ingest(&all[i]);
+            }
+        }
+        out.insert(format!("{:?}|{}|{:?}|{}", s.fork_seq(author), s.head_seq(author), s.evidence(author), s.export()));
+    }
+    out
+}
+
+#[test]
+fn branching_fork_state_independent_of_arrival_order() {
+    require_sut!(Store);
+    // Honest 1-2-3 and a branch 2'-3' whose 3' links to 2'. Type-1 and type-2
+    // evidence both exist; every order must reach the same pair.
+    let l = three("log-branch");
+    let mut branch = l.clone();
+    branch.records.truncate(1);
+    let b2 = branch.add_with("profile", json!({ "name": "B2", "role": "buyer" }), Opts { ts: Some(T0 + 1500), ..Default::default() });
+    let b3 = branch.add_with("profile", json!({ "name": "B3", "role": "buyer" }), Opts { ts: Some(T0 + 2500), ..Default::default() });
+    let all = vec![l.records[0].wire(), l.records[1].wire(), l.records[2].wire(), b2.wire(), b3.wire()];
+    let st = states(&l.author(), &all);
+    assert_eq!(st.len(), 1, "stores disagree: {st:#?}");
+    assert!(st.iter().next().unwrap().starts_with("Some(2)|1|"));
+}
+
+#[test]
+fn ts_decreasing_conflict_state_independent_of_arrival_order() {
+    require_sut!(Store);
+    // The conflicting seq-2 record has ts below seq 1. Arriving before the honest
+    // seq 2 it is a ts violation; arriving after it, it is a same-seq conflict.
+    // Both orders must end in the same state (contract 5.2: "regardless of arrival order").
+    let mut l = Log::new("log-tsfork");
+    l.add_with("profile", json!({ "name": "A", "role": "buyer" }), Opts { ts: Some(T0 + 5000), ..Default::default() });
+    l.add_with("profile", json!({ "name": "B", "role": "buyer" }), Opts { ts: Some(T0 + 6000), ..Default::default() });
+    let alt = l.add_with(
+        "profile",
+        json!({ "name": "Old", "role": "buyer" }),
+        Opts { seq: Some(2), ts: Some(T0 + 1000), ..Default::default() },
+    );
+    let all = vec![l.records[0].wire(), l.records[1].wire(), alt.wire()];
+    let st = states(&l.author(), &all);
+    assert_eq!(st.len(), 1, "arrival order changes the state: {st:#?}");
+}

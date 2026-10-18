@@ -136,6 +136,13 @@ fn product_keys_match_contract() {
     // Only ASCII letters are lowercased (4.8): non-ASCII stays as is.
     let k = ProductKey::from_brand_mpn("ÄCME", "X").unwrap();
     assert_eq!(k.as_str(), "mpn:Äcme:x");
+    // ':' and '%' are escaped, so brand/MPN splits cannot collide (4.8).
+    let k1 = ProductKey::from_brand_mpn("a:b", "c").unwrap();
+    let k2 = ProductKey::from_brand_mpn("a", "b:c").unwrap();
+    assert_ne!(k1.as_str(), k2.as_str());
+    assert_eq!(k1.as_str(), "mpn:a%3ab:c");
+    let k3 = ProductKey::from_brand_mpn("a%3ab", "c").unwrap();
+    assert_ne!(k1.as_str(), k3.as_str(), "a literal %3a must not equal an escaped colon");
 }
 
 #[test]

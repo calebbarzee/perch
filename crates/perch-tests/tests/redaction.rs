@@ -8,7 +8,7 @@ use serde_json::json;
 
 #[test]
 fn header_only_record_accepted() {
-    require_sut!();
+    require_sut!(Store);
     let mut l = Log::new("red-a");
     let r1 = l.profile("A", "buyer");
     let r2 = l.add("review", json!({ "product": "gtin:04006381333931", "rating": 3, "text": "Personal data here" }));
@@ -20,7 +20,7 @@ fn header_only_record_accepted() {
 
 #[test]
 fn body_restored_when_hash_matches() {
-    require_sut!();
+    require_sut!(Store);
     let mut l = Log::new("red-b");
     let r = l.profile("A", "buyer");
     let mut s = Store::new();
@@ -31,7 +31,7 @@ fn body_restored_when_hash_matches() {
 
 #[test]
 fn body_with_wrong_hash_rejected() {
-    require_sut!();
+    require_sut!(Store);
     let mut l = Log::new("red-c");
     let r = l.profile("A", "buyer");
     let mut s = Store::new();
@@ -46,7 +46,7 @@ fn body_with_wrong_hash_rejected() {
 
 #[test]
 fn control_kind_without_body_has_no_effect() {
-    require_sut!();
+    require_sut!(Views);
     // An attestation whose body is missing does not verify its subject (5.3).
     let mut w = World::new();
     let mut a = Log::new("red-ctl");
@@ -64,4 +64,44 @@ fn control_kind_without_body_has_no_effect() {
         s.ingest(&r.wire());
     }
     assert!(author_view(&s, &w.policy(), &a.author())["verified"].is_null());
+}
+
+#[test]
+fn control_kind_body_cannot_be_removed() {
+    require_sut!(Store);
+    let mut w = World::new();
+    let a = Log::new("red-ctl2");
+    let att = w.ida.attest_identity(&a.author(), "red-ctl2", EXPIRES);
+    let mut s = Store::new();
+    for r in &w.ida.records {
+        s.ingest(&r.wire());
+    }
+    assert!(s.remove_body(&att.id).is_err(), "attest.identity is a control kind (4.5, 5.3)");
+    assert!(s.has_body(&att.id));
+}
+
+#[test]
+fn removed_body_refused_on_resend() {
+    require_sut!(Store);
+    let mut l = Log::new("red-list");
+    let r = l.add("review", json!({ "product": "gtin:04006381333931", "rating": 3, "text": "Doxxing here" }));
+    let mut s = Store::new();
+    s.ingest(&r.wire());
+    assert_eq!(s.remove_body(&r.id), Ok(true));
+    assert!(!s.has_body(&r.id));
+    s.ingest(&r.wire());
+    assert!(!s.has_body(&r.id), "a removed body must not come back from a peer");
+    assert!(!s.export().contains("Doxxing"), "export must not contain the removed body");
+}
+
+#[test]
+fn removal_list_applies_before_first_receipt() {
+    require_sut!(Store);
+    let mut l = Log::new("red-pre");
+    let r = l.add("review", json!({ "product": "gtin:04006381333931", "rating": 3, "text": "Court order" }));
+    let mut s = Store::new();
+    s.add_removed(&r.id);
+    s.ingest(&r.wire());
+    assert!(s.has(&r.id), "header kept for log continuity");
+    assert!(!s.has_body(&r.id));
 }

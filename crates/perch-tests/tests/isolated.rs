@@ -146,3 +146,32 @@ fn header_only_record_verifies() {
     let r = sample().without_body();
     assert_eq!(verify(&r.wire()), Ok(r.id.clone()));
 }
+
+#[test]
+fn universal_forgery_identity_key_rejected() {
+    require_sut!(Core);
+    // Key = identity point 01 00..00, sig = R identity || S 0. Valid for every
+    // message under cofactorless verification without small-order checks, which
+    // Web Crypto (Node 22.22) and Python cryptography 50.0.1 accept.
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    let identity = perch_tests::vectors::SMALL_ORDER_POINTS[0];
+    let sig_hex = format!("{identity}{}", "00".repeat(32));
+    let vk = VerifyingKey::from_bytes(&hex::decode(identity).unwrap().try_into().unwrap()).unwrap();
+    let sig = Signature::from_bytes(&hex::decode(&sig_hex).unwrap().try_into().unwrap());
+    for msg in [&b"perch/record/v1\n{}"[..], b"anything at all"] {
+        assert!(vk.verify(msg, &sig).is_ok(), "precondition: lax verification accepts any message");
+    }
+    // As a record.
+    assert!(verify(&perch_tests::vectors::weak_key_record()).is_err());
+    // As a receipt from that "seller".
+    let rc = json!({
+        "listing": "a".repeat(64), "buyer": "b".repeat(64), "purchased_at": 1,
+        "nonce": "c".repeat(64), "sig": sig_hex
+    });
+    assert!(perch_tests::sut::verify_receipt(&rc, identity).is_err());
+    // Every small-order key is rejected the same way.
+    for p in perch_tests::vectors::SMALL_ORDER_POINTS {
+        let w = perch_tests::vectors::weak_key_record().replace(identity, p);
+        assert!(verify(&w).is_err(), "small-order key {p}");
+    }
+}

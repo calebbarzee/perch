@@ -60,6 +60,22 @@ impl Store {
     pub fn has(&self, id: &str) -> bool {
         self.0.has(id)
     }
+    /// A sparse store (contract 5.5).
+    pub fn new_sparse() -> Store {
+        Store(imp::Store::new_sparse())
+    }
+    /// True if the record is held with its body.
+    pub fn has_body(&self, id: &str) -> bool {
+        self.0.has_body(id)
+    }
+    /// Remove a record's body (contract 5.3). Err for control kinds.
+    pub fn remove_body(&mut self, id: &str) -> Result<bool, String> {
+        self.0.remove_body(id)
+    }
+    /// Put an ID on the node's removal list.
+    pub fn add_removed(&mut self, id: &str) {
+        self.0.add_removed(id)
+    }
     /// Canonical JSONL export.
     pub fn export(&self) -> String {
         self.0.export()
@@ -142,7 +158,7 @@ mod imp {
     use serde_json::Value;
 
     pub const CORE: bool = true;
-    pub const STORE: bool = false;
+    pub const STORE: bool = true;
     pub const VIEWS: bool = false;
     pub const SYNC: bool = false;
 
@@ -158,28 +174,63 @@ mod imp {
         perch_core::verify_receipt(&rc, &seller).map_err(|e| e.to_string())
     }
 
-    pub struct Store;
+    pub struct Store(pub perch_store::MemoryStore);
     impl Store {
         pub fn new() -> Store {
-            Store
+            Store(perch_store::MemoryStore::new())
         }
-        pub fn ingest(&mut self, _line: &str) -> Ingest {
-            Ingest::Rejected("not wired".into())
+        pub fn new_sparse() -> Store {
+            Store(perch_store::MemoryStore::new_sparse())
         }
-        pub fn head_seq(&self, _a: &str) -> i64 {
-            0
+        pub fn ingest(&mut self, line: &str) -> Ingest {
+            use perch_store::Insert;
+            match self.0.insert_json(line) {
+                Err(e) => Ingest::Rejected(e.to_string()),
+                Ok(Insert::Inserted) | Ok(Insert::BodyFilled) => Ingest::Inserted,
+                Ok(Insert::Duplicate) => Ingest::Duplicate,
+                Ok(Insert::Gap) => Ingest::Gap,
+                Ok(Insert::Fork { .. }) => Ingest::Fork,
+                Ok(Insert::AboveFork) => Ingest::Rejected("above_fork".into()),
+                Ok(Insert::Rejected(r)) => Ingest::Rejected(r.to_string()),
+            }
         }
-        pub fn fork_seq(&self, _a: &str) -> Option<i64> {
-            None
+        fn author(a: &str) -> Option<perch_core::AuthorId> {
+            perch_core::AuthorId::from_hex(a).ok()
         }
-        pub fn evidence(&self, _a: &str) -> Option<(String, String)> {
-            None
+        pub fn head_seq(&self, a: &str) -> i64 {
+            use perch_store::Store as _;
+            Self::author(a).and_then(|a| self.0.head(&a)).map_or(0, |h| h.seq as i64)
         }
-        pub fn has(&self, _id: &str) -> bool {
-            false
+        pub fn fork_seq(&self, a: &str) -> Option<i64> {
+            use perch_store::Store as _;
+            Self::author(a).and_then(|a| self.0.fork_seq(&a)).map(|s| s as i64)
+        }
+        pub fn evidence(&self, a: &str) -> Option<(String, String)> {
+            use perch_store::Store as _;
+            let p = self.0.evidence(&Self::author(a)?)?;
+            let [x, y] = p.ids();
+            Some((x.to_hex(), y.to_hex()))
+        }
+        pub fn has(&self, id: &str) -> bool {
+            use perch_store::Store as _;
+            perch_core::RecordId::from_hex(id).is_ok_and(|id| self.0.contains(&id))
+        }
+        pub fn has_body(&self, id: &str) -> bool {
+            use perch_store::Store as _;
+            perch_core::RecordId::from_hex(id).is_ok_and(|id| self.0.body(&id).is_some())
+        }
+        pub fn remove_body(&mut self, id: &str) -> Result<bool, String> {
+            use perch_store::Store as _;
+            let id = perch_core::RecordId::from_hex(id).map_err(|e| e.to_string())?;
+            self.0.remove_body(&id).map_err(|e| e.to_string())
+        }
+        pub fn add_removed(&mut self, id: &str) {
+            if let Ok(id) = perch_core::RecordId::from_hex(id) {
+                self.0.add_removed([id]);
+            }
         }
         pub fn export(&self) -> String {
-            String::new()
+            self.0.export_jsonl()
         }
     }
 
