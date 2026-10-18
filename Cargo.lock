@@ -927,6 +927,12 @@ dependencies = [
 [[package]]
 name = "perch-store"
 version = "0.1.0"
+dependencies = [
+ "perch-core",
+ "proptest",
+ "serde_json",
+ "thiserror",
+]
 
 [[package]]
 name = "perch-sync"
