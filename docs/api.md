@@ -14,7 +14,7 @@ A node serves this API for people and programs that do not run the Perch client.
 | Product keys | Product keys contain `:` and may contain other reserved characters. Percent-encode the key as one path segment ([RFC 3986 section 2.1](https://www.rfc-editor.org/rfc/rfc3986#section-2.1)); `/` must be sent as `%2F`. |
 | View output | View endpoints return `canonical_json(view)` ([RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)), so output can be compared byte for byte with the browser client. |
 | Policy | View endpoints compute with the node's default policy. `?now=<ms>` pins `policy.now`; without it, `now` is the node's current time. The `X-Perch-Policy-Hash` response header carries the policy hash (ARCHITECTURE 7.1). |
-| CORS | `Access-Control-Allow-Origin: *` for `GET`, `HEAD`, and `POST`. No cookies or credentials are used. |
+| CORS | `Access-Control-Allow-Origin: *` for `GET`, `HEAD`, and `POST`. No cookies or credentials are used. `X-Perch-Policy-Hash` and `X-Perch-Truncated` are exposed to scripts. |
 | Records | Records are returned in canonical wire form (ARCHITECTURE 4.2). Records without a body were removed by a node or not yet received. |
 
 ## 2. Errors
@@ -39,7 +39,6 @@ Every error has an HTTP status and this body:
 | 429 | `rate_limited` | Too many submissions or view requests from one address |
 | 503 | `too_many_sessions` | Sync session limits reached |
 | 503 | `busy` | All view workers were busy for 10 s |
-| 503 | `budget` | A lookup exceeded its 5 s time budget; use a longer prefix |
 | 500 | `internal` | Node failure, for example a disk write error |
 
 Admin endpoint errors (section 8): 401 `unauthorized`, 403 `cross_origin`, 403 `bad_host`, 415 `bad_content_type`.
@@ -188,7 +187,9 @@ client.product(key);  // same ProductView as the node, for the same policy
 
 ### 4.8 `GET /v1/lookup/{prefix}`
 
-JSON Lines: the union of the related sets of every product whose `sha256(key)` hex starts with `prefix`, sorted by record ID. The contract value is 4 hex characters; the node accepts 4 to 64. The node does not learn which product in the bucket the client wanted. `store.products` in `/v1/status` gives the catalog size for choosing a prefix length ([`docs/threat-model.md`](threat-model.md)).
+JSON Lines: the union of the related sets of every product whose `sha256(key)` hex starts with `prefix`, sorted by record ID. The contract value is 4 hex characters; the node accepts 4 to 64.
+
+The node includes products in this order: first those with a visible product chain by a verified author, then the rest, each group by key. It stops when the time budget (`--lookup-budget-ms`, default 5,000) runs out, after at least one product. A cut response carries the header `X-Perch-Truncated: <products included>/<products in the bucket>`; clients can ask another node or retry. Products from throwaway keys ground into the bucket therefore cannot push a verified product out of the response. The node does not learn which product in the bucket the client wanted. `store.products` in `/v1/status` gives the catalog size for choosing a prefix length ([`docs/threat-model.md`](threat-model.md)).
 
 ### 4.9 `GET /v1/listings/{id}`, `GET /v1/authors/{id}`, `GET /v1/stats`
 
@@ -213,7 +214,8 @@ WebSocket upgrade for the sync protocol ([`docs/sync-protocol.md`](sync-protocol
 | Concurrent view computations | 4, on the blocking thread pool; others wait up to 10 s, then 503 `busy` |
 | Heavy requests in flight per client address | 1; another waits up to 10 s, then 429 `rate_limited` |
 | Time charge | A heavy request is charged 1 extra token per 50 ms of computation, so slow queries use up the address's budget |
-| Lookup time budget | 5 s, checked between products; then 503 `budget` |
+| Lookup time budget | 5 s, checked between products; then the response is cut (`X-Perch-Truncated`) |
+| Client address for limits | IPv4 address, or the IPv6 /64 prefix (one subscriber usually holds a whole /64); IPv4-mapped IPv6 counts as IPv4 |
 | Rate-limiter table | 100,000 addresses; when full, refilled entries are evicted first |
 | Record line | 131,072 bytes |
 | Log page | 1,000 records |
@@ -260,7 +262,7 @@ perch-node serve [--listen 127.0.0.1:7700] [--data ./data] [--peer ws://host:por
                  [--refresh-secs 600] [--max-outbound 8] [--import file.jsonl]...
                  [--tier1-records 1000000] [--tier2-records 1000] [--tier3-records 100]
                  [--tier3-budget 1073741824] [--trust-proxy-header x-forwarded-for]
-                 [--trust-proxy-hops 1] [--ca-file roots.pem]
+                 [--trust-proxy-hops 1] [--ca-file roots.pem] [--lookup-budget-ms 5000]
 perch-node keygen [--out key.json]
 perch-node demo --out demo.jsonl [--policy-out policy.json] [--manifest-out manifest.json]
                 [--size small|medium|large] [--seed 1]
@@ -279,6 +281,7 @@ perch-node demo --out demo.jsonl [--policy-out policy.json] [--manifest-out mani
 | `--operator-key` | Key that signs the node's `redact` records. Only used for redaction. |
 | `--public-url` | Address announced to peers. Default `ws://<listen>/v1/sync`, or none when listening on all interfaces. |
 | `--import` | JSONL files inserted at startup (for example the demo dataset) |
+| `--lookup-budget-ms` | Time budget of one `/v1/lookup` (default 5,000) |
 | `--ca-file` | Extra trusted CA certificates (PEM) for dialing `wss://` peers, added to the Mozilla roots (section 9) |
 | `--trust-proxy-header` | Header naming the client address (for example `x-forwarded-for`), trusted only on connections from loopback, for a reverse proxy on the same host. Rate limits and the per-address session cap then use the forwarded address. |
 | `--trust-proxy-hops` | Which value of that header is the client, counted from the right (default 1: the value the nearest proxy appended). Values further left come from the client and are ignored. |

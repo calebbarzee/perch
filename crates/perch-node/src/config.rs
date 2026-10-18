@@ -34,6 +34,8 @@ pub struct ServeConfig {
     pub trust_proxy_hops: usize,
     /// Extra trust roots (PEM) for `wss://` peers.
     pub ca_file: Option<PathBuf>,
+    /// Time budget of one lookup, in milliseconds.
+    pub lookup_budget_ms: u64,
 }
 
 /// Limits from ARCHITECTURE 9 and docs/sync-protocol.md 9.

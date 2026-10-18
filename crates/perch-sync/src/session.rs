@@ -20,14 +20,15 @@ pub struct SessionConfig {
     pub software: String,
     pub listen: Option<String>,
     pub limits: Limits,
-    /// Heads entries one exchange may add beyond the local author count.
-    /// A peer that sends more is closed with `misbehavior`; this bounds the
-    /// memory a peer can make a session hold.
-    pub max_extra_authors: usize,
+    /// Authors this node lacks that one session may track at a time (the
+    /// want window). The next heads page is pulled only when the window has
+    /// room, so per-session state stays within the local author count plus
+    /// this number, whatever the peer's size.
+    pub want_window: usize,
 }
 
-/// Default for [`SessionConfig::max_extra_authors`].
-pub const MAX_EXTRA_AUTHORS: usize = 100_000;
+/// Default for [`SessionConfig::want_window`]: two heads pages.
+pub const WANT_WINDOW: usize = 8192;
 
 impl SessionConfig {
     pub fn new(node: impl Into<String>, role: Role) -> Self {
@@ -37,7 +38,7 @@ impl SessionConfig {
             software: format!("perch-sync/{}", env!("CARGO_PKG_VERSION")),
             listen: None,
             limits: Limits::default(),
-            max_extra_authors: MAX_EXTRA_AUTHORS,
+            want_window: WANT_WINDOW,
         }
     }
 
@@ -158,9 +159,11 @@ pub struct Session {
     heads_rounds: u64,
     /// `after` of the `get_heads` in flight.
     heads_after: Option<String>,
-    /// Entries received in the current exchange, and its cap.
-    round_entries: usize,
-    round_cap: usize,
+    /// The next page to pull, as its `after` cursor, while an exchange waits
+    /// for room in the want window. `None` when no page is pending.
+    heads_pending: Option<Option<String>>,
+    /// Authors this node lacks with outstanding wants or evidence requests.
+    pending: BTreeSet<AuthorId>,
     want_queue: BTreeMap<AuthorId, WantPlan>,
     want_inflight: Option<Vec<InflightWant>>,
     unavailable: BTreeSet<AuthorId>,
@@ -196,8 +199,8 @@ impl Session {
             heads_inflight: false,
             heads_rounds: 0,
             heads_after: None,
-            round_entries: 0,
-            round_cap: 0,
+            heads_pending: None,
+            pending: BTreeSet::new(),
             want_queue: BTreeMap::new(),
             want_inflight: None,
             unavailable: BTreeSet::new(),
@@ -290,34 +293,69 @@ impl Session {
         if !matches!(self.state, State::Syncing | State::Live) {
             return Vec::new();
         }
-        self.unavailable.clear();
-        self.body_asked.clear();
         let mut out = Out::default();
-        if !self.heads_inflight {
+        // An exchange still in progress (waiting for room) is not restarted.
+        if !self.heads_inflight && self.heads_pending.is_none() {
+            self.unavailable.clear();
+            self.body_asked.clear();
             self.start_round(store);
-            self.request_heads(None, &mut out);
+            self.heads_pending = Some(None);
         }
         self.pump(store, &mut out);
         self.finish(out)
     }
 
+    /// Entries the session tracks about the peer; bounded by the local
+    /// author count plus [`SessionConfig::want_window`].
+    pub fn state_size(&self) -> usize {
+        self.peer_has.len().max(self.want_queue.len()).max(self.peer_pair.len()).max(self.pending.len())
+    }
+
     fn start_round<S: Store + ?Sized>(&mut self, store: &S) {
-        self.round_entries = 0;
-        self.round_cap = store.author_count().saturating_add(self.cfg.max_extra_authors);
-        // Replace, per exchange, what the peer claimed about authors this node
-        // does not store; the new heads rebuild it. Bounds state across refreshes.
+        // Replace, per exchange, what the peer said about authors this node
+        // does not store; the new heads rebuild it within the want window.
         self.peer_has.retain(|a, _| store.head(a).is_some());
         self.peer_pair.retain(|a, _| store.head(a).is_some());
         self.peer_hint.clear();
         self.want_queue.clear();
         self.evid_queue.clear();
+        self.pending.clear();
     }
 
-    /// Lifetime bound on per-peer state (audit #6): at most the local
-    /// author count plus `max_extra_authors` entries.
+    /// Drops pending authors that became local or have nothing outstanding.
+    fn settle_pending<S: Store + ?Sized>(&mut self, store: &S) {
+        if self.pending.is_empty() {
+            return;
+        }
+        let inflight_w: BTreeSet<AuthorId> = self.want_inflight.iter().flatten().map(|w| w.author).collect();
+        let inflight_e: BTreeSet<AuthorId> = self.evid_inflight.iter().flatten().copied().collect();
+        let done: Vec<AuthorId> = self
+            .pending
+            .iter()
+            .filter(|a| {
+                store.head(a).is_some()
+                    || !(self.want_queue.contains_key(*a)
+                        || self.evid_queue.contains(*a)
+                        || inflight_w.contains(*a)
+                        || inflight_e.contains(*a))
+            })
+            .copied()
+            .collect();
+        for a in done {
+            self.pending.remove(&a);
+            if store.head(&a).is_none() {
+                self.peer_has.remove(&a);
+                self.peer_pair.remove(&a);
+                self.peer_hint.remove(&a);
+            }
+        }
+    }
+
+    /// Invariant check on per-peer state (audit #6): at most the local
+    /// author count plus the want window. Closes the session if violated.
     fn check_state_bound<S: Store + ?Sized>(&mut self, store: &S) -> Result<(), SyncError> {
-        let cap = store.author_count().saturating_add(self.cfg.max_extra_authors);
-        let size = self.peer_has.len().max(self.want_queue.len()).max(self.peer_pair.len());
+        let cap = store.author_count().saturating_add(self.cfg.want_window);
+        let size = self.state_size();
         if size > cap {
             self.score = self.score.saturating_add(score::BAD_MESSAGE);
             return Err(self.fail(ErrorCode::Misbehavior, format!("peer state of {size} authors exceeds {cap}")));
@@ -346,10 +384,14 @@ impl Session {
         Ok(())
     }
 
-    fn request_heads(&mut self, after: Option<String>, out: &mut Out) {
+    fn page_limit(&self) -> usize {
+        self.cfg.limits.max_heads.min(limits::MAX_HEADS).max(1)
+    }
+
+    fn request_heads(&mut self, after: Option<String>, limit: usize, out: &mut Out) {
         self.heads_inflight = true;
         self.heads_after = after.clone();
-        out.msgs.push(Message::GetHeads { after, limit: self.cfg.limits.max_heads.min(limits::MAX_HEADS) });
+        out.msgs.push(Message::GetHeads { after, limit });
     }
 
     /// Handles one received text frame.
@@ -375,6 +417,7 @@ impl Session {
         self.stats.records_received += msg.record_count() as u64;
         let mut out = Out::default();
         self.handle(store, msg, &mut out)?;
+        self.settle_pending(store);
         self.check_state_bound(store)?;
         if matches!(self.state, State::Syncing | State::Live) {
             self.pump(store, &mut out);
@@ -508,7 +551,8 @@ impl Session {
         self.send = self.cfg.limits.min(h.limits);
         self.peer = Some(h);
         self.state = State::Syncing;
-        self.request_heads(None, out);
+        let limit = self.page_limit().min(self.cfg.want_window.max(1));
+        self.request_heads(None, limit, out);
         Ok(())
     }
 
@@ -557,20 +601,29 @@ impl Session {
             self.score = self.score.saturating_add(score::BAD_MESSAGE);
             return Err(self.fail(ErrorCode::BadMessage, "heads.next must be the last author of a non-empty page"));
         }
-        self.round_entries = self.round_entries.saturating_add(heads.len());
-        if self.round_entries > self.round_cap {
-            self.score = self.score.saturating_add(score::BAD_MESSAGE);
-            return Err(self.fail(
-                ErrorCode::Misbehavior,
-                format!("heads exchange exceeds {} entries (local authors plus {})", self.round_cap, self.cfg.max_extra_authors),
-            ));
-        }
+        let mut resume: Option<Option<String>> = None;
+        let mut last_done: Option<String> = self.heads_after.clone();
         for e in heads {
             let Some(author) = author_of(&e.author) else { continue };
             let peer_id = e.id.as_deref().and_then(|s| RecordId::from_hex(s).ok());
+            let local = store.head(&author);
+            if local.is_none() {
+                if e.seq == 0 && !e.forked {
+                    last_done = Some(e.author.clone());
+                    continue;
+                }
+                if !self.pending.contains(&author) {
+                    if self.pending.len() >= self.cfg.want_window {
+                        // Window full: continue this exchange from here later.
+                        resume = Some(last_done.clone());
+                        break;
+                    }
+                    self.pending.insert(author);
+                }
+            }
+            last_done = Some(e.author.clone());
             let ph = self.peer_has.entry(author).or_insert(0);
             *ph = (*ph).max(e.seq);
-            let local = store.head(&author);
             let (seq_l, id_l, fork_l, pair_l) = match &local {
                 Some(h) => (h.seq, h.id, h.fork_seq, h.evidence),
                 None => (0, None, None, None),
@@ -599,9 +652,11 @@ impl Session {
                 self.send_pair(store, &author, out);
             }
         }
-        match next.as_deref().and_then(author_of) {
-            Some(n) => self.request_heads(Some(n.to_hex()), out),
-            None => {
+        match (resume, next.as_deref().and_then(author_of)) {
+            (Some(cursor), _) => self.heads_pending = Some(cursor),
+            (None, Some(n)) => self.heads_pending = Some(Some(n.to_hex())),
+            (None, None) => {
+                self.heads_pending = None;
                 self.heads_rounds += 1;
                 if self.state == State::Syncing {
                     self.state = State::Live;
@@ -728,14 +783,30 @@ impl Session {
         if o.changed() {
             self.stats.records_accepted += 1;
         }
+        let local = store.head(&author).is_some();
         match &o {
-            Insert::Inserted | Insert::Duplicate | Insert::BodyFilled => self.bump(author, seq),
+            Insert::Inserted | Insert::Duplicate | Insert::BodyFilled => {
+                if local || self.pending.contains(&author) {
+                    self.bump(author, seq);
+                }
+            }
             Insert::Gap => {
-                self.bump(author, seq);
-                let head = store.head(&author).map_or(0, |h| h.seq);
-                let to = store.fork_seq(&author).map(|n| n - 1);
-                if self.want_inflight.as_ref().is_none_or(|w| !w.iter().any(|x| x.author == author)) {
-                    self.queue_want(author, head + 1, to);
+                // Track an author this node lacks only within the want window.
+                let tracked = local || self.pending.contains(&author) || {
+                    if self.pending.len() < self.cfg.want_window {
+                        self.pending.insert(author);
+                        true
+                    } else {
+                        false
+                    }
+                };
+                if tracked {
+                    self.bump(author, seq);
+                    let head = store.head(&author).map_or(0, |h| h.seq);
+                    let to = store.fork_seq(&author).map(|n| n - 1);
+                    if self.want_inflight.as_ref().is_none_or(|w| !w.iter().any(|x| x.author == author)) {
+                        self.queue_want(author, head + 1, to);
+                    }
                 }
             }
             Insert::Fork { pair_changed } => {
@@ -746,8 +817,14 @@ impl Session {
             Insert::AboveFork => self.send_pair(store, &author, out),
             Insert::Rejected(Reject::TsDecrease { .. }) => self.penalize(score::LOG_REJECTED, "ts decrease")?,
             Insert::Rejected(Reject::Admission(_)) => {
-                self.unavailable.insert(author);
+                // Declined authors are dropped, not retained (local ones are bounded).
                 self.want_queue.remove(&author);
+                if local {
+                    self.unavailable.insert(author);
+                } else {
+                    self.pending.remove(&author);
+                    self.peer_has.remove(&author);
+                }
             }
             Insert::Rejected(Reject::NotEvidence(_)) => {}
         }
@@ -808,7 +885,7 @@ impl Session {
             let progressed = head > w.head_before || fork != w.fork_before;
             if truncated || progressed {
                 self.queue_want(w.author, head + 1, fork.map(|n| n - 1));
-            } else {
+            } else if h.is_some() {
                 self.unavailable.insert(w.author);
             }
         }
@@ -847,6 +924,16 @@ impl Session {
 
     /// Sends pending requests (one of each type in flight).
     fn pump<S: Store + ?Sized>(&mut self, store: &S, out: &mut Out) {
+        // Back-pressure: pull the next heads page only when the want window has room.
+        if !self.heads_inflight && self.heads_pending.is_some() {
+            let page = self.page_limit();
+            let room = self.cfg.want_window.saturating_sub(self.pending.len());
+            if room >= page.min(self.cfg.want_window).max(1)
+                && let Some(cursor) = self.heads_pending.take()
+            {
+                self.request_heads(cursor, page.min(room), out);
+            }
+        }
         if self.want_inflight.is_none() && !self.want_queue.is_empty() {
             let mut wants = Vec::new();
             let mut inflight = Vec::new();

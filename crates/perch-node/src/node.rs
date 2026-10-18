@@ -493,6 +493,7 @@ mod tests {
             trust_proxy_header: None,
             trust_proxy_hops: 1,
             ca_file: None,
+            lookup_budget_ms: 5000,
         };
         let build = BuildInfo { version: "test", build_hash: "x".into() };
         Node::open(config, perch_views::default_policy(0, &[]), build).unwrap()

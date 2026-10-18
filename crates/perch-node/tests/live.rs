@@ -372,3 +372,64 @@ fn l_trusted_proxy_header_uses_rightmost_value() {
     assert_eq!(statuses[..8], vec!["101"; 8][..], "{statuses:?}");
     assert_eq!(statuses[8], "503", "{statuses:?}");
 }
+
+/// Lookup budget: verified-source products come first, and a response cut
+/// by the budget says so in X-Perch-Truncated instead of failing.
+#[test]
+fn m_lookup_budget_keeps_verified_products_first() {
+    let dir = tmpdir("lookupbudget");
+    let (demo, policy) = demo_files(&dir);
+    let n = spawn(
+        &dir.join("a"),
+        &["--policy".into(), policy.display().to_string(), "--import".into(), demo.display().to_string(), "--lookup-budget-ms".into(), "0".into()],
+    );
+    let now = perch_demo::DEMO_NOW;
+    // A product whose name has a verified source.
+    let hits = n.get(&format!("/v1/search?q=&limit=50&now={now}")).json();
+    let (key, rec) = hits
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|h| {
+            let key = h["key"].as_str()?.to_string();
+            let v = n.get(&format!("/v1/products/{}?now={now}", enc(&key))).json();
+            let src = v["name"]["sources"].as_array()?.iter().find(|s| s["verified"] == true)?.clone();
+            Some((key, src["record"].as_str()?.to_string()))
+        })
+        .expect("a product with a verified source");
+    let prefix = perch_core::ids::encode_hex(&perch_core::sha256(key.as_bytes()))[..4].to_string();
+    // Throwaway key grinds fake products into the same bucket, with keys that sort first.
+    let k = Keypair::from_seed([77; 32]);
+    let mut prev = None;
+    let mut fakes = Vec::new();
+    let mut i = 0u64;
+    let gtin = |i: u64| {
+        let base = format!("{i:013}");
+        let sum: u32 = base.bytes().rev().enumerate().map(|(j, b)| (b - b'0') as u32 * if j % 2 == 0 { 3 } else { 1 }).sum();
+        format!("{base}{}", (10 - sum % 10) % 10)
+    };
+    while fakes.len() < 3 {
+        i += 1;
+        let g = gtin(i);
+        let fk = format!("gtin:{g}");
+        if !perch_core::ids::encode_hex(&perch_core::sha256(fk.as_bytes())).starts_with(&prefix) {
+            continue;
+        }
+        assert!(fk < key, "fake key {fk} sorts before {key}, so key order alone would put it first");
+        let body = json!({ "name": "Fake", "brand": "aaa", "gtin": g }).as_object().unwrap().clone();
+        let seq = fakes.len() as u64 + 1;
+        let r = sign_record(&k, Unsigned { seq, prev, ts: 10 + seq, kind: "product".into(), replaces: None, body }).unwrap();
+        prev = Some(r.id());
+        fakes.push(r);
+    }
+    let body: Vec<String> = fakes.iter().map(|r| r.to_json_string()).collect();
+    assert_eq!(n.post("/v1/records", &body.join("\n")).json()["summary"]["inserted"], 3);
+    let l = n.get(&format!("/v1/lookup/{prefix}?now={now}"));
+    assert_eq!(l.status, 200);
+    let t = l.header("x-perch-truncated").expect("truncated marker");
+    assert!(t.starts_with("1/"), "{t}");
+    assert!(l.body.contains(&rec), "the verified product comes first");
+    for f in &fakes {
+        assert!(!l.body.contains(&f.id().to_hex()), "fakes are cut by the budget");
+    }
+}

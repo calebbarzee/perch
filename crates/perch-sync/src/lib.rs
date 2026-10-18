@@ -32,4 +32,4 @@ pub mod sim;
 pub use address::AddressBook;
 pub use hub::{Hub, Outbox, insert_batch};
 pub use message::{ErrorCode, HeadEntry, Hello, Limits, Message, ParseError, PROTOCOL, Role, VERSION, WantEntry};
-pub use session::{Session, SessionConfig, State, Stats, SyncError};
+pub use session::{Session, SessionConfig, State, Stats, SyncError, WANT_WINDOW};

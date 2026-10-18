@@ -109,8 +109,16 @@ Paging is pulled by the receiver. A receiver sends the next `get_heads` with `af
 The receiver checks that pages advance and that an exchange is finite:
 
 - every entry of a page is after the requested `after`, and `next`, when present, is the last entry of a non-empty page; otherwise `bad_message`;
-- one exchange (all pages from `after: null` to `next: null`) has at most the local author count plus 100,000 entries; otherwise `misbehavior`. A node that joins a network with more authors catches up over several exchanges.
-- each new exchange replaces what the previous one said about authors the receiver does not store, and the receiver closes the session (`misbehavior`) if its state about the peer ever exceeds the local author count plus 100,000 authors, from heads or from pushed records.
+Per-session state does not depend on the peer's size:
+
+- The receiver keeps per-author state (`peer_has`, pair hints, queued wants) only for authors it stores, plus a **want window** of at most 8,192 authors it lacks and has asked for.
+- It pulls the next heads page only when the window has room for a page (4,096). If a page fills the window, it stops at that entry and later continues the exchange from it. Pulled pages thus give back-pressure: a peer with any number of authors is synced at the pace that wants are answered.
+- An author leaves the window when its records arrive (it is then stored) or when the peer cannot serve it. Authors that admission declines are dropped.
+- Records pushed for authors the receiver lacks enter the window only while it has room; others are ignored.
+- Each new exchange replaces what the previous one said about authors the receiver does not store. A refresh does not restart an exchange that is still waiting for room.
+- If the state ever exceeds the local author count plus the window, the receiver closes the session (`misbehavior`); with the rules above this does not happen with honest or dishonest peers.
+
+Measured (`crates/perch-sync/tests/sync_mem.rs`, debug build): an empty node synced 150,000 authors (one record each) from one peer in 48.1 s, of which 12.7 s was signing the test data, with 682 messages and 104 MB; its state beyond the local author count never exceeded 8,192.
 
 Each page reflects the responder's store when the page is built. Records the responder accepts after the session starts reach the peer by push (5.2), so changes between pages are not lost.
 

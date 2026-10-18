@@ -115,6 +115,9 @@ struct ServeArgs {
     /// Extra trusted CA certificates (PEM) for dialing wss:// peers, added to the Mozilla roots.
     #[arg(long)]
     ca_file: Option<PathBuf>,
+    /// Time budget of one /v1/lookup in milliseconds; the response is truncated (X-Perch-Truncated) when it runs out.
+    #[arg(long, default_value_t = perch_node::config::limits::LOOKUP_BUDGET_MS)]
+    lookup_budget_ms: u64,
 }
 
 fn fail(msg: impl std::fmt::Display) -> ! {
@@ -221,6 +224,7 @@ async fn serve(a: ServeArgs) {
         trust_proxy_header: a.trust_proxy_header.as_ref().map(|h| h.to_ascii_lowercase()),
         trust_proxy_hops: a.trust_proxy_hops.max(1),
         ca_file: a.ca_file.clone(),
+        lookup_budget_ms: a.lookup_budget_ms,
     };
     let build = BuildInfo { version: env!("CARGO_PKG_VERSION"), build_hash: build_hash() };
     let node = Arc::new(Node::open(config, policy, build).unwrap_or_else(|e| fail(e)));

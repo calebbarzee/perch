@@ -24,6 +24,24 @@ use crate::node::{Node, NodeError, now_ms};
 
 /// Header carrying the policy hash on view responses.
 pub const POLICY_HASH_HEADER: &str = "x-perch-policy-hash";
+/// Header set on `/v1/lookup` when the time budget ended the response early:
+/// `<products included>/<products in the bucket>`.
+pub const TRUNCATED_HEADER: &str = "x-perch-truncated";
+
+/// The key used for per-client limits: IPv6 addresses count per /64 (one
+/// subscriber usually holds a whole /64); IPv4-mapped IPv6 counts as IPv4.
+pub fn limit_key(ip: IpAddr) -> IpAddr {
+    match ip {
+        IpAddr::V4(_) => ip,
+        IpAddr::V6(v6) => {
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                return IpAddr::V4(v4);
+            }
+            let s = v6.segments();
+            IpAddr::V6(std::net::Ipv6Addr::new(s[0], s[1], s[2], s[3], 0, 0, 0, 0))
+        }
+    }
+}
 
 /// Per-client-IP token buckets. When the table is full, idle entries (whose
 /// bucket has refilled) are evicted first, then the entries with the most
@@ -92,6 +110,20 @@ impl Limiter {
 #[cfg(test)]
 mod limiter_tests {
     use super::*;
+
+    #[test]
+    fn ipv6_clients_count_per_64() {
+        let a: IpAddr = "2001:db8:1:2:aaaa::1".parse().unwrap();
+        let b: IpAddr = "2001:db8:1:2:bbbb::9".parse().unwrap();
+        let c: IpAddr = "2001:db8:1:3::1".parse().unwrap();
+        assert_eq!(limit_key(a), limit_key(b));
+        assert_ne!(limit_key(a), limit_key(c));
+        assert_eq!(limit_key("::ffff:203.0.113.5".parse().unwrap()), "203.0.113.5".parse::<IpAddr>().unwrap());
+        let l = Limiter::new(1.0, 2.0);
+        assert!(l.take(limit_key(a), 2.0));
+        assert!(!l.take(limit_key(b), 1.0), "same /64 shares the bucket");
+        assert!(l.take(limit_key(c), 1.0));
+    }
 
     #[test]
     fn forwarded_ip_takes_the_trusted_hop() {
@@ -326,7 +358,7 @@ pub fn router(node: Arc<Node>) -> Router {
         .allow_origin(Any)
         .allow_methods([Method::GET, Method::HEAD, Method::POST, Method::OPTIONS])
         .allow_headers([header::CONTENT_TYPE])
-        .expose_headers([header::HeaderName::from_static(POLICY_HASH_HEADER)]);
+        .expose_headers([header::HeaderName::from_static(POLICY_HASH_HEADER), header::HeaderName::from_static(TRUNCATED_HEADER)]);
     let app = match &node.config.web {
         Some(dir) => api.fallback_service(tower_http::services::ServeDir::new(dir).append_index_html_on_directories(true)),
         None => api.fallback(|| async { ApiError::not_found("no such path; this node does not serve a web app (--web)") }),
@@ -397,9 +429,9 @@ impl Http {
         addr.ip()
     }
 
-    /// Rate limit, then one in-flight slot per client IP (audit #10).
+    /// Rate limit, then one in-flight slot per client (IPv6: per /64) (audit #10).
     async fn heavy(&self, addr: SocketAddr, headers: &HeaderMap, cost: f64) -> Result<HeavyGuard, ApiError> {
-        let ip = self.client_ip(addr, headers);
+        let ip = limit_key(self.client_ip(addr, headers));
         if !self.heavy_limit.take(ip, cost) {
             return Err(ApiError::new(StatusCode::TOO_MANY_REQUESTS, "rate_limited", "too many view requests from this address; retry later"));
         }
@@ -433,7 +465,7 @@ impl Http {
 }
 
 async fn post_records(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, body: Body) -> ApiResult {
-    if !h.post_limit.take(h.client_ip(addr, &headers), 1.0) {
+    if !h.post_limit.take(limit_key(h.client_ip(addr, &headers)), 1.0) {
         return Err(ApiError::new(StatusCode::TOO_MANY_REQUESTS, "rate_limited", "at most 2 submissions per second per address"));
     }
     let bytes = axum::body::to_bytes(body, limits::POST_BYTES).await.map_err(|_| {
@@ -570,19 +602,42 @@ async fn get_product(
     Ok(view_text(&h.node, v))
 }
 
-/// Related sets of `keys` as JSONL lines. `None` if `deadline` passed
-/// between products (a per-request time budget).
-fn related_lines(node: &Node, keys: &[String], now: Option<u64>, deadline: Option<Instant>) -> Option<Vec<String>> {
+/// Related sets of `keys` as JSONL lines, in key order, until `deadline`.
+/// Returns the lines and the number of keys included.
+fn related_lines(node: &Node, keys: &[String], now: Option<u64>, deadline: Option<Instant>) -> (Vec<String>, usize) {
     let p = node.policy_at(now);
     let st = node.read();
     let mut ids = std::collections::BTreeSet::new();
+    let mut done = 0;
     for k in keys {
-        if deadline.is_some_and(|d| Instant::now() > d) {
-            return None;
+        // At least one product is always included, so a lookup makes progress.
+        if done > 0 && deadline.is_some_and(|d| Instant::now() > d) {
+            break;
         }
         ids.extend(perch_views::related_records(&*st, k, &p));
+        done += 1;
     }
-    Some(ids.into_iter().filter_map(|id| st.get(&id)).map(|r| r.to_json_string()).collect())
+    (ids.into_iter().filter_map(|id| st.get(&id)).map(|r| r.to_json_string()).collect(), done)
+}
+
+/// Orders a lookup bucket: keys with a visible product chain by a verified
+/// author first, then the rest, each in key order. Fake products made with
+/// throwaway keys therefore cannot push a verified product past the budget.
+fn lookup_order(node: &Node, keys: Vec<String>, now: Option<u64>) -> Vec<String> {
+    let p = node.policy_at(now);
+    let st = node.read();
+    let views = Views::new(&*st, &p);
+    let (mut first, mut rest) = (Vec::new(), Vec::new());
+    for k in keys {
+        let verified = st.by_product(&k).iter().filter_map(|id| st.get(id)).any(|r| {
+            r.kind() == perch_core::kinds::names::PRODUCT
+                && views.verified_author(&r.author())
+                && views.chain_status(&r.id()) == Some(perch_views::Status::Visible)
+        });
+        if verified { first.push(k) } else { rest.push(k) }
+    }
+    first.extend(rest);
+    first
 }
 
 async fn get_product_records(
@@ -594,7 +649,7 @@ async fn get_product_records(
 ) -> ApiResult {
     let now = q_u64(&query(&raw), "now")?;
     let _g = h.heavy(addr, &headers, 1.0).await?;
-    let lines = h.compute(move |n| related_lines(n, &[key], now, None)).await?.unwrap_or_default();
+    let (lines, _) = h.compute(move |n| related_lines(n, &[key], now, None)).await?;
     Ok(jsonl_response(lines, Some(&h.node.policy_hash)))
 }
 
@@ -616,22 +671,29 @@ async fn lookup(
     }
     let now = q_u64(&query(&raw), "now")?;
     let _g = h.heavy(addr, &headers, 2.0).await?;
-    let lines = h
+    let budget = std::time::Duration::from_millis(h.node.config.lookup_budget_ms);
+    let (lines, done, total) = h
         .compute(move |n| {
+            let deadline = Instant::now() + budget;
             let keys: Vec<String> = n
                 .read()
                 .product_keys()
                 .into_iter()
                 .filter(|k| perch_core::ids::encode_hex(&perch_core::sha256(k.as_bytes())).starts_with(&prefix))
                 .collect();
-            let deadline = Instant::now() + std::time::Duration::from_millis(limits::LOOKUP_BUDGET_MS);
-            related_lines(n, &keys, now, Some(deadline))
+            let keys = lookup_order(n, keys, now);
+            let total = keys.len();
+            let (lines, done) = related_lines(n, &keys, now, Some(deadline));
+            (lines, done, total)
         })
-        .await?
-        .ok_or_else(|| {
-            ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "budget", "lookup exceeded its time budget; use a longer prefix")
-        })?;
-    Ok(jsonl_response(lines, Some(&h.node.policy_hash)))
+        .await?;
+    let mut r = jsonl_response(lines, Some(&h.node.policy_hash));
+    if done < total
+        && let Ok(v) = HeaderValue::from_str(&format!("{done}/{total}"))
+    {
+        r.headers_mut().insert(TRUNCATED_HEADER, v);
+    }
+    Ok(r)
 }
 
 async fn get_listing(
