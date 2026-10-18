@@ -110,6 +110,8 @@ pub struct Node {
     pub operator: Option<Keypair>,
     pub config: ServeConfig,
     pub admission: Option<Arc<Admission>>,
+    /// TLS client configuration for `wss://` peers.
+    pub tls: Arc<rustls::ClientConfig>,
 }
 
 fn random_hex(bytes: usize) -> String {
@@ -215,6 +217,7 @@ impl Node {
             }
             None => None,
         };
+        let tls = crate::tls::client_config(config.ca_file.as_deref())?;
         let (changes, _) = broadcast::channel(1024);
         let policy_hash = perch_views::policy_hash(&policy);
         Ok(Node {
@@ -234,6 +237,7 @@ impl Node {
             operator,
             config,
             admission,
+            tls,
         })
     }
 
@@ -487,6 +491,7 @@ mod tests {
             imports: vec![],
             tiers: Default::default(),
             trust_proxy_header: None,
+            ca_file: None,
         };
         let build = BuildInfo { version: "test", build_hash: "x".into() };
         Node::open(config, perch_views::default_policy(0, &[]), build).unwrap()

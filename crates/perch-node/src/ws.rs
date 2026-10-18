@@ -418,10 +418,7 @@ pub async fn resolve_checked(host: &str, port: u16, private_ok: bool) -> Result<
 pub async fn dial(node: Arc<Node>, url: &str, private_ok: bool) -> Result<End, String> {
     use tokio_tungstenite::tungstenite::Message as M;
     use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
-    let (host, port, tls) = host_port(url)?;
-    if tls {
-        return Err("wss:// peers need TLS support, which this build does not include".into());
-    }
+    let (host, port, _tls) = host_port(url)?;
     let addrs = resolve_checked(&host, port, private_ok).await?;
     let mut last_err = String::from("no address");
     let mut stream = None;
@@ -437,10 +434,15 @@ pub async fn dial(node: Arc<Node>, url: &str, private_ok: bool) -> Result<End, S
     }
     let stream = stream.ok_or(last_err)?;
     let cfg = WebSocketConfig::default().max_message_size(Some(MAX_WS_MESSAGE)).max_frame_size(Some(MAX_WS_MESSAGE));
-    let (ws, _) = tokio::time::timeout(Duration::from_secs(10), tokio_tungstenite::client_async_with_config(url, stream, Some(cfg)))
-        .await
-        .map_err(|_| "handshake timeout".to_string())?
-        .map_err(|e| e.to_string())?;
+    // TLS (wss://) uses the URL host for SNI and certificate checks, over the checked address.
+    let connector = crate::tls::connector_for(url, &node.tls);
+    let (ws, _) = tokio::time::timeout(
+        Duration::from_secs(10),
+        tokio_tungstenite::client_async_tls_with_config(url, stream, Some(cfg), Some(connector)),
+    )
+    .await
+    .map_err(|_| "handshake timeout".to_string())?
+    .map_err(|e| e.to_string())?;
     let (mut sink, mut stream) = ws.split();
     let (in_tx, in_rx) = mpsc::channel::<In>(4);
     let (out_tx, mut out_rx) = out_queue();

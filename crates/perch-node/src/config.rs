@@ -29,6 +29,8 @@ pub struct ServeConfig {
     /// reverse proxy on the same host (for example `x-forwarded-for`).
     /// Used only for connections from loopback.
     pub trust_proxy_header: Option<String>,
+    /// Extra trust roots (PEM) for `wss://` peers.
+    pub ca_file: Option<PathBuf>,
 }
 
 /// Limits from ARCHITECTURE 9 and docs/sync-protocol.md 9.

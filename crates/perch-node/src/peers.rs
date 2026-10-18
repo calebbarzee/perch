@@ -59,7 +59,7 @@ pub async fn keep_connected(node: Arc<Node>, url: String) {
                 }
             }
             Err(e) => {
-                tracing::debug!(url = %url, error = %e, "connect failed");
+                tracing::info!(url = %url, error = %e, "connect failed");
                 node.addresses.lock().unwrap_or_else(|e| e.into_inner()).record_failure(&url);
             }
         }

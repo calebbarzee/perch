@@ -256,6 +256,7 @@ perch-node serve [--listen 127.0.0.1:7700] [--data ./data] [--peer ws://host:por
                  [--refresh-secs 600] [--max-outbound 8] [--import file.jsonl]...
                  [--tier1-records 1000000] [--tier2-records 1000] [--tier3-records 100]
                  [--tier3-budget 1073741824] [--trust-proxy-header x-forwarded-for]
+                 [--ca-file roots.pem]
 perch-node keygen [--out key.json]
 perch-node demo --out demo.jsonl [--policy-out policy.json] [--manifest-out manifest.json]
                 [--size small|medium|large] [--seed 1]
@@ -274,6 +275,7 @@ perch-node demo --out demo.jsonl [--policy-out policy.json] [--manifest-out mani
 | `--operator-key` | Key that signs the node's `redact` records. Only used for redaction. |
 | `--public-url` | Address announced to peers. Default `ws://<listen>/v1/sync`, or none when listening on all interfaces. |
 | `--import` | JSONL files inserted at startup (for example the demo dataset) |
+| `--ca-file` | Extra trusted CA certificates (PEM) for dialing `wss://` peers, added to the Mozilla roots (section 9) |
 | `--trust-proxy-header` | Header naming the client address (for example `x-forwarded-for`), trusted only on connections from loopback, for a reverse proxy on the same host |
 
 Environment variables:
@@ -332,11 +334,38 @@ Suggested notice-handling procedure (threat-model T45–T47):
 4. Call `POST /admin/redact` with the reason. Publish the `redact` record so users see that a body was removed and why.
 5. Keep `removed.txt` in backups; it must be present when the node restarts.
 
+## 9. TLS
+
+| Direction | Support |
+|---|---|
+| Outbound (`--peer wss://…`, learned `wss://` addresses) | Built in: [rustls](https://github.com/rustls/rustls) with the Mozilla root certificates of [`webpki-roots`](https://docs.rs/webpki-roots). The certificate must match the URL's host name (sent as SNI). `--ca-file` adds roots, for a private CA or a self-signed test peer. |
+| Inbound (HTTP API and `/v1/sync`) | Not built in. Put a TLS reverse proxy on the same host in front of the node. |
+
+The dialer resolves the host, checks the addresses (section 8 of [`docs/sync-protocol.md`](sync-protocol.md)), connects to a checked address, and then runs TLS with the URL's host name.
+
+Reverse proxy setup for a public node:
+
+1. Run the node on loopback: `perch-node serve --listen 127.0.0.1:7700 --public-url wss://perch.example.org/v1/sync --trust-proxy-header x-forwarded-for`.
+2. Terminate TLS in the proxy and forward everything to `127.0.0.1:7700`, including WebSocket upgrades on `/v1/sync` (`Upgrade` and `Connection` headers), with a read timeout above 90 s.
+3. Set `X-Forwarded-For` to the client address, so rate limits apply per client and not to the proxy.
+
+Example for [Caddy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy), which obtains certificates and forwards WebSocket upgrades by default:
+
+```text
+perch.example.org {
+    reverse_proxy 127.0.0.1:7700
+}
+```
+
+Test: `crates/perch-node/tests/tls.rs` dials a `wss://localhost` peer through a TLS proxy with a self-signed certificate. The dial succeeds with `--ca-file` and is refused without it.
+
 ## Appendix: terms
 
 | Term | Meaning |
 |---|---|
 | CORS | Cross-Origin Resource Sharing: browser rules for calling an API from another web origin |
+| SNI | Server Name Indication: the host name a TLS client sends so the server picks the right certificate |
+| TLS | Transport Layer Security: encryption and server authentication for TCP connections |
 | Evidence pair | Two records by one author that prove a fork (ARCHITECTURE 5.2) |
 | JSON Lines | One JSON value per line ([jsonlines.org](https://jsonlines.org)) |
 | Policy hash | SHA-256 of the normalized policy without `now` (ARCHITECTURE 7.1) |

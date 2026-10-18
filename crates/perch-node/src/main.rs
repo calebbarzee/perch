@@ -109,6 +109,9 @@ struct ServeArgs {
     /// (for a reverse proxy on the same host), for example x-forwarded-for.
     #[arg(long)]
     trust_proxy_header: Option<String>,
+    /// Extra trusted CA certificates (PEM) for dialing wss:// peers, added to the Mozilla roots.
+    #[arg(long)]
+    ca_file: Option<PathBuf>,
 }
 
 fn fail(msg: impl std::fmt::Display) -> ! {
@@ -213,6 +216,7 @@ async fn serve(a: ServeArgs) {
             ..Default::default()
         },
         trust_proxy_header: a.trust_proxy_header.as_ref().map(|h| h.to_ascii_lowercase()),
+        ca_file: a.ca_file.clone(),
     };
     let build = BuildInfo { version: env!("CARGO_PKG_VERSION"), build_hash: build_hash() };
     let node = Arc::new(Node::open(config, policy, build).unwrap_or_else(|e| fail(e)));
