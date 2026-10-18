@@ -122,7 +122,10 @@ function show(tab, content, name = null) {
 async function lookup(node, prefix, signal) {
   const res = await fetch(new URL(`/v1/lookup/${prefix}`, node), { signal, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.text();
+  // A node that ran out of time returns part of the bucket, products with a
+  // verified source first, and says so in this header ("included/total").
+  const truncated = res.headers.get('X-Perch-Truncated');
+  return { jsonl: await res.text(), truncated: /^\d+\/\d+$/.test(truncated || '') ? truncated : null };
 }
 
 function summarize(view) {
@@ -200,7 +203,7 @@ async function check(settings) {
   const perNode = await Promise.all(
     settings.nodes.map(async (node) => {
       try {
-        return { node, jsonl: await lookup(node, prefix, ctrl.signal) };
+        return { node, ...(await lookup(node, prefix, ctrl.signal)) };
       } catch (e) {
         return { node, error: e.name === 'AbortError' ? 'timed out' : e.message };
       }
@@ -225,8 +228,12 @@ async function check(settings) {
   const view = union.product(key);
   const policyHash = union.policyHash();
 
-  const failures = failed.length
-    ? h('p', { class: 'warn' }, failed.map((n, i) => [i ? ' ' : '', h('span', { class: 'host', text: nodeLabel(n.node) }), ` did not answer (${n.error}).`]))
+  const cut = ok.filter((n) => n.truncated);
+  const failures = failed.length || cut.length
+    ? h('p', { class: 'warn' }, [
+        failed.map((n, i) => [i ? ' ' : '', h('span', { class: 'host', text: nodeLabel(n.node) }), ` did not answer (${n.error}).`]),
+        cut.map((n, i) => [failed.length || i ? ' ' : '', h('span', { class: 'host', text: nodeLabel(n.node) }), ` sent part of its answer (${n.truncated.replace('/', ' of ')} products), so its numbers may be incomplete.`]),
+      ])
     : null;
   const privacy = h('p', { class: 'privacy', 'data-testid': 'privacy' },
     'Sent: the hash prefix ', h('code', { text: prefix }), ` to ${plural(settings.nodes.length, 'node')}. Not sent: this page's address, the product, or cookies.`,
