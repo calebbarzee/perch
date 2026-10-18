@@ -63,7 +63,9 @@ fn control_kind_without_body_has_no_effect() {
     for r in &a.records {
         s.ingest(&r.wire());
     }
-    assert!(author_view(&s, &w.policy(), &a.author())["verified"].is_null());
+    let v = author_view(&s, &w.policy(), &a.author());
+    assert!(!v.is_null());
+    assert!(v["verified"].is_null());
 }
 
 #[test]

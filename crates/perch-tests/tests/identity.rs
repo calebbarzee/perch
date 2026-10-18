@@ -15,7 +15,9 @@ fn store_of(w: &World, logs: &[&Log]) -> Store {
 }
 
 fn verified(s: &Store, p: &Value, author: &str) -> bool {
-    !author_view(s, p, author)["verified"].is_null()
+    let v = author_view(s, p, author);
+    assert!(!v.is_null(), "author {author} must exist in the store");
+    !v["verified"].is_null()
 }
 
 #[test]

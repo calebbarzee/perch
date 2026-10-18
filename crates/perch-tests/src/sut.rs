@@ -102,6 +102,12 @@ pub fn search(store: &Store, policy: &Value, q: &str) -> Value {
     imp::search(&store.0, policy, q)
 }
 
+/// A sparse store holding only the related set of `key` (contract 5.5, 8.1),
+/// copied from `full` the way a light client receives it.
+pub fn related_sparse(full: &Store, policy: &Value, key: &str) -> Store {
+    Store(imp::related_sparse(&full.0, policy, key))
+}
+
 /// Two sync peers exchanging messages until quiet (perch-sync). A dials B.
 /// Every message passes through `filter`, which can drop, duplicate, reorder,
 /// or rewrite it, to model a hostile peer or network. Stops when no messages
@@ -171,7 +177,7 @@ mod imp {
 
     pub const CORE: bool = true;
     pub const STORE: bool = true;
-    pub const VIEWS: bool = false;
+    pub const VIEWS: bool = true;
     pub const SYNC: bool = true;
 
     pub fn verify(line: &str) -> Result<String, String> {
@@ -246,17 +252,38 @@ mod imp {
         }
     }
 
-    pub fn product_view(_s: &Store, _p: &Value, _k: &str) -> Value {
-        Value::Null
+    fn policy(p: &Value) -> perch_views::Policy {
+        perch_views::Policy::from_value(p.clone()).unwrap_or_else(|e| panic!("test policy rejected: {e}: {p}"))
     }
-    pub fn listing_view(_s: &Store, _p: &Value, _id: &str) -> Value {
-        Value::Null
+    fn out<T: serde::Serialize>(v: Option<T>) -> Value {
+        match v {
+            None => Value::Null,
+            Some(v) => serde_json::from_str(&perch_views::canonical_json(&v)).expect("canonical view JSON parses"),
+        }
     }
-    pub fn author_view(_s: &Store, _p: &Value, _id: &str) -> Value {
-        Value::Null
+    pub fn related_sparse(full: &Store, p: &Value, key: &str) -> Store {
+        use perch_store::Store as _;
+        let mut sp = perch_store::MemoryStore::new_sparse();
+        for id in perch_views::related_records(&full.0, key, &policy(p)) {
+            if let Some(r) = full.0.get(&id) {
+                sp.insert(r);
+            }
+        }
+        Store(sp)
     }
-    pub fn search(_s: &Store, _p: &Value, _q: &str) -> Value {
-        Value::Null
+    pub fn product_view(s: &Store, p: &Value, k: &str) -> Value {
+        out(perch_views::product_view(&s.0, &policy(p), k))
+    }
+    pub fn listing_view(s: &Store, p: &Value, id: &str) -> Value {
+        let Ok(id) = perch_core::RecordId::from_hex(id) else { return Value::Null };
+        out(perch_views::listing_view(&s.0, &policy(p), &id))
+    }
+    pub fn author_view(s: &Store, p: &Value, id: &str) -> Value {
+        let Ok(a) = perch_core::AuthorId::from_hex(id) else { return Value::Null };
+        out(perch_views::author_view(&s.0, &policy(p), &a))
+    }
+    pub fn search(s: &Store, p: &Value, q: &str) -> Value {
+        out(Some(perch_views::search(&s.0, &policy(p), q, &perch_views::SearchOptions::default())))
     }
     pub fn sync_pair(
         a: &mut Store,

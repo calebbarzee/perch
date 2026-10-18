@@ -17,3 +17,5 @@ hex = { workspace = true }
 perch-core = { workspace = true }
 perch-store = { workspace = true }
 perch-sync = { workspace = true }
+perch-views = { workspace = true }
+serde = { workspace = true }
