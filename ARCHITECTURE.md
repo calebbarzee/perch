@@ -365,7 +365,7 @@ AuthorView   { id, name|null, role|null, url|null, about|null,
                verified: { level, legal_name|null, country|null, attestor, expires }|null,
                domains: [{ domain, attestor, expires }],
                status: AuthorStatus, restricted: bool,
-               restriction: { hidden_listings, distinct_flaggers }|null,
+               restriction: { reason: "hidden_listings"|"forked_key", hidden_listings, distinct_flaggers }|null,
                revoked: { attestor, valid_through_seq }|null,
                fork_seq|null, fork_evidence: [id, id]|null,
                retired: { seq, successor|null }|null,
@@ -375,7 +375,7 @@ AuthorView   { id, name|null, role|null, url|null, about|null,
 
 ListingView  { id (root id), latest (record id), seller (author id), seller_name|null,
                seller_verified: bool, seller_restricted: bool, seller_status: AuthorStatus,
-               domain_verified: bool, domain: { domain, attestor, expires }|null,
+               domain_verified: bool, feeds_prices: bool, domain: { domain, attestor, expires }|null,
                product, title|null, url, price: { amount, currency },
                availability, condition, ships_to: [string], location: { country, region|null }|null, updated_ts,
                status: "visible"|"hidden"|"retracted"|"unavailable",
@@ -423,7 +423,7 @@ Currency     { code, minor_units }
 
 The canonical form of a view result is its RFC 8785 serialization (`perch_views::canonical_json`). The HTTP API returns view results in this form, so API output and wasm output can be compared byte for byte.
 
-`excluded_reason` values: `unavailable`, `retracted`, `seller`, `forked`, `revoked`, `superseded` (`hidden` is reserved and always 0, because hidden reviews still count). `RatingSummary.excluded` counts reviews per reason. Search returns hits whose product `moderation.status` is not `visible` after all visible hits, so hidden products are never silently dropped; the app collapses them behind a notice. Search sort orders are `relevance` (default), `price`, `rating_count`, and `rating_mean`; sorting happens in Rust with the 7.7 tie-break. `FlagView.excluded_reason` values: `forked`, `self`, `product_seller`, `unverified`, `duplicate_person`. Exact rules for every view: [`docs/views.md`](docs/views.md).
+`excluded_reason` values: `unavailable`, `retracted`, `seller`, `forked`, `revoked`, `superseded` (`hidden` is reserved and always 0, because hidden reviews still count). `RatingSummary.excluded` counts reviews per reason. `ListingView.feeds_prices` is true when the listing counts toward `price_range` and `min_price` (7.4, 7.6). `ProductView.listings` lists those listings first, then the others, each group in the order defined in [`docs/views.md`](docs/views.md); the app shows the second group under its own heading and leaves it out of the default price chart, so an unverified shop cannot appear as the leading offer. Search returns hits whose product `moderation.status` is not `visible` after all visible hits, so hidden products are never silently dropped; the app collapses them behind a notice. Search sort orders are `relevance` (default), `price`, `rating_count`, and `rating_mean`; sorting happens in Rust with the 7.7 tie-break. `FlagView.excluded_reason` values: `forked`, `self`, `product_seller`, `unverified`, `duplicate_person`. Exact rules for every view: [`docs/views.md`](docs/views.md).
 
 `mean` and `score` may be fractional numbers per 7.7. All other numbers are integers.
 

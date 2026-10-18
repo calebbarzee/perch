@@ -537,6 +537,7 @@ Content, in order:
    | Shop | Host in ASCII form + "Shop domain verified" or "Domain not verified" badge |
    | Updated | Stated date of the latest version |
 
+   - Listings that feed the price summary come first, then the others under "Other listings", each group in view order (ux-review B1; needs `feeds_prices` in `ListingView`).
    - Below 600 px each listing is a card with the same fields in the same order.
    - Hidden listings: moderation notice in place of the row content. Withdrawn: one line "Withdrawn by the seller on `<date>`". Unavailable: redaction notice.
    - Filter "Ships to" (`<select>` of countries): a display filter. It changes the visible rows only. Text next to it: "Price summary above includes all listings."
@@ -1029,7 +1030,7 @@ Names follow `web/styles.css`. Values are the current app values except the 5 ch
 | `--hidden-tint` | `#eceff1` | `#222c31` | Moderation notice background |
 | `--focus` | `#2f3aa3` | `#a6abff` | Focus ring |
 | `--star` | `#b06c00` | `#e7b257` | Filled stars |
-| `--star-off` ✱ | `#76838a` | `#71838c` | Unfilled star outlines (same as `--line-strong`) |
+| `--star-off` ✱ | `#76838a` | `#71838c` | Unfilled star outlines (same as `--line-strong`). Filled and unfilled stars differ by only 1.08:1 in luminance (light), so unfilled stars must also differ in shape (outline glyph), and the rating number is shown as text (WCAG 1.4.1). |
 | `--series-1` | `#2a78d6` | `#3987e5` | Chart series 1 |
 | `--series-2` ✱ | `#c75a1c` | `#d95926` | Chart series 2 |
 | `--series-3` ✱ | `#0f8a5f` | `#199e70` | Chart series 3 |
