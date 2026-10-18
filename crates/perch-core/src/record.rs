@@ -795,7 +795,7 @@ mod tests {
     fn strict_parse_rules_apply_to_records() {
         let r = first("profile", json!({"name": "A", "role": "buyer"}));
         let w = r.to_json_string();
-        let dup = w.replacen("{\"author\"", &format!("{{\"kind\":\"profile\",\"author\""), 1);
+        let dup = w.replacen("{\"author\"", "{\"kind\":\"profile\",\"author\"", 1);
         assert!(matches!(Record::from_json_str(&dup), Err(RecordError::Json { detail: JsonError::DuplicateKey { .. } })));
         let float = w.replace("\"v\":1", "\"v\":1.0");
         assert!(matches!(Record::from_json_str(&float), Err(RecordError::Json { detail: JsonError::NotInteger { .. } })));

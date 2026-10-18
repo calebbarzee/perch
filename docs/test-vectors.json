@@ -1,0 +1,259 @@
+{
+  "canonical_json": [
+    {
+      "canonical": "{\"a\":2,\"b\":1}",
+      "value": {
+        "a": 2,
+        "b": 1
+      }
+    },
+    {
+      "canonical": "{\"\\r\":\"Carriage Return\",\"1\":\"One\",\"\":\"Control\",\"ö\":\"Latin Small Letter O With Diaeresis\",\"€\":\"Euro Sign\",\"😀\":\"Emoji: Grinning Face\",\"דּ\":\"Hebrew Letter Dalet With Dagesh\"}",
+      "value": {
+        "\r": "Carriage Return",
+        "1": "One",
+        "": "Control",
+        "ö": "Latin Small Letter O With Diaeresis",
+        "€": "Euro Sign",
+        "דּ": "Hebrew Letter Dalet With Dagesh",
+        "😀": "Emoji: Grinning Face"
+      }
+    },
+    {
+      "canonical": "[\"\\u0000\\b\\t\\n\\f\\r\\u001f\\\"\\\\/ \"]",
+      "value": [
+        "\u0000\b\t\n\f\r\u001f\"\\/ "
+      ]
+    },
+    {
+      "canonical": "{\"n\":[0,-1,9007199254740991,-9007199254740991]}",
+      "value": {
+        "n": [
+          0,
+          -1,
+          9007199254740991,
+          -9007199254740991
+        ]
+      }
+    }
+  ],
+  "description": "Perch record format test vectors (ARCHITECTURE contract version 3). See docs/data-model.md.",
+  "domains": {
+    "receipt": "perch/receipt/v1\n",
+    "record": "perch/record/v1\n"
+  },
+  "invalid": [
+    {
+      "error": "signature",
+      "name": "tampered_sig",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"sig\":\"0826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1}"
+    },
+    {
+      "error": "signature",
+      "name": "tampered_ts",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000001,\"v\":1}"
+    },
+    {
+      "error": "invalid_field",
+      "name": "uppercase_hex",
+      "wire": "{\"author\":\"0708B156A92BFE321E81F2914570E17FA54B25C3AC6ADAFBD1DB4BE349E2D991\",\"body\":{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1}"
+    },
+    {
+      "error": "json",
+      "name": "duplicate_key",
+      "wire": "{\"kind\":\"profile\",\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1}"
+    },
+    {
+      "error": "json",
+      "name": "float_token",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1.0}"
+    },
+    {
+      "error": "json",
+      "name": "exponent_token",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1e0}"
+    },
+    {
+      "error": "json",
+      "name": "negative_zero",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Ada's Kettles\",\"n\":-0,\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1}"
+    },
+    {
+      "error": "json",
+      "name": "lone_surrogate",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Ada\\ud800\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1}"
+    },
+    {
+      "error": "invalid_field",
+      "name": "replaces_null",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"replaces\":null,\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1}"
+    },
+    {
+      "error": "unknown_field",
+      "name": "unknown_field",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1,\"extra\":0}"
+    },
+    {
+      "error": "body_hash_mismatch",
+      "name": "body_hash_mismatch",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Bob's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1}"
+    },
+    {
+      "error": "prev_mismatch",
+      "name": "prev_not_null_at_seq1",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1}"
+    }
+  ],
+  "product_keys": [
+    {
+      "fields": {
+        "brand": "Acme",
+        "gtin": "96385074"
+      },
+      "key": "gtin:00000096385074",
+      "root": "737f2cc739aedc41d585344d42ef4a2d50994b6ab7fd18b439518b8a4ed412c6"
+    },
+    {
+      "fields": {
+        "brand": "Acme",
+        "gtin": "036000291452",
+        "mpn": "K-1"
+      },
+      "key": "gtin:00036000291452",
+      "root": "737f2cc739aedc41d585344d42ef4a2d50994b6ab7fd18b439518b8a4ed412c6"
+    },
+    {
+      "fields": {
+        "brand": "  ACME Corp\t",
+        "mpn": " WH-1000XM5 "
+      },
+      "key": "mpn:acme corp:wh-1000xm5",
+      "root": "737f2cc739aedc41d585344d42ef4a2d50994b6ab7fd18b439518b8a4ed412c6"
+    },
+    {
+      "fields": {
+        "brand": "MÜLLER",
+        "mpn": "Ä-1"
+      },
+      "key": "mpn:mÜller:Ä-1",
+      "root": "737f2cc739aedc41d585344d42ef4a2d50994b6ab7fd18b439518b8a4ed412c6"
+    },
+    {
+      "fields": {
+        "brand": "Acme"
+      },
+      "key": "rec:737f2cc739aedc41d585344d42ef4a2d50994b6ab7fd18b439518b8a4ed412c6",
+      "root": "737f2cc739aedc41d585344d42ef4a2d50994b6ab7fd18b439518b8a4ed412c6"
+    }
+  ],
+  "receipts": [
+    {
+      "name": "receipt_1",
+      "note": "Detached receipt signed by the seller over the receipt domain. Cited by review_escapes_receipt.",
+      "receipt": {
+        "buyer": "3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5",
+        "listing": "8b7c1f47af27c72d5705dde1e2f98458839eacfad31b80d664c386dacdb20e4a",
+        "nonce": "abadd683af89a28428f1ce9df2c4df0537b8e6a6b52085fad6ebf22dae720856",
+        "purchased_at": 1760000100000,
+        "sig": "4bcbdd61367ef186cd2e7db589a060cc08bc2523a8b42a87f027c82399359adf1384a7f6efb7a6078371e503b9ada3345472a0f29bc95d4e6b9299ced815f509"
+      },
+      "seller": "0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991",
+      "seller_seed": "075109fef47e157ce47bc4d612e87c044b6143e71d8e1cbb68f25bb2b871e637",
+      "signed_canonical": "{\"buyer\":\"3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5\",\"listing\":\"8b7c1f47af27c72d5705dde1e2f98458839eacfad31b80d664c386dacdb20e4a\",\"nonce\":\"abadd683af89a28428f1ce9df2c4df0537b8e6a6b52085fad6ebf22dae720856\",\"purchased_at\":1760000100000}",
+      "signed_message_hex": "70657263682f726563656970742f76310a7b226275796572223a2233613465323663366362383761353565636164306531613164326665383137306138316631313137663533333733636534363130656362646263383936356335222c226c697374696e67223a2238623763316634376166323763373264353730356464653165326639383435383833396561636661643331623830643636346333383664616364623230653461222c226e6f6e6365223a2261626164643638336166383961323834323866316365396466326334646630353337623865366136623532303835666164366562663232646165373230383536222c227075726368617365645f6174223a313736303030303130303030307d"
+    }
+  ],
+  "records": [
+    {
+      "author": "0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991",
+      "body_canonical": "{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"}",
+      "body_hash": "34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386",
+      "header_canonical": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"ts\":1760000000000,\"v\":1}",
+      "id": "f6f983920504ac2d84962c306ee461d19acabbca5c6499fb54d894b2f6f3423f",
+      "name": "profile_seq1",
+      "note": "First record of a log: seq 1, prev null.",
+      "seed": "075109fef47e157ce47bc4d612e87c044b6143e71d8e1cbb68f25bb2b871e637",
+      "sig": "9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e",
+      "signed_message_hex": "70657263682f7265636f72642f76310a7b22617574686f72223a2230373038623135366139326266653332316538316632393134353730653137666135346232356333616336616461666264316462346265333439653264393931222c22626f64795f68617368223a2233346561626231653436313438366137633365623431616366353265346366646230313538643331326530386435613266393466393635366662303936333836222c226b696e64223a2270726f66696c65222c2270726576223a6e756c6c2c22736571223a312c227473223a313736303030303030303030302c2276223a317d",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1}"
+    },
+    {
+      "author": "0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991",
+      "body_canonical": "{\"attributes\":{\"farbe\":\"rot\",\"volumen\":\"1,7 l\"},\"brand\":\"Acme\",\"category\":\"küche/wasserkocher\",\"gtin\":\"4006381333931\",\"name\":\"Wasserkocher „Größe M“ 電気ケトル 😀\"}",
+      "body_hash": "3274739fcb54703adae2875ff1ca6c891420c48e67a03ce310a207ae7a160b05",
+      "header_canonical": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body_hash\":\"3274739fcb54703adae2875ff1ca6c891420c48e67a03ce310a207ae7a160b05\",\"kind\":\"product\",\"prev\":\"f6f983920504ac2d84962c306ee461d19acabbca5c6499fb54d894b2f6f3423f\",\"seq\":2,\"ts\":1760000001000,\"v\":1}",
+      "id": "40f74494fdd57321457a87b3050ce6ef99bdf798cd8adb0cd8fb5227c2fbd36b",
+      "name": "product_non_ascii",
+      "note": "Non-ASCII text (German, Japanese, emoji) is written as raw UTF-8, not escaped.",
+      "seed": "075109fef47e157ce47bc4d612e87c044b6143e71d8e1cbb68f25bb2b871e637",
+      "sig": "b8f87e60bcd9ab2add80db1015724ca1038faac46eae1a108a67babe7206b2df933b15a529b41481348da63f7b664c8bb1760f1d84320528a579e4a66518b00a",
+      "signed_message_hex": "70657263682f7265636f72642f76310a7b22617574686f72223a2230373038623135366139326266653332316538316632393134353730653137666135346232356333616336616461666264316462346265333439653264393931222c22626f64795f68617368223a2233323734373339666362353437303361646165323837356666316361366338393134323063343865363761303363653331306132303761653761313630623035222c226b696e64223a2270726f64756374222c2270726576223a2266366639383339323035303461633264383439363263333036656534363164313961636162626361356336343939666235346438393462326636663334323366222c22736571223a322c227473223a313736303030303030313030302c2276223a317d",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"attributes\":{\"farbe\":\"rot\",\"volumen\":\"1,7 l\"},\"brand\":\"Acme\",\"category\":\"küche/wasserkocher\",\"gtin\":\"4006381333931\",\"name\":\"Wasserkocher „Größe M“ 電気ケトル 😀\"},\"body_hash\":\"3274739fcb54703adae2875ff1ca6c891420c48e67a03ce310a207ae7a160b05\",\"kind\":\"product\",\"prev\":\"f6f983920504ac2d84962c306ee461d19acabbca5c6499fb54d894b2f6f3423f\",\"seq\":2,\"sig\":\"b8f87e60bcd9ab2add80db1015724ca1038faac46eae1a108a67babe7206b2df933b15a529b41481348da63f7b664c8bb1760f1d84320528a579e4a66518b00a\",\"ts\":1760000001000,\"v\":1}"
+    },
+    {
+      "author": "0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991",
+      "body_canonical": "{\"availability\":\"in_stock\",\"condition\":\"new\",\"price\":{\"amount\":3999,\"currency\":\"EUR\"},\"product\":\"gtin:04006381333931\",\"ships_to\":[\"AT\",\"DE\"],\"url\":\"https://kettles.example/p/m\"}",
+      "body_hash": "4bcdb958983a848acd1b7364825e3a813dea197b3624cb07b7327e0074d25c1c",
+      "header_canonical": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body_hash\":\"4bcdb958983a848acd1b7364825e3a813dea197b3624cb07b7327e0074d25c1c\",\"kind\":\"listing\",\"prev\":\"40f74494fdd57321457a87b3050ce6ef99bdf798cd8adb0cd8fb5227c2fbd36b\",\"seq\":3,\"ts\":1760000002000,\"v\":1}",
+      "id": "8b7c1f47af27c72d5705dde1e2f98458839eacfad31b80d664c386dacdb20e4a",
+      "name": "listing_seq3",
+      "note": "Listing referring to the product by its gtin: key.",
+      "seed": "075109fef47e157ce47bc4d612e87c044b6143e71d8e1cbb68f25bb2b871e637",
+      "sig": "483e5d172c977f676d0d787087a8b90c4c694d717e6aad459ec7766c44d1ad7ca8e8e1a2ce67ff9bb4dc9929133343d5e1ca0180440d44baf572c5f788eaa80a",
+      "signed_message_hex": "70657263682f7265636f72642f76310a7b22617574686f72223a2230373038623135366139326266653332316538316632393134353730653137666135346232356333616336616461666264316462346265333439653264393931222c22626f64795f68617368223a2234626364623935383938336138343861636431623733363438323565336138313364656131393762333632346362303762373332376530303734643235633163222c226b696e64223a226c697374696e67222c2270726576223a2234306637343439346664643537333231343537613837623330353063653665663939626466373938636438616462306364386662353232376332666264333662222c22736571223a332c227473223a313736303030303030323030302c2276223a317d",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"availability\":\"in_stock\",\"condition\":\"new\",\"price\":{\"amount\":3999,\"currency\":\"EUR\"},\"product\":\"gtin:04006381333931\",\"ships_to\":[\"AT\",\"DE\"],\"url\":\"https://kettles.example/p/m\"},\"body_hash\":\"4bcdb958983a848acd1b7364825e3a813dea197b3624cb07b7327e0074d25c1c\",\"kind\":\"listing\",\"prev\":\"40f74494fdd57321457a87b3050ce6ef99bdf798cd8adb0cd8fb5227c2fbd36b\",\"seq\":3,\"sig\":\"483e5d172c977f676d0d787087a8b90c4c694d717e6aad459ec7766c44d1ad7ca8e8e1a2ce67ff9bb4dc9929133343d5e1ca0180440d44baf572c5f788eaa80a\",\"ts\":1760000002000,\"v\":1}"
+    },
+    {
+      "author": "0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991",
+      "body_canonical": "{\"availability\":\"in_stock\",\"condition\":\"new\",\"price\":{\"amount\":3499,\"currency\":\"EUR\"},\"product\":\"gtin:04006381333931\",\"url\":\"https://kettles.example/p/m\"}",
+      "body_hash": "5f59dec2e7ddfb243e48f7ad3741b0c9359333be61e774bd341871ba38ee762c",
+      "header_canonical": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body_hash\":\"5f59dec2e7ddfb243e48f7ad3741b0c9359333be61e774bd341871ba38ee762c\",\"kind\":\"listing\",\"prev\":\"8b7c1f47af27c72d5705dde1e2f98458839eacfad31b80d664c386dacdb20e4a\",\"replaces\":\"8b7c1f47af27c72d5705dde1e2f98458839eacfad31b80d664c386dacdb20e4a\",\"seq\":4,\"ts\":1760000003000,\"v\":1}",
+      "id": "4ec2870c40b0589d9a8a17a1a25647b80b3a7c0910c32ccca4897a7c09471040",
+      "name": "listing_replaces",
+      "note": "New version of the listing: carries replaces; price changed.",
+      "seed": "075109fef47e157ce47bc4d612e87c044b6143e71d8e1cbb68f25bb2b871e637",
+      "sig": "91da2f3b81153d4cc48df5e04d555a3c6163c86bc62e201dda0c89793f7c49cb5471a697831be5b800a184d6a7e027e7be3dbaced8d96cc0af98378dd6f93603",
+      "signed_message_hex": "70657263682f7265636f72642f76310a7b22617574686f72223a2230373038623135366139326266653332316538316632393134353730653137666135346232356333616336616461666264316462346265333439653264393931222c22626f64795f68617368223a2235663539646563326537646466623234336534386637616433373431623063393335393333336265363165373734626433343138373162613338656537363263222c226b696e64223a226c697374696e67222c2270726576223a2238623763316634376166323763373264353730356464653165326639383435383833396561636661643331623830643636346333383664616364623230653461222c227265706c61636573223a2238623763316634376166323763373264353730356464653165326639383435383833396561636661643331623830643636346333383664616364623230653461222c22736571223a342c227473223a313736303030303030333030302c2276223a317d",
+      "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"availability\":\"in_stock\",\"condition\":\"new\",\"price\":{\"amount\":3499,\"currency\":\"EUR\"},\"product\":\"gtin:04006381333931\",\"url\":\"https://kettles.example/p/m\"},\"body_hash\":\"5f59dec2e7ddfb243e48f7ad3741b0c9359333be61e774bd341871ba38ee762c\",\"kind\":\"listing\",\"prev\":\"8b7c1f47af27c72d5705dde1e2f98458839eacfad31b80d664c386dacdb20e4a\",\"replaces\":\"8b7c1f47af27c72d5705dde1e2f98458839eacfad31b80d664c386dacdb20e4a\",\"seq\":4,\"sig\":\"91da2f3b81153d4cc48df5e04d555a3c6163c86bc62e201dda0c89793f7c49cb5471a697831be5b800a184d6a7e027e7be3dbaced8d96cc0af98378dd6f93603\",\"ts\":1760000003000,\"v\":1}"
+    },
+    {
+      "author": "3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5",
+      "body_canonical": "{\"product\":\"gtin:04006381333931\",\"rating\":4,\"receipt\":{\"buyer\":\"3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5\",\"listing\":\"8b7c1f47af27c72d5705dde1e2f98458839eacfad31b80d664c386dacdb20e4a\",\"nonce\":\"abadd683af89a28428f1ce9df2c4df0537b8e6a6b52085fad6ebf22dae720856\",\"purchased_at\":1760000100000,\"sig\":\"4bcbdd61367ef186cd2e7db589a060cc08bc2523a8b42a87f027c82399359adf1384a7f6efb7a6078371e503b9ada3345472a0f29bc95d4e6b9299ced815f509\"},\"text\":\"Line 1\\nLine 2\\tTabbed \\u0001 control \\u001f end / slash\",\"title\":\"Quote \\\" and backslash \\\\\"}",
+      "body_hash": "30359faba6dee066c80487f70bd0456ad303beb312f503a2163552692c19f9b6",
+      "header_canonical": "{\"author\":\"3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5\",\"body_hash\":\"30359faba6dee066c80487f70bd0456ad303beb312f503a2163552692c19f9b6\",\"kind\":\"review\",\"prev\":null,\"seq\":1,\"ts\":1760000200000,\"v\":1}",
+      "id": "3c03d8f2c398795172c6a4cdc369a2ca6d901e34a4c75f7dd3ce42457cc1e6a9",
+      "name": "review_escapes_receipt",
+      "note": "String escapes (quote, backslash, newline, tab, U+0001, U+001F) and a nested receipt object.",
+      "seed": "1dfb18f8513b5ce099c198c350064f6ff0c0173b69a973ce33bb1bacc5ab3730",
+      "sig": "ec9af6e1edf6dc92c87daf7d18e49bc9f08b80cf94b6141b1c8a80cbc4ab64b57090f92c0d3753b339b69cb67c515346fc1f106a498356cc0050cd06acdb8402",
+      "signed_message_hex": "70657263682f7265636f72642f76310a7b22617574686f72223a2233613465323663366362383761353565636164306531613164326665383137306138316631313137663533333733636534363130656362646263383936356335222c22626f64795f68617368223a2233303335396661626136646565303636633830343837663730626430343536616433303362656233313266353033613231363335353236393263313966396236222c226b696e64223a22726576696577222c2270726576223a6e756c6c2c22736571223a312c227473223a313736303030303230303030302c2276223a317d",
+      "wire": "{\"author\":\"3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5\",\"body\":{\"product\":\"gtin:04006381333931\",\"rating\":4,\"receipt\":{\"buyer\":\"3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5\",\"listing\":\"8b7c1f47af27c72d5705dde1e2f98458839eacfad31b80d664c386dacdb20e4a\",\"nonce\":\"abadd683af89a28428f1ce9df2c4df0537b8e6a6b52085fad6ebf22dae720856\",\"purchased_at\":1760000100000,\"sig\":\"4bcbdd61367ef186cd2e7db589a060cc08bc2523a8b42a87f027c82399359adf1384a7f6efb7a6078371e503b9ada3345472a0f29bc95d4e6b9299ced815f509\"},\"text\":\"Line 1\\nLine 2\\tTabbed \\u0001 control \\u001f end / slash\",\"title\":\"Quote \\\" and backslash \\\\\"},\"body_hash\":\"30359faba6dee066c80487f70bd0456ad303beb312f503a2163552692c19f9b6\",\"kind\":\"review\",\"prev\":null,\"seq\":1,\"sig\":\"ec9af6e1edf6dc92c87daf7d18e49bc9f08b80cf94b6141b1c8a80cbc4ab64b57090f92c0d3753b339b69cb67c515346fc1f106a498356cc0050cd06acdb8402\",\"ts\":1760000200000,\"v\":1}"
+    },
+    {
+      "author": "3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5",
+      "body_canonical": "{\"a\":{\"nested\":[1,-2,true,false,null]},\"z\":[],\"😀\":2,\"\":1}",
+      "body_hash": "f279d822d322ae3c7e3c10250f04ed617a6a3dd1787b1da530296b85438b9fc3",
+      "header_canonical": "{\"author\":\"3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5\",\"body_hash\":\"f279d822d322ae3c7e3c10250f04ed617a6a3dd1787b1da530296b85438b9fc3\",\"kind\":\"x.experiment_1\",\"prev\":\"3c03d8f2c398795172c6a4cdc369a2ca6d901e34a4c75f7dd3ce42457cc1e6a9\",\"seq\":2,\"ts\":1760000300000,\"v\":1}",
+      "id": "a8fc4282b6ac3b9e01d1b5c5889ae1b6cf675fb090883b8c24a0aa5cc7b3beb8",
+      "name": "unknown_kind_header_only_source",
+      "note": "Unknown kind with unknown nested fields; a valid record that views ignore. Also the source of the header-only vector.",
+      "seed": "1dfb18f8513b5ce099c198c350064f6ff0c0173b69a973ce33bb1bacc5ab3730",
+      "sig": "fa8af4f94e0598da517de87e79d7e2dc0a93f6e4540b0775fad634cd88e910f6f2244b3c65440958f245a01cba791d8c09ecb4854bee3c27555dd4804f48fe02",
+      "signed_message_hex": "70657263682f7265636f72642f76310a7b22617574686f72223a2233613465323663366362383761353565636164306531613164326665383137306138316631313137663533333733636534363130656362646263383936356335222c22626f64795f68617368223a2266323739643832326433323261653363376533633130323530663034656436313761366133646431373837623164613533303239366238353433386239666333222c226b696e64223a22782e6578706572696d656e745f31222c2270726576223a2233633033643866326333393837393531373263366134636463333639613263613664393031653334613463373566376464336365343234353763633165366139222c22736571223a322c227473223a313736303030303330303030302c2276223a317d",
+      "wire": "{\"author\":\"3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5\",\"body\":{\"a\":{\"nested\":[1,-2,true,false,null]},\"z\":[],\"😀\":2,\"\":1},\"body_hash\":\"f279d822d322ae3c7e3c10250f04ed617a6a3dd1787b1da530296b85438b9fc3\",\"kind\":\"x.experiment_1\",\"prev\":\"3c03d8f2c398795172c6a4cdc369a2ca6d901e34a4c75f7dd3ce42457cc1e6a9\",\"seq\":2,\"sig\":\"fa8af4f94e0598da517de87e79d7e2dc0a93f6e4540b0775fad634cd88e910f6f2244b3c65440958f245a01cba791d8c09ecb4854bee3c27555dd4804f48fe02\",\"ts\":1760000300000,\"v\":1}"
+    },
+    {
+      "author": "3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5",
+      "body_hash": "f279d822d322ae3c7e3c10250f04ed617a6a3dd1787b1da530296b85438b9fc3",
+      "header_canonical": "{\"author\":\"3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5\",\"body_hash\":\"f279d822d322ae3c7e3c10250f04ed617a6a3dd1787b1da530296b85438b9fc3\",\"kind\":\"x.experiment_1\",\"prev\":\"3c03d8f2c398795172c6a4cdc369a2ca6d901e34a4c75f7dd3ce42457cc1e6a9\",\"seq\":2,\"ts\":1760000300000,\"v\":1}",
+      "id": "a8fc4282b6ac3b9e01d1b5c5889ae1b6cf675fb090883b8c24a0aa5cc7b3beb8",
+      "name": "header_only",
+      "note": "The previous record with its body removed (redacted). Same id and sig; no body field.",
+      "seed": "1dfb18f8513b5ce099c198c350064f6ff0c0173b69a973ce33bb1bacc5ab3730",
+      "sig": "fa8af4f94e0598da517de87e79d7e2dc0a93f6e4540b0775fad634cd88e910f6f2244b3c65440958f245a01cba791d8c09ecb4854bee3c27555dd4804f48fe02",
+      "signed_message_hex": "70657263682f7265636f72642f76310a7b22617574686f72223a2233613465323663366362383761353565636164306531613164326665383137306138316631313137663533333733636534363130656362646263383936356335222c22626f64795f68617368223a2266323739643832326433323261653363376533633130323530663034656436313761366133646431373837623164613533303239366238353433386239666333222c226b696e64223a22782e6578706572696d656e745f31222c2270726576223a2233633033643866326333393837393531373263366134636463333639613263613664393031653334613463373566376464336365343234353763633165366139222c22736571223a322c227473223a313736303030303330303030302c2276223a317d",
+      "wire": "{\"author\":\"3a4e26c6cb87a55ecad0e1a1d2fe8170a81f1117f53373ce4610ecbdbc8965c5\",\"body_hash\":\"f279d822d322ae3c7e3c10250f04ed617a6a3dd1787b1da530296b85438b9fc3\",\"kind\":\"x.experiment_1\",\"prev\":\"3c03d8f2c398795172c6a4cdc369a2ca6d901e34a4c75f7dd3ce42457cc1e6a9\",\"seq\":2,\"sig\":\"fa8af4f94e0598da517de87e79d7e2dc0a93f6e4540b0775fad634cd88e910f6f2244b3c65440958f245a01cba791d8c09ecb4854bee3c27555dd4804f48fe02\",\"ts\":1760000300000,\"v\":1}"
+    }
+  ],
+  "seeds": "Each seed is SHA-256 of the ASCII string \"perch test seed <n>\". The receipt nonce is the seed for n = 99. These keys are public; never use them for real data."
+}

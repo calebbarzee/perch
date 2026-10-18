@@ -234,6 +234,28 @@ mod tests {
     }
 
     #[test]
+    fn rejects_small_order_r() {
+        let kp = Keypair::from_seed([5; 32]);
+        let good = kp.sign_raw(b"m");
+        // Encodings of small-order points: identity, order 2 (y = -1), order 4 (y = 0),
+        // and an order-8 point.
+        let small = [
+            "0100000000000000000000000000000000000000000000000000000000000000",
+            "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+        ];
+        for hex in small {
+            let r = crate::ids::decode_hex::<32>(hex).unwrap();
+            let mut sig = good;
+            sig.0[..32].copy_from_slice(&r);
+            assert!(verify_strict(&kp.author(), b"m", &sig).is_err(), "{hex}");
+            // The same encodings as public keys are weak.
+            assert!(verify_strict(&AuthorId(r), b"m", &good).is_err(), "{hex}");
+        }
+    }
+
+    #[test]
     fn rejects_noncanonical_key_and_r() {
         // y = p + 1 encodes the same point as y = 1, non-canonically.
         let mut enc = P_LE;

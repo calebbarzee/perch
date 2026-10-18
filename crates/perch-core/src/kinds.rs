@@ -913,12 +913,13 @@ fn check_country(s: &str, path: &str) -> R<()> {
 }
 
 /// Checks a `product.category`: 1–200 characters; `/`-separated segments,
-/// each non-empty and without leading or trailing ASCII whitespace; no
-/// character with the Unicode `Uppercase` property.
+/// each non-empty and without leading or trailing ASCII whitespace; no ASCII
+/// uppercase letters. Non-ASCII letters are not case-checked, so the rule
+/// does not depend on the Unicode version.
 pub fn is_valid_category(s: &str) -> bool {
     let n = s.chars().count();
     (1..=200).contains(&n)
-        && !s.chars().any(char::is_uppercase)
+        && !s.bytes().any(|b| b.is_ascii_uppercase())
         && s.split('/').all(|seg| !seg.is_empty() && product_key::trim_ascii_ws(seg).len() == seg.len())
 }
 

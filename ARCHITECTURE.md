@@ -117,7 +117,7 @@ Definitions:
 - `header_canonical = canonical_json(header)`, where header = the fields marked "header" in 4.1; at most 2,048 bytes.
 - `id = lowercase_hex(sha256(header_canonical))`
 - `sig = ed25519_sign(secret_key, "perch/record/v1\n" || header_canonical)`
-- Signature verification is strict. Reject if the public key `A` or the point `R` is not a canonical encoding, if `A` or `R` has small order, or if `S ≥ L` (the group order). Accept only if `[S]B = R + [k]A` holds without cofactor multiplication, where `k = SHA-512(R || A || message) mod L`. This matches `verify_strict` in [ed25519-dalek](https://docs.rs/ed25519-dalek).
+- Signature verification is strict. Reject if the public key `A` or the point `R` is not a canonical encoding, if `A` or `R` has small order, or if `S ≥ L` (the group order). Accept only if `[S]B = R + [k]A` holds without cofactor multiplication, where `k = SHA-512(R || A || message) mod L`. This matches `verify_strict` in [ed25519-dalek](https://docs.rs/ed25519-dalek). Web Crypto (Node 22) and OpenSSL-based libraries do not apply the small-order and canonical-encoding checks; they accept a universal forgery with the identity point as key. Verifiers that use them must check `A` and `R` first ([`docs/data-model.md`](docs/data-model.md)). Perch clients verify with `perch-core` only.
 
 The stored and relayed form of a record is `canonical_json(header + sig + body)`, with `body` omitted when absent. It is one line of the JSONL format. Implementations normalize any valid input to this form. They keep unknown body fields: the body is stored as received JSON, never re-encoded from a typed struct.
 
