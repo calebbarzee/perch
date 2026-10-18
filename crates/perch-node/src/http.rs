@@ -10,7 +10,7 @@ use axum::Router;
 use axum::body::{Body, Bytes};
 use axum::extract::ws::WebSocketUpgrade;
 use axum::extract::{ConnectInfo, Path, RawQuery, State};
-use axum::http::{HeaderValue, Method, StatusCode, header};
+use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use perch_core::{AuthorId, Record, RecordId};
@@ -25,11 +25,86 @@ use crate::node::{Node, NodeError, now_ms};
 /// Header carrying the policy hash on view responses.
 pub const POLICY_HASH_HEADER: &str = "x-perch-policy-hash";
 
+/// Per-client-IP token buckets. When the table is full, idle entries (whose
+/// bucket has refilled) are evicted first, then the entries with the most
+/// tokens. Clients that are being limited keep their state (audit #14).
+pub struct Limiter {
+    rate: f64,
+    burst: f64,
+    buckets: Mutex<HashMap<IpAddr, (f64, Instant)>>,
+}
+
+impl Limiter {
+    pub fn new(rate: f64, burst: f64) -> Limiter {
+        Limiter { rate, burst, buckets: Mutex::new(HashMap::new()) }
+    }
+
+    pub fn take(&self, ip: IpAddr, cost: f64) -> bool {
+        let mut m = self.buckets.lock().unwrap_or_else(|e| e.into_inner());
+        let now = Instant::now();
+        if m.len() >= limits::LIMITER_ENTRIES && !m.contains_key(&ip) {
+            let full_after = self.burst / self.rate;
+            m.retain(|_, (_, at)| now.duration_since(*at).as_secs_f64() < full_after);
+            if m.len() >= limits::LIMITER_ENTRIES {
+                let (rate, burst) = (self.rate, self.burst);
+                let mut levels: Vec<(u64, IpAddr)> = m
+                    .iter()
+                    .map(|(k, (lvl, at))| {
+                        let now_lvl = (lvl + now.duration_since(*at).as_secs_f64() * rate).min(burst);
+                        ((now_lvl * 1000.0) as u64, *k)
+                    })
+                    .collect();
+                levels.sort_by(|a, b| b.cmp(a));
+                for (_, k) in levels.iter().take(m.len() / 10 + 1) {
+                    m.remove(k);
+                }
+            }
+        }
+        let e = m.entry(ip).or_insert((self.burst, now));
+        e.0 = (e.0 + now.duration_since(e.1).as_secs_f64() * self.rate).min(self.burst);
+        e.1 = now;
+        if e.0 >= cost {
+            e.0 -= cost;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.buckets.lock().unwrap_or_else(|e| e.into_inner()).len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+#[cfg(test)]
+mod limiter_tests {
+    use super::*;
+
+    #[test]
+    fn evicts_idle_entries_instead_of_resetting_all() {
+        let l = Limiter::new(1.0, 2.0);
+        let hot: IpAddr = "203.0.113.9".parse().unwrap();
+        assert!(l.take(hot, 1.0) && l.take(hot, 1.0));
+        assert!(!l.take(hot, 1.0), "bucket empty");
+        for i in 0..limits::LIMITER_ENTRIES as u32 {
+            l.take(IpAddr::from(std::net::Ipv4Addr::from(0x0a00_0000 + i)), 0.0);
+        }
+        assert!(l.len() <= limits::LIMITER_ENTRIES + 1);
+        assert!(!l.take(hot, 1.0), "a full table does not refill an active client");
+    }
+}
+
 /// Shared state of the HTTP layer.
 #[derive(Clone)]
 pub struct Http {
     pub node: Arc<Node>,
-    post_buckets: Arc<Mutex<HashMap<IpAddr, (f64, Instant)>>>,
+    post_limit: Arc<Limiter>,
+    heavy_limit: Arc<Limiter>,
+    views: Arc<tokio::sync::Semaphore>,
 }
 
 /// An API error: `{ "error": { "code", "message" } }`.
@@ -108,8 +183,8 @@ fn with_policy_hash(mut r: Response, hash: &str) -> Response {
     r
 }
 
-fn view_json<T: serde::Serialize>(node: &Node, v: &T) -> Response {
-    with_policy_hash(json_response(StatusCode::OK, canonical_json(v)), &node.policy_hash)
+fn view_text(node: &Node, body: String) -> Response {
+    with_policy_hash(json_response(StatusCode::OK, body), &node.policy_hash)
 }
 
 fn jsonl_response(lines: Vec<String>, hash: Option<&str>) -> Response {
@@ -127,7 +202,12 @@ fn jsonl_response(lines: Vec<String>, hash: Option<&str>) -> Response {
 
 /// Builds the router for the public API.
 pub fn router(node: Arc<Node>) -> Router {
-    let state = Http { node: node.clone(), post_buckets: Arc::new(Mutex::new(HashMap::new())) };
+    let state = Http {
+        node: node.clone(),
+        post_limit: Arc::new(Limiter::new(limits::POST_RATE, limits::POST_BURST)),
+        heavy_limit: Arc::new(Limiter::new(limits::HEAVY_RATE, limits::HEAVY_BURST)),
+        views: Arc::new(tokio::sync::Semaphore::new(limits::VIEW_WORKERS)),
+    };
     let api = Router::new()
         .route("/v1/status", get(status))
         .route("/v1/policy", get(policy))
@@ -167,12 +247,13 @@ async fn status(State(h): State<Http>) -> Response {
         let st = n.read();
         json!({
             "records": st.len(),
-            "authors": st.authors().len(),
+            "authors": st.author_count(),
             "forked_authors": st.forked_authors().len(),
-            "products": st.product_keys().len(),
+            "products": st.product_key_count(),
             "held": st.held_count(),
             "bodyless": st.bodyless_count(),
-            "removed": st.removed_ids().len(),
+            "removed": st.removed_count(),
+            "tier3_pool_bytes": st.pool_bytes(),
         })
     };
     let peers: Vec<Value> = n.peers.lock().unwrap_or_else(|e| e.into_inner()).values().map(|p| p.to_json()).collect();
@@ -205,30 +286,48 @@ async fn policy(State(h): State<Http>, RawQuery(raw): RawQuery) -> ApiResult {
 }
 
 impl Http {
-    /// Token bucket per client IP for `POST /v1/records`. Loopback is exempt.
-    fn allow_post(&self, ip: IpAddr) -> bool {
-        if ip.is_loopback() {
-            return true;
+    /// The client address: the socket peer, or the trusted proxy header for
+    /// connections from loopback when `--trust-proxy-header` is set.
+    fn client_ip(&self, addr: SocketAddr, headers: &HeaderMap) -> IpAddr {
+        if addr.ip().is_loopback()
+            && let Some(h) = &self.node.config.trust_proxy_header
+            && let Some(v) = headers.get(h.as_str()).and_then(|v| v.to_str().ok())
+            && let Some(ip) = v.split(',').next().and_then(|x| x.trim().parse::<IpAddr>().ok())
+        {
+            return ip;
         }
-        let mut m = self.post_buckets.lock().unwrap_or_else(|e| e.into_inner());
-        if m.len() > 100_000 {
-            m.clear();
-        }
-        let now = Instant::now();
-        let e = m.entry(ip).or_insert((limits::POST_BURST, now));
-        e.0 = (e.0 + now.duration_since(e.1).as_secs_f64() * limits::POST_RATE).min(limits::POST_BURST);
-        e.1 = now;
-        if e.0 >= 1.0 {
-            e.0 -= 1.0;
-            true
+        addr.ip()
+    }
+
+    fn heavy(&self, addr: SocketAddr, headers: &HeaderMap, cost: f64) -> Result<(), ApiError> {
+        if self.heavy_limit.take(self.client_ip(addr, headers), cost) {
+            Ok(())
         } else {
-            false
+            Err(ApiError::new(StatusCode::TOO_MANY_REQUESTS, "rate_limited", "too many view requests from this address; retry later"))
         }
+    }
+
+    /// Runs `f` on the blocking pool, at most `VIEW_WORKERS` at a time (audit #10).
+    async fn compute<T: Send + 'static>(&self, f: impl FnOnce(&Node) -> T + Send + 'static) -> Result<T, ApiError> {
+        let permit = tokio::time::timeout(
+            std::time::Duration::from_secs(limits::VIEW_WAIT_SECS),
+            self.views.clone().acquire_owned(),
+        )
+        .await
+        .map_err(|_| ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "busy", "the node is busy; retry later"))?
+        .map_err(|_| ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "busy", "the node is stopping"))?;
+        let node = self.node.clone();
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            f(&node)
+        })
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string()))
     }
 }
 
-async fn post_records(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<SocketAddr>, body: Body) -> ApiResult {
-    if !h.allow_post(addr.ip()) {
+async fn post_records(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap, body: Body) -> ApiResult {
+    if !h.post_limit.take(h.client_ip(addr, &headers), 1.0) {
         return Err(ApiError::new(StatusCode::TOO_MANY_REQUESTS, "rate_limited", "at most 2 submissions per second per address"));
     }
     let bytes = axum::body::to_bytes(body, limits::POST_BYTES).await.map_err(|_| {
@@ -239,15 +338,12 @@ async fn post_records(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<Sock
     let mut items: Vec<(usize, Result<Record, String>)> = Vec::new();
     let trimmed = text.trim_start();
     if trimmed.starts_with('[') {
-        let v = perch_core::json::parse(trimmed, perch_core::limits::MAX_DEPTH + 1)
-            .map_err(|e| ApiError::bad("bad_json", format!("JSON array: {e}")))?;
-        let Value::Array(arr) = v else { return Err(ApiError::bad("bad_json", "expected a JSON array of records")) };
+        // Each element: 131,072-byte limit on its exact text, then strict parsing (audit #12).
+        let arr = perch_store::parse_record_array(trimmed).map_err(|e| ApiError::bad("bad_json", e))?;
         if arr.len() > limits::POST_RECORDS {
             return Err(ApiError::new(StatusCode::PAYLOAD_TOO_LARGE, "too_many_records", format!("{} records; limit {}", arr.len(), limits::POST_RECORDS)));
         }
-        for (i, v) in arr.into_iter().enumerate() {
-            items.push((i, Record::from_value(v).map_err(|e| e.to_string())));
-        }
+        items.extend(arr.into_iter().enumerate());
     } else {
         for (line, r) in perch_core::parse_jsonl(text) {
             if items.len() >= limits::POST_RECORDS {
@@ -257,7 +353,7 @@ async fn post_records(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<Sock
         }
     }
     let valid: Vec<Record> = items.iter().filter_map(|(_, r)| r.as_ref().ok().cloned()).collect();
-    let outcomes = h.node.submit(valid)?;
+    let outcomes = h.compute(move |n| n.submit(valid)).await??;
     let mut outs = outcomes.into_iter();
     let key = if trimmed.starts_with('[') { "index" } else { "line" };
     let mut summary: BTreeMap<&str, usize> = ["inserted", "duplicate", "fork", "gap", "rejected"].iter().map(|k| (*k, 0)).collect();
@@ -297,15 +393,19 @@ async fn get_record(State(h): State<Http>, Path(id): Path<String>) -> ApiResult 
     Ok(json_response(StatusCode::OK, r.to_json_string()))
 }
 
-async fn get_author(State(h): State<Http>, Path(id): Path<String>, RawQuery(raw): RawQuery) -> ApiResult {
+async fn get_author(
+    State(h): State<Http>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    RawQuery(raw): RawQuery,
+) -> ApiResult {
     let a = parse_author(&id)?;
     let p = h.node.policy_at(q_u64(&query(&raw), "now")?);
-    let v = {
-        let st = h.node.read();
-        perch_views::author_view(&*st, &p, &a)
-    };
+    h.heavy(addr, &headers, 1.0)?;
+    let v = h.compute(move |n| perch_views::author_view(&*n.read(), &p, &a).map(|v| canonical_json(&v))).await?;
     let v = v.ok_or_else(|| ApiError::not_found(format!("author {a} is not known to this node")))?;
-    Ok(view_json(&h.node, &v))
+    Ok(view_text(&h.node, v))
 }
 
 async fn get_log(State(h): State<Http>, Path(id): Path<String>, RawQuery(raw): RawQuery) -> ApiResult {
@@ -325,7 +425,12 @@ async fn get_log(State(h): State<Http>, Path(id): Path<String>, RawQuery(raw): R
     Ok(json_response(StatusCode::OK, body))
 }
 
-async fn search(State(h): State<Http>, RawQuery(raw): RawQuery) -> ApiResult {
+async fn search(
+    State(h): State<Http>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    RawQuery(raw): RawQuery,
+) -> ApiResult {
     let q = query(&raw);
     let p = h.node.policy_at(q_u64(&q, "now")?);
     let mut opts = SearchOptions::default();
@@ -339,21 +444,24 @@ async fn search(State(h): State<Http>, RawQuery(raw): RawQuery) -> ApiResult {
         opts.limit = (l as usize).clamp(1, perch_views::MAX_LIMIT);
     }
     let text = q.get("q").cloned().unwrap_or_default();
-    let hits = {
-        let st = h.node.read();
-        perch_views::search(&*st, &p, &text, &opts)
-    };
-    Ok(view_json(&h.node, &hits))
+    h.heavy(addr, &headers, 1.0)?;
+    let hits = h.compute(move |n| canonical_json(&perch_views::search(&*n.read(), &p, &text, &opts))).await?;
+    Ok(view_text(&h.node, hits))
 }
 
-async fn get_product(State(h): State<Http>, Path(key): Path<String>, RawQuery(raw): RawQuery) -> ApiResult {
+async fn get_product(
+    State(h): State<Http>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Path(key): Path<String>,
+    RawQuery(raw): RawQuery,
+) -> ApiResult {
     let p = h.node.policy_at(q_u64(&query(&raw), "now")?);
-    let v = {
-        let st = h.node.read();
-        perch_views::product_view(&*st, &p, &key)
-    };
+    h.heavy(addr, &headers, 1.0)?;
+    let k = key.clone();
+    let v = h.compute(move |n| perch_views::product_view(&*n.read(), &p, &k).map(|v| canonical_json(&v))).await?;
     let v = v.ok_or_else(|| ApiError::not_found(format!("product {key:?} is not known to this node")))?;
-    Ok(view_json(&h.node, &v))
+    Ok(view_text(&h.node, v))
 }
 
 fn related_lines(node: &Node, keys: &[String], now: Option<u64>) -> Vec<String> {
@@ -366,13 +474,26 @@ fn related_lines(node: &Node, keys: &[String], now: Option<u64>) -> Vec<String> 
     ids.into_iter().filter_map(|id| st.get(&id)).map(|r| r.to_json_string()).collect()
 }
 
-async fn get_product_records(State(h): State<Http>, Path(key): Path<String>, RawQuery(raw): RawQuery) -> ApiResult {
+async fn get_product_records(
+    State(h): State<Http>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Path(key): Path<String>,
+    RawQuery(raw): RawQuery,
+) -> ApiResult {
     let now = q_u64(&query(&raw), "now")?;
-    let lines = related_lines(&h.node, &[key], now);
+    h.heavy(addr, &headers, 1.0)?;
+    let lines = h.compute(move |n| related_lines(n, &[key], now)).await?;
     Ok(jsonl_response(lines, Some(&h.node.policy_hash)))
 }
 
-async fn lookup(State(h): State<Http>, Path(prefix): Path<String>, RawQuery(raw): RawQuery) -> ApiResult {
+async fn lookup(
+    State(h): State<Http>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Path(prefix): Path<String>,
+    RawQuery(raw): RawQuery,
+) -> ApiResult {
     if prefix.len() < limits::LOOKUP_MIN
         || prefix.len() > limits::LOOKUP_MAX
         || !prefix.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
@@ -383,65 +504,72 @@ async fn lookup(State(h): State<Http>, Path(prefix): Path<String>, RawQuery(raw)
         ));
     }
     let now = q_u64(&query(&raw), "now")?;
-    let keys: Vec<String> = {
-        let st = h.node.read();
-        st.product_keys()
-            .into_iter()
-            .filter(|k| perch_core::ids::encode_hex(&perch_core::sha256(k.as_bytes())).starts_with(&prefix))
-            .collect()
-    };
-    let lines = related_lines(&h.node, &keys, now);
+    h.heavy(addr, &headers, 2.0)?;
+    let lines = h
+        .compute(move |n| {
+            let keys: Vec<String> = n
+                .read()
+                .product_keys()
+                .into_iter()
+                .filter(|k| perch_core::ids::encode_hex(&perch_core::sha256(k.as_bytes())).starts_with(&prefix))
+                .collect();
+            related_lines(n, &keys, now)
+        })
+        .await?;
     Ok(jsonl_response(lines, Some(&h.node.policy_hash)))
 }
 
-async fn get_listing(State(h): State<Http>, Path(id): Path<String>, RawQuery(raw): RawQuery) -> ApiResult {
+async fn get_listing(
+    State(h): State<Http>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    RawQuery(raw): RawQuery,
+) -> ApiResult {
     let id = parse_id(&id)?;
     let p = h.node.policy_at(q_u64(&query(&raw), "now")?);
-    let v = {
-        let st = h.node.read();
-        Views::new(&*st, &p).listing(&id)
-    };
+    h.heavy(addr, &headers, 1.0)?;
+    let v = h.compute(move |n| Views::new(&*n.read(), &p).listing(&id).map(|v| canonical_json(&v))).await?;
     let v = v.ok_or_else(|| ApiError::not_found(format!("listing {id} is not known to this node")))?;
-    Ok(view_json(&h.node, &v))
+    Ok(view_text(&h.node, v))
 }
 
-async fn stats(State(h): State<Http>) -> Response {
-    let s = {
-        let st = h.node.read();
-        perch_views::stats(&*st)
-    };
-    view_json(&h.node, &s)
+async fn stats(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap) -> ApiResult {
+    h.heavy(addr, &headers, 1.0)?;
+    let s = h.compute(|n| canonical_json(&perch_views::stats(&*n.read()))).await?;
+    Ok(view_text(&h.node, s))
 }
 
-async fn export(State(h): State<Http>) -> Response {
-    let recs: Vec<Record> = h.node.read().export_records().collect();
-    let chunks = recs.chunks(500).map(|c| {
+/// Streams a snapshot of the dataset: the record handles are copied under
+/// the lock (no record content is copied), then lines are encoded 500 at a
+/// time as the client reads (audit #10).
+async fn export(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<SocketAddr>, headers: HeaderMap) -> ApiResult {
+    h.heavy(addr, &headers, limits::EXPORT_COST)?;
+    let recs: Vec<Record> = h.compute(|n| n.read().export_records().collect()).await?;
+    let stream = futures_util::stream::unfold((recs, 0usize), |(recs, i)| async move {
+        if i >= recs.len() {
+            return None;
+        }
+        let end = (i + 500).min(recs.len());
         let mut s = String::new();
-        for r in c {
+        for r in &recs[i..end] {
             s.push_str(&r.to_json_string());
             s.push('\n');
         }
-        Ok::<Bytes, Infallible>(Bytes::from(s))
+        Some((Ok::<Bytes, Infallible>(Bytes::from(s)), (recs, end)))
     });
-    let chunks: Vec<Result<Bytes, Infallible>> = chunks.collect();
-    let body = Body::from_stream(futures_util::stream::iter(chunks));
-    (StatusCode::OK, [(header::CONTENT_TYPE, "application/x-ndjson")], body).into_response()
+    let body = Body::from_stream(stream);
+    Ok((StatusCode::OK, [(header::CONTENT_TYPE, "application/x-ndjson")], body).into_response())
 }
 
 async fn sync_ws(State(h): State<Http>, ConnectInfo(addr): ConnectInfo<SocketAddr>, ws: WebSocketUpgrade) -> ApiResult {
-    {
-        let peers = h.node.peers.lock().unwrap_or_else(|e| e.into_inner());
-        let inbound: Vec<_> = peers.values().filter(|p| !p.outbound).collect();
-        if inbound.len() >= limits::INBOUND_SESSIONS {
-            return Err(ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "too_many_sessions", "inbound session limit reached"));
-        }
-        if !addr.ip().is_loopback() && inbound.iter().filter(|p| p.remote.map(|r| r.ip()) == Some(addr.ip())).count() >= limits::INBOUND_PER_IP {
-            return Err(ApiError::new(StatusCode::TOO_MANY_REQUESTS, "too_many_sessions", "at most 8 sessions per address"));
-        }
-    }
+    // Check caps and register the session in one step (audit #14).
+    let (id, kill) = h.node.reserve_inbound(addr).map_err(|m| ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "too_many_sessions", m))?;
     let node = h.node.clone();
+    let node2 = h.node.clone();
     Ok(ws
         .max_message_size(crate::ws::MAX_WS_MESSAGE)
         .max_frame_size(crate::ws::MAX_WS_MESSAGE)
-        .on_upgrade(move |socket| crate::ws::serve_axum(node, socket, addr)))
+        .on_failed_upgrade(move |_| node2.unregister_session(id))
+        .on_upgrade(move |socket| crate::ws::serve_axum(node, socket, addr, id, kill)))
 }

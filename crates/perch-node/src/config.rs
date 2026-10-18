@@ -25,6 +25,10 @@ pub struct ServeConfig {
     pub imports: Vec<PathBuf>,
     /// Admission tier limits.
     pub tiers: crate::admission::TierLimits,
+    /// Header holding the client address when the node runs behind a
+    /// reverse proxy on the same host (for example `x-forwarded-for`).
+    /// Used only for connections from loopback.
+    pub trust_proxy_header: Option<String>,
 }
 
 /// Limits from ARCHITECTURE 9 and docs/sync-protocol.md 9.
@@ -53,7 +57,17 @@ pub mod limits {
     /// Keepalive.
     pub const PING_SECS: u64 = 30;
     pub const IDLE_CLOSE_SECS: u64 = 90;
+    /// Heavy GET endpoints (views, related sets, lookup, export) per client
+    /// IP per second, and burst. Export costs `EXPORT_COST` tokens.
+    pub const HEAVY_RATE: f64 = 20.0;
+    pub const HEAVY_BURST: f64 = 40.0;
+    pub const EXPORT_COST: f64 = 5.0;
+    /// Concurrent view computations; more wait up to `VIEW_WAIT_SECS`, then get 503.
+    pub const VIEW_WORKERS: usize = 4;
+    pub const VIEW_WAIT_SECS: u64 = 10;
+    /// Rate-limiter table size before idle entries are evicted.
+    pub const LIMITER_ENTRIES: usize = 100_000;
     /// Lookup prefix length range (hex characters).
-    pub const LOOKUP_MIN: usize = 3;
+    pub const LOOKUP_MIN: usize = 4;
     pub const LOOKUP_MAX: usize = 64;
 }

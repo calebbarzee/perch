@@ -249,6 +249,61 @@ impl Node {
         self.next_session.fetch_add(1, Ordering::Relaxed)
     }
 
+    fn peer_entry(id: u64, outbound: bool, url: Option<String>, remote: Option<SocketAddr>, kill: Arc<Notify>) -> PeerInfo {
+        PeerInfo {
+            session: id,
+            outbound,
+            url,
+            remote,
+            node: None,
+            role: None,
+            state: "connecting",
+            messages_sent: 0,
+            messages_received: 0,
+            records_sent: 0,
+            records_received: 0,
+            behind: 0,
+            ahead: 0,
+            score: 0,
+            kill,
+        }
+    }
+
+    /// Registers an outbound session (counted by `--max-outbound` elsewhere).
+    pub fn register_session(&self, outbound: bool, url: Option<String>, remote: Option<SocketAddr>) -> (u64, Arc<Notify>) {
+        let id = self.next_session_id();
+        let kill = Arc::new(Notify::new());
+        self.peers
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(id, Self::peer_entry(id, outbound, url, remote, kill.clone()));
+        (id, kill)
+    }
+
+    /// Checks the inbound session caps and reserves a slot in one step, so
+    /// concurrent upgrades cannot exceed them (audit #14).
+    pub fn reserve_inbound(&self, remote: SocketAddr) -> Result<(u64, Arc<Notify>), &'static str> {
+        use crate::config::limits;
+        let mut peers = self.peers.lock().unwrap_or_else(|e| e.into_inner());
+        let inbound = peers.values().filter(|p| !p.outbound).count();
+        if inbound >= limits::INBOUND_SESSIONS {
+            return Err("inbound session limit reached");
+        }
+        let same_ip = peers.values().filter(|p| !p.outbound && p.remote.map(|r| r.ip()) == Some(remote.ip())).count();
+        // Loopback is exempt from the per-address cap only (local nodes, test browsers).
+        if !remote.ip().is_loopback() && same_ip >= limits::INBOUND_PER_IP {
+            return Err("at most 8 sessions per address");
+        }
+        let id = self.next_session_id();
+        let kill = Arc::new(Notify::new());
+        peers.insert(id, Self::peer_entry(id, false, None, Some(remote), kill.clone()));
+        Ok((id, kill))
+    }
+
+    pub fn unregister_session(&self, id: u64) {
+        self.peers.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
+    }
+
     /// The node's policy at `now` (current time if `None`).
     pub fn policy_at(&self, now: Option<u64>) -> Policy {
         let mut p = self.policy.clone();
@@ -408,4 +463,49 @@ fn append_removed(path: &std::path::Path, id: &RecordId, reason: &str) -> std::i
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path)?;
     writeln!(f, "{}  # {} {}", id.to_hex(), reason, now_ms())?;
     f.sync_data()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_node(name: &str) -> Node {
+        let data = std::env::temp_dir().join(format!("perch-node-unit-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&data);
+        let config = ServeConfig {
+            listen: "127.0.0.1:0".parse().unwrap(),
+            data,
+            peers: vec![],
+            web: None,
+            removed_files: vec![],
+            admin: None,
+            operator_key: None,
+            public_url: None,
+            open_admission: true,
+            refresh_secs: 600,
+            max_outbound: 8,
+            imports: vec![],
+            tiers: Default::default(),
+            trust_proxy_header: None,
+        };
+        let build = BuildInfo { version: "test", build_hash: "x".into() };
+        Node::open(config, perch_views::default_policy(0, &[]), build).unwrap()
+    }
+
+    /// Audit #14: caps are checked and the slot reserved in one step.
+    #[test]
+    fn inbound_reservation_enforces_caps() {
+        let node = test_node("caps");
+        let ip: SocketAddr = "198.51.100.4:5000".parse().unwrap();
+        let ids: Vec<u64> = (0..8).map(|_| node.reserve_inbound(ip).unwrap().0).collect();
+        assert!(node.reserve_inbound(ip).is_err(), "9th from one address");
+        node.unregister_session(ids[0]);
+        assert!(node.reserve_inbound(ip).is_ok(), "slot freed");
+        let lo: SocketAddr = "127.0.0.1:5000".parse().unwrap();
+        let mut n = 8;
+        while node.reserve_inbound(lo).is_ok() {
+            n += 1;
+        }
+        assert_eq!(n, crate::config::limits::INBOUND_SESSIONS, "total cap holds, loopback included");
+    }
 }

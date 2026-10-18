@@ -31,14 +31,17 @@ Every error has an HTTP status and this body:
 | 400 | `bad_query` | A query parameter has a wrong value |
 | 400 | `bad_json` | The `POST` body is not valid JSON or JSON Lines |
 | 400 | `bad_encoding` | The `POST` body is not UTF-8 |
-| 400 | `bad_prefix` | The lookup prefix is not 3 to 64 lowercase hex characters |
+| 400 | `bad_prefix` | The lookup prefix is not 4 to 64 lowercase hex characters |
 | 404 | `not_found` | No such record, author, product, listing, or path |
 | 409 | `conflict` | Operator control refused (for example removing a control-kind body) |
 | 413 | `too_large` | `POST` body larger than 4 MiB |
 | 413 | `too_many_records` | More than 1,000 records in one `POST` |
-| 429 | `rate_limited` | Too many submissions from one address |
-| 429, 503 | `too_many_sessions` | Sync session limits reached |
+| 429 | `rate_limited` | Too many submissions or view requests from one address |
+| 503 | `too_many_sessions` | Sync session limits reached |
+| 503 | `busy` | All view workers were busy for 10 s |
 | 500 | `internal` | Node failure, for example a disk write error |
+
+Admin endpoint errors (section 8): 401 `unauthorized`, 403 `cross_origin`, 403 `bad_host`, 415 `bad_content_type`.
 
 Invalid records inside a valid `POST` body do not fail the request. Each gets its own outcome (section 4.3).
 
@@ -184,7 +187,7 @@ client.product(key);  // same ProductView as the node, for the same policy
 
 ### 4.8 `GET /v1/lookup/{prefix}`
 
-JSON Lines: the union of the related sets of every product whose `sha256(key)` hex starts with `prefix`, sorted by record ID. The contract value is 4 hex characters; the node accepts 3 to 64. The node does not learn which product in the bucket the client wanted. `store.products` in `/v1/status` gives the catalog size for choosing a prefix length ([`docs/threat-model.md`](threat-model.md)).
+JSON Lines: the union of the related sets of every product whose `sha256(key)` hex starts with `prefix`, sorted by record ID. The contract value is 4 hex characters; the node accepts 4 to 64. The node does not learn which product in the bucket the client wanted. `store.products` in `/v1/status` gives the catalog size for choosing a prefix length ([`docs/threat-model.md`](threat-model.md)).
 
 ### 4.9 `GET /v1/listings/{id}`, `GET /v1/authors/{id}`, `GET /v1/stats`
 
@@ -192,7 +195,7 @@ JSON Lines: the union of the related sets of every product whose `sha256(key)` h
 
 ### 4.10 `GET /v1/export.jsonl`
 
-The entire dataset as JSON Lines: for each author in ascending order, its log records by seq, then its evidence pair (2 lines). Importing this file into an empty node or client rebuilds the same state. The response is streamed from a snapshot taken when the request arrives.
+The entire dataset as JSON Lines: for each author in ascending order, its log records by seq, then its evidence pair (2 lines). Importing this file into an empty node or client rebuilds the same state. The response is streamed from a snapshot taken when the request arrives: the node copies record handles, not record content, and encodes 500 lines at a time as the client reads.
 
 ### 4.11 `GET /v1/sync`
 
@@ -204,12 +207,17 @@ WebSocket upgrade for the sync protocol ([`docs/sync-protocol.md`](sync-protocol
 |---|---|
 | `POST /v1/records` body | 4 MiB (4,194,304 bytes) |
 | `POST /v1/records` records | 1,000 |
-| `POST /v1/records` rate per client address | 2 per second, burst 10; loopback exempt |
+| `POST /v1/records` rate per client address | 2 per second, burst 10 (loopback included) |
+| View endpoints, related sets, lookup, stats, export, per client address | 20 tokens per second, burst 40; export costs 5, lookup 2, others 1 |
+| Concurrent view computations | 4, on the blocking thread pool; others wait up to 10 s, then 503 `busy` |
+| Rate-limiter table | 100,000 addresses; when full, refilled entries are evicted first |
 | Record line | 131,072 bytes |
 | Log page | 1,000 records |
 | Search hits | 1,000 |
 | Sync message | 4 MiB |
-| Inbound sync sessions | 256 total, 8 per address (loopback exempt) |
+| Inbound sync sessions | 256 total, 8 per address (loopback exempt from the per-address cap); checked and reserved in one step |
+| Sync outbound queue | 16 MiB of text per session |
+| Sync inbound queue | 4 messages per session |
 | Sync messages per session | 100 per second, burst 200; 16 MiB per second, burst 32 MiB |
 | Sync keepalive | ping every 30 s; close after 90 s without a frame |
 | Sync heads re-exchange | every 600 s (`--refresh-secs`) |
@@ -247,7 +255,7 @@ perch-node serve [--listen 127.0.0.1:7700] [--data ./data] [--peer ws://host:por
                  [--public-url ws://host:port/v1/sync] [--open-admission]
                  [--refresh-secs 600] [--max-outbound 8] [--import file.jsonl]...
                  [--tier1-records 1000000] [--tier2-records 1000] [--tier3-records 100]
-                 [--tier3-budget 1073741824]
+                 [--tier3-budget 1073741824] [--trust-proxy-header x-forwarded-for]
 perch-node keygen [--out key.json]
 perch-node demo --out demo.jsonl [--policy-out policy.json] [--manifest-out manifest.json]
                 [--size small|medium|large] [--seed 1]
@@ -255,7 +263,7 @@ perch-node demo --out demo.jsonl [--policy-out policy.json] [--manifest-out mani
 
 | Option | Meaning |
 |---|---|
-| `--listen` | Address for HTTP and sync. Port `0` picks a free port; the node prints `perch-node listening on http://<addr> …` on stdout. |
+| `--listen` | Address for HTTP and sync. Port `0` picks a free port; the node prints `perch-node listening on http://<addr> …` on stdout. With `--admin`, it first prints `perch-node admin on http://<addr> (bearer token …)`. |
 | `--data` | Directory for `records.jsonl` (append-only persistence) and `removed.txt` (removal list) |
 | `--peer` | Peer to keep connected, with reconnect backoff of 1 s doubling to 60 s, ±20% jitter |
 | `--attestor` | Trusted attestor for all attestation kinds, added to the default policy |
@@ -266,6 +274,7 @@ perch-node demo --out demo.jsonl [--policy-out policy.json] [--manifest-out mani
 | `--operator-key` | Key that signs the node's `redact` records. Only used for redaction. |
 | `--public-url` | Address announced to peers. Default `ws://<listen>/v1/sync`, or none when listening on all interfaces. |
 | `--import` | JSONL files inserted at startup (for example the demo dataset) |
+| `--trust-proxy-header` | Header naming the client address (for example `x-forwarded-for`), trusted only on connections from loopback, for a reverse proxy on the same host |
 
 Environment variables:
 
@@ -283,6 +292,18 @@ Persistence (`records.jsonl`): every stored record is appended with one write an
 ## 8. Operator controls and notice handling
 
 Operator controls are served only on the `--admin` address, which must be a loopback address. Reach it from the node's host, for example over SSH.
+
+Every admin request must:
+
+- carry `Authorization: Bearer <token>`. At each start the node writes a new random token to `<data>/admin-token` (mode 0600) and prints it on stdout;
+- carry no `Origin` header, so no web page in the operator's browser can drive the endpoint;
+- name the admin address in `Host` (`127.0.0.1:<port>`, `localhost:<port>`, or `[::1]:<port>`), which defeats DNS rebinding;
+- for `POST`, use `Content-Type: application/json`.
+
+```sh
+curl -H "Authorization: Bearer $(cat data/admin-token)" -H 'Content-Type: application/json' \
+     -d '{"id":"9a…","reason":"personal_data"}' http://127.0.0.1:7790/admin/redact
+```
 
 | Method and path | Body | Result |
 |---|---|---|

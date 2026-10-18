@@ -143,6 +143,10 @@ pub struct MemoryStore {
     /// rebuild. Higher ranks are refused, so the pool always holds a prefix
     /// of the rank order.
     pool_cutoff: Option<([u8; 32], AuthorId)>,
+    /// Sparse mode: per author, the lowest seq at which held records show a
+    /// `ts` decrease. Records at or above it are ignored, as a full store
+    /// would never reach them (ARCHITECTURE 4.4).
+    ts_cut: BTreeMap<AuthorId, u64>,
     /// Set when a body was dropped because of the removal list, so the
     /// persistence file still holds it and must be rewritten.
     pub(crate) needs_compaction: bool,
@@ -222,6 +226,7 @@ impl MemoryStore {
             pool: BTreeMap::new(),
             pool_order: BTreeSet::new(),
             pool_cutoff: None,
+            ts_cut: BTreeMap::new(),
             needs_compaction: false,
             #[cfg(not(target_arch = "wasm32"))]
             jslot: JournalSlot::default(),
@@ -260,6 +265,11 @@ impl MemoryStore {
     /// The removal list, ascending.
     pub fn removed_ids(&self) -> Vec<RecordId> {
         self.removed.iter().copied().collect()
+    }
+
+    /// Number of IDs on the removal list.
+    pub fn removed_count(&self) -> usize {
+        self.removed.len()
     }
 
     /// Number of records in the hold buffer.
@@ -307,25 +317,24 @@ impl MemoryStore {
         let mut rep = IngestReport::default();
         let trimmed = text.trim_start();
         if trimmed.starts_with('[') {
-            match perch_core::json::parse(trimmed, perch_core::limits::MAX_DEPTH + 1) {
-                Ok(serde_json::Value::Array(items)) => {
+            match crate::parse_record_array(trimmed) {
+                Ok(items) => {
                     let mut prev: Option<Record> = None;
-                    for (i, v) in items.into_iter().enumerate() {
-                        match Record::from_value(v) {
+                    for (i, item) in items.into_iter().enumerate() {
+                        match item {
                             Ok(r) => {
                                 let o = self.insert_with_prev(prev.as_ref(), r.clone());
                                 rep.add(i + 1, Ok(o));
                                 prev = Some(r);
                             }
                             Err(e) => {
-                                rep.add(i + 1, Err(e.to_string()));
+                                rep.add(i + 1, Err(e));
                                 prev = None;
                             }
                         }
                     }
                 }
-                Ok(_) => rep.add(1, Err("expected a JSON array of records".into())),
-                Err(e) => rep.add(1, Err(e.to_string())),
+                Err(e) => rep.add(1, Err(e)),
             }
             return rep;
         }
@@ -601,6 +610,7 @@ impl MemoryStore {
     /// Returns the number of log records dropped. Used by admission.
     pub fn remove_author(&mut self, author: &AuthorId) -> usize {
         self.pool_leave(author);
+        self.ts_cut.remove(author);
         let seqs: Vec<u64> = self.logs.get(author).map(|l| l.recs.keys().copied().collect()).unwrap_or_default();
         let n = seqs.len();
         for s in seqs {
@@ -789,6 +799,51 @@ impl MemoryStore {
         }
     }
 
+    /// Sparse mode: applies the log-level `ts` rule to the held records of
+    /// `r`'s author plus `r`, in an order-independent way. The cut is the
+    /// smallest seq `b` whose `ts` is below the highest `ts` at a lower held
+    /// seq; records at or above it are dropped. Returns an outcome if `r` is not stored.
+    fn sparse_ts_gate(&mut self, r: &Record) -> Option<Insert> {
+        let author = r.author();
+        let old = self.ts_cut.get(&author).copied();
+        if old.is_some_and(|c| r.seq() >= c) {
+            return Some(Insert::Gap);
+        }
+        let mut items: Vec<(u64, u64)> = match self.logs.get(&author) {
+            Some(log) => log.recs.iter().map(|(s, id)| (*s, self.entries[id].record.ts())).collect(),
+            None => Vec::new(),
+        };
+        items.push((r.seq(), r.ts()));
+        items.sort();
+        let mut max_ts = 0u64;
+        let mut cut = None;
+        let mut max_below_r = 0u64;
+        for (seq, ts) in &items {
+            if *seq < r.seq() {
+                max_below_r = max_below_r.max(*ts);
+            }
+            if *ts < max_ts {
+                cut = Some(*seq);
+                break;
+            }
+            max_ts = max_ts.max(*ts);
+        }
+        let cut = cut?;
+        let cut = old.map_or(cut, |c| c.min(cut));
+        self.ts_cut.insert(author, cut);
+        let doomed: Vec<u64> = self.logs.get(&author).map(|l| l.recs.range(cut..).map(|(s, _)| *s).collect()).unwrap_or_default();
+        for s in doomed {
+            self.remove_log_record(&author, s);
+        }
+        if r.seq() >= cut {
+            if r.ts() < max_below_r {
+                return Some(Insert::Rejected(Reject::TsDecrease { prev_ts: max_below_r, ts: r.ts() }));
+            }
+            return Some(Insert::Gap);
+        }
+        None
+    }
+
     fn insert_inner(&mut self, mut r: Record) -> Insert {
         let id = r.id();
         if let Some(e) = self.entries.get(&id) {
@@ -806,6 +861,11 @@ impl MemoryStore {
         if r.has_body() && self.removed.contains(&id) && !kinds::is_control_kind(r.kind()) {
             r = r.without_body();
             self.needs_compaction = true;
+        }
+        if self.mode == Mode::Sparse
+            && let Some(o) = self.sparse_ts_gate(&r)
+        {
+            return o;
         }
         if let Some(p) = self.best_candidate(&r) {
             let changed = self.offer_pair(p);
@@ -952,6 +1012,10 @@ impl Store for MemoryStore {
         self.logs.keys().copied().collect()
     }
 
+    fn author_count(&self) -> usize {
+        self.logs.len()
+    }
+
     fn head(&self, author: &AuthorId) -> Option<Head> {
         let log = self.logs.get(author)?;
         let last = log.recs.iter().next_back();
@@ -1016,6 +1080,10 @@ impl Store for MemoryStore {
 
     fn product_keys(&self) -> Vec<String> {
         self.idx.by_product.keys().cloned().collect()
+    }
+
+    fn product_key_count(&self) -> usize {
+        self.idx.by_product.len()
     }
 
     fn by_target(&self, id: &RecordId) -> Vec<RecordId> {

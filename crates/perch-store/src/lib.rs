@@ -43,6 +43,26 @@ pub use memory::{AdmissionFn, AdmissionLimit, HoldLimits, IngestReport, MemorySt
 pub use persist::{JsonlFile, ReplayReport};
 
 pub use perch_core;
+
+/// Splits a JSON array of records into one result per element. Each
+/// element's exact text is checked against the 131,072-byte record limit and
+/// then parsed strictly (`Record::from_json_str`: duplicate keys at any depth,
+/// non-integer numbers, and lone surrogates are rejected). `Err` means the
+/// text is not a JSON array.
+pub fn parse_record_array(text: &str) -> Result<Vec<Result<Record, String>>, String> {
+    let items: Vec<Box<serde_json::value::RawValue>> =
+        serde_json::from_str(text).map_err(|e| format!("expected a JSON array of records: {e}"))?;
+    Ok(items
+        .iter()
+        .map(|raw| {
+            let t = raw.get();
+            if t.len() > perch_core::limits::MAX_LINE_BYTES {
+                return Err(format!("record is {} bytes; limit is {}", t.len(), perch_core::limits::MAX_LINE_BYTES));
+            }
+            Record::from_json_str(t).map_err(|e| e.to_string())
+        })
+        .collect())
+}
 use perch_core::{AuthorId, EvidencePair, ForkError, Hex32, Record, RecordError, RecordId};
 
 /// The head of one author's log.
@@ -216,6 +236,11 @@ pub trait Store {
     /// Authors with stored records or evidence, ascending.
     fn authors(&self) -> Vec<AuthorId>;
 
+    /// Number of authors with stored records or evidence.
+    fn author_count(&self) -> usize {
+        self.authors().len()
+    }
+
     /// The head of an author, or `None` if nothing is stored for them.
     fn head(&self, author: &AuthorId) -> Option<Head>;
 
@@ -261,6 +286,11 @@ pub trait Store {
 
     /// All product keys in the [`Store::by_product`] index, ascending.
     fn product_keys(&self) -> Vec<String>;
+
+    /// Number of product keys in the [`Store::by_product`] index.
+    fn product_key_count(&self) -> usize {
+        self.product_keys().len()
+    }
 
     /// IDs of `flag`, `appeal`, `retract`, and `redact` records whose raw `body.target` is `id`.
     fn by_target(&self, id: &RecordId) -> Vec<RecordId>;

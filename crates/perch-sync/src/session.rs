@@ -20,7 +20,14 @@ pub struct SessionConfig {
     pub software: String,
     pub listen: Option<String>,
     pub limits: Limits,
+    /// Heads entries one exchange may add beyond the local author count.
+    /// A peer that sends more is closed with `misbehavior`; this bounds the
+    /// memory a peer can make a session hold.
+    pub max_extra_authors: usize,
 }
+
+/// Default for [`SessionConfig::max_extra_authors`].
+pub const MAX_EXTRA_AUTHORS: usize = 100_000;
 
 impl SessionConfig {
     pub fn new(node: impl Into<String>, role: Role) -> Self {
@@ -30,6 +37,7 @@ impl SessionConfig {
             software: format!("perch-sync/{}", env!("CARGO_PKG_VERSION")),
             listen: None,
             limits: Limits::default(),
+            max_extra_authors: MAX_EXTRA_AUTHORS,
         }
     }
 
@@ -148,6 +156,11 @@ pub struct Session {
     send: Limits,
     heads_inflight: bool,
     heads_rounds: u64,
+    /// `after` of the `get_heads` in flight.
+    heads_after: Option<String>,
+    /// Entries received in the current exchange, and its cap.
+    round_entries: usize,
+    round_cap: usize,
     want_queue: BTreeMap<AuthorId, WantPlan>,
     want_inflight: Option<Vec<InflightWant>>,
     unavailable: BTreeSet<AuthorId>,
@@ -182,6 +195,9 @@ impl Session {
             send,
             heads_inflight: false,
             heads_rounds: 0,
+            heads_after: None,
+            round_entries: 0,
+            round_cap: 0,
             want_queue: BTreeMap::new(),
             want_inflight: None,
             unavailable: BTreeSet::new(),
@@ -278,10 +294,16 @@ impl Session {
         self.body_asked.clear();
         let mut out = Out::default();
         if !self.heads_inflight {
+            self.start_round(store);
             self.request_heads(None, &mut out);
         }
         self.pump(store, &mut out);
         self.finish(out)
+    }
+
+    fn start_round<S: Store + ?Sized>(&mut self, store: &S) {
+        self.round_entries = 0;
+        self.round_cap = store.author_count().saturating_add(self.cfg.max_extra_authors);
     }
 
     fn count_sent(&mut self, msgs: Vec<Message>) -> Vec<Message> {
@@ -307,6 +329,7 @@ impl Session {
 
     fn request_heads(&mut self, after: Option<String>, out: &mut Out) {
         self.heads_inflight = true;
+        self.heads_after = after.clone();
         out.msgs.push(Message::GetHeads { after, limit: self.cfg.limits.max_heads.min(limits::MAX_HEADS) });
     }
 
@@ -377,7 +400,10 @@ impl Session {
             return Err(self.fail(ErrorCode::BadMessage, format!("{} before hello", msg.type_name())));
         }
         match msg {
-            Message::Hello(h) => self.on_hello(h, out),
+            Message::Hello(h) => {
+                self.start_round(store);
+                self.on_hello(h, out)
+            }
             Message::GetHeads { after, limit } => {
                 self.answer_heads(store, after, limit, out);
                 Ok(())
@@ -496,6 +522,28 @@ impl Session {
     ) -> Result<(), SyncError> {
         if !std::mem::replace(&mut self.heads_inflight, false) {
             return self.penalize(score::UNSOLICITED_RESPONSE, "heads without request");
+        }
+        // Pages must advance: every entry after the requested cursor, and
+        // `next` equal to the last entry. This rules out endless paging.
+        if let Some(after) = &self.heads_after
+            && heads.first().is_some_and(|h| h.author.as_str() <= after.as_str())
+        {
+            self.score = self.score.saturating_add(score::BAD_MESSAGE);
+            return Err(self.fail(ErrorCode::BadMessage, "heads page does not start after the requested author"));
+        }
+        if let Some(n) = &next
+            && heads.last().map(|h| &h.author) != Some(n)
+        {
+            self.score = self.score.saturating_add(score::BAD_MESSAGE);
+            return Err(self.fail(ErrorCode::BadMessage, "heads.next must be the last author of a non-empty page"));
+        }
+        self.round_entries = self.round_entries.saturating_add(heads.len());
+        if self.round_entries > self.round_cap {
+            self.score = self.score.saturating_add(score::BAD_MESSAGE);
+            return Err(self.fail(
+                ErrorCode::Misbehavior,
+                format!("heads exchange exceeds {} entries (local authors plus {})", self.round_cap, self.cfg.max_extra_authors),
+            ));
         }
         for e in heads {
             let Some(author) = author_of(&e.author) else { continue };

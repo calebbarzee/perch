@@ -103,8 +103,8 @@ pub fn spawn(data: &Path, args: &[String]) -> NodeProc {
         let mut r = BufReader::new(stdout);
         let mut line = String::new();
         while r.read_line(&mut line).unwrap_or(0) > 0 {
-            if let Some(i) = line.find("http://") {
-                let addr: String = line[i + 7..].chars().take_while(|c| !c.is_whitespace()).collect();
+            if let Some(i) = line.find("listening on http://") {
+                let addr: String = line[i + 20..].chars().take_while(|c| !c.is_whitespace()).collect();
                 let _ = tx.send(addr);
             }
             line.clear();
@@ -152,13 +152,19 @@ fn dechunk(mut b: &[u8]) -> Vec<u8> {
 
 /// One HTTP/1.1 request with `Connection: close`.
 pub fn http(addr: &str, method: &str, path: &str, body: Option<&str>) -> Resp {
+    http_with(addr, method, path, body, &[("Host", addr), ("Content-Type", "application/x-ndjson")])
+}
+
+/// One HTTP/1.1 request with exactly the given headers (plus Connection and Content-Length).
+pub fn http_with(addr: &str, method: &str, path: &str, body: Option<&str>, headers: &[(&str, &str)]) -> Resp {
     let mut s = TcpStream::connect(addr).unwrap_or_else(|e| panic!("connect {addr}: {e}"));
     s.set_read_timeout(Some(Duration::from_secs(60))).unwrap();
     let body = body.unwrap_or("");
-    let req = format!(
-        "{method} {path} HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\nContent-Type: application/x-ndjson\r\nContent-Length: {}\r\n\r\n",
-        body.len()
-    );
+    let mut req = format!("{method} {path} HTTP/1.1\r\nConnection: close\r\nContent-Length: {}\r\n", body.len());
+    for (k, v) in headers {
+        req.push_str(&format!("{k}: {v}\r\n"));
+    }
+    req.push_str("\r\n");
     s.write_all(req.as_bytes()).unwrap();
     s.write_all(body.as_bytes()).unwrap();
     let mut raw = Vec::new();

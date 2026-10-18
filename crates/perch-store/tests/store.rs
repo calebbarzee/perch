@@ -323,6 +323,76 @@ fn sparse_detects_forks_from_plain_header_only_lines() {
     assert_eq!(t.evidence(&a).unwrap().ids(), [x[3].id(), y[1].id()], "sorted by (seq, id)");
 }
 
+/// Audit #9: a sparse store applies the ts rule like a full store, in any order.
+#[test]
+fn sparse_ts_rule_matches_full_store_in_any_order() {
+    let k = kp(17);
+    let a = k.author();
+    let r1 = rec(&k, 1, None, 100, "note", json!({"n": 1}));
+    let r2 = rec(&k, 2, Some(r1.id()), 200, "note", json!({"n": 2}));
+    let r3 = rec(&k, 3, Some(r2.id()), 150, "note", json!({"n": 3}));
+    let r4 = rec(&k, 4, Some(r3.id()), 300, "note", json!({"n": 4}));
+    let all = [r1.clone(), r2.clone(), r3.clone(), r4.clone()];
+    let mut full = MemoryStore::new();
+    for r in &all {
+        full.insert(r.clone());
+    }
+    let want: Vec<RecordId> = full.log(&a, 1, 10).iter().map(|r| r.id()).collect();
+    assert_eq!(want, vec![r1.id(), r2.id()]);
+    // All 24 orders.
+    let mut idx = [0usize, 1, 2, 3];
+    let mut perms = Vec::new();
+    fn permute(k: usize, idx: &mut [usize; 4], out: &mut Vec<[usize; 4]>) {
+        if k == 4 {
+            out.push(*idx);
+            return;
+        }
+        for i in k..4 {
+            idx.swap(k, i);
+            permute(k + 1, idx, out);
+            idx.swap(k, i);
+        }
+    }
+    permute(0, &mut idx, &mut perms);
+    for p in perms {
+        let mut s = MemoryStore::new_sparse();
+        let mut outcomes = Vec::new();
+        for i in p {
+            outcomes.push(s.insert(all[i].clone()));
+        }
+        let got: Vec<RecordId> = s.log(&a, 1, 10).iter().map(|r| r.id()).collect();
+        assert_eq!(got, want, "order {p:?}: {outcomes:?}");
+        assert_eq!(s.by_kind("note").len(), 2);
+    }
+    // Without r1 and r2 present, r3 and r4 are kept (no evidence of a decrease).
+    let mut s = MemoryStore::new_sparse();
+    s.insert(r3.clone());
+    s.insert(r4.clone());
+    assert_eq!(s.len(), 2);
+    // r2 arriving later exposes the decrease and drops r3 and r4.
+    assert_eq!(s.insert(r2.clone()), Insert::Inserted);
+    assert_eq!(s.len(), 1);
+    assert_eq!(s.insert(r4.clone()), Insert::Gap);
+}
+
+/// Audit #12: JSON-array input applies the per-record size limit and strict parsing.
+#[test]
+fn json_array_input_is_strict() {
+    let k = kp(18);
+    let good = rec(&k, 1, None, 1, "note", json!({"x": 1})).to_json_string();
+    let dup = good.replacen("{\"author\"", "{\"kind\":\"note\",\"author\"", 1);
+    let big = rec(&k, 1, None, 1, "note", json!({"x": "y".repeat(60_000)})).to_json_string();
+    let padded = big.replacen('{', &format!("{{{}", " ".repeat(80_000)), 1);
+    let items = perch_store::parse_record_array(&format!("[{good},{dup},{padded}]")).unwrap();
+    assert!(items[0].is_ok());
+    assert!(items[1].as_ref().unwrap_err().contains("uplicate"), "{:?}", items[1]);
+    assert!(items[2].as_ref().unwrap_err().contains("limit"), "{:?}", items[2]);
+    assert!(perch_store::parse_record_array("{}").is_err());
+    let mut s = MemoryStore::new();
+    let rep = s.ingest(&format!("[{good},{dup}]"));
+    assert_eq!((rep.inserted, rep.rejected), (1, 1));
+}
+
 #[test]
 fn hold_buffer_is_bounded() {
     let k = kp(11);

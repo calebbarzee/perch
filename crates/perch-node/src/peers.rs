@@ -45,7 +45,7 @@ pub async fn keep_connected(node: Arc<Node>, url: String) {
     let mut backoff = Backoff::new(seed_for(&url));
     loop {
         let started = Instant::now();
-        match ws::dial(node.clone(), &url).await {
+        match ws::dial(node.clone(), &url, true).await {
             Ok(end) => {
                 node.addresses.lock().unwrap_or_else(|e| e.into_inner()).record_success(&url);
                 tracing::info!(url = %url, reason = %end.reason, "outbound session ended");
@@ -83,18 +83,18 @@ pub async fn fill_slots(node: Arc<Node>) {
         if free == 0 {
             continue;
         }
-        let candidates: Vec<String> = {
+        let candidates: Vec<(String, bool)> = {
             let book = node.addresses.lock().unwrap_or_else(|e| e.into_inner());
             book.iter()
                 .filter(|(a, e)| !e.configured && !connected.contains(*a) && Some(*a) != node.config.public_url.as_ref())
-                .map(|(a, _)| a.clone())
+                .map(|(a, e)| (a.clone(), e.private_ok))
                 .take(free)
                 .collect()
         };
-        for url in candidates {
+        for (url, private_ok) in candidates {
             let node = node.clone();
             tokio::spawn(async move {
-                match ws::dial(node.clone(), &url).await {
+                match ws::dial(node.clone(), &url, private_ok).await {
                     Ok(end) => {
                         let mut book = node.addresses.lock().unwrap_or_else(|e| e.into_inner());
                         if end.self_connection {

@@ -29,7 +29,8 @@ fn line(nodes: &[&str], policy: &std::path::Path, dir: &std::path::Path) -> Vec<
 }
 
 fn synced(a: &NodeProc, b: &NodeProc) -> bool {
-    a.get("/v1/export.jsonl").body == b.get("/v1/export.jsonl").body
+    let (x, y) = (a.get("/v1/export.jsonl"), b.get("/v1/export.jsonl"));
+    x.status == 200 && y.status == 200 && x.body == y.body
 }
 
 fn first_product_key(n: &NodeProc) -> String {
@@ -201,6 +202,14 @@ fn e_invalid_submissions_are_rejected_with_clear_errors() {
     assert_eq!(e.json()["error"]["code"], "not_found");
     let e = n.get("/v1/lookup/zz");
     assert_eq!(e.json()["error"]["code"], "bad_prefix");
+    assert_eq!(n.get("/v1/lookup/abc").json()["error"]["code"], "bad_prefix", "audit #10: at least 4 hex");
+    // Audit #12: JSON arrays apply the per-record size limit and strict parsing.
+    let dup = good.replacen("{\"author\"", "{\"kind\":\"profile\",\"author\"", 1);
+    let padded = good.replacen('{', &format!("{{{}", " ".repeat(131_072)), 1);
+    let v = n.post("/v1/records", &format!("[{good},{dup},{padded}]")).json();
+    let outs: Vec<&str> = v["results"].as_array().unwrap().iter().map(|r| r["outcome"].as_str().unwrap()).collect();
+    assert_eq!(outs, ["duplicate", "invalid", "invalid"], "{v}");
+    assert!(v["results"][2]["error"].as_str().unwrap().contains("limit"));
     let e = n.get("/v1/search?now=abc");
     assert_eq!(e.json()["error"]["code"], "bad_query");
     assert_eq!(n.get("/v1/nothing").status, 404);
@@ -241,7 +250,31 @@ fn f_operator_redaction_and_static_files() {
         .expect("a review");
     let product = review.body().unwrap()["product"].as_str().unwrap().to_string();
     let secret_text = review.body().unwrap()["text"].as_str().unwrap().to_string();
-    let r = http(&admin.to_string(), "POST", "/admin/redact", Some(&json!({"id": review.id().to_hex(), "reason": "personal_data"}).to_string()));
+    // Audit #5: the admin endpoint needs the token, no Origin, the admin Host, and JSON.
+    let token = std::fs::read_to_string(dir.join("a").join("admin-token")).unwrap().trim().to_string();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(dir.join("a").join("admin-token")).unwrap().permissions().mode();
+        assert_eq!(mode & 0o077, 0, "token file is private");
+    }
+    let ad = admin.to_string();
+    let bearer = format!("Bearer {token}");
+    let body = json!({"id": review.id().to_hex(), "reason": "personal_data"}).to_string();
+    let call = |hdrs: &[(&str, &str)]| http_with(&ad, "POST", "/admin/redact", Some(&body), hdrs);
+    let good: Vec<(&str, &str)> = vec![("Host", ad.as_str()), ("Content-Type", "application/json"), ("Authorization", bearer.as_str())];
+    let r = call(&good[..2]);
+    assert_eq!((r.status, r.json()["error"]["code"].clone()), (401, json!("unauthorized")));
+    let r = call(&[good[0], good[1], ("Authorization", "Bearer wrong")]);
+    assert_eq!(r.status, 401);
+    let r = call(&[good[0], good[1], good[2], ("Origin", "https://evil.example")]);
+    assert_eq!((r.status, r.json()["error"]["code"].clone()), (403, json!("cross_origin")));
+    let r = call(&[("Host", "evil.example:80"), good[1], good[2]]);
+    assert_eq!((r.status, r.json()["error"]["code"].clone()), (403, json!("bad_host")));
+    let r = call(&[good[0], ("Content-Type", "text/plain"), good[2]]);
+    assert_eq!((r.status, r.json()["error"]["code"].clone()), (415, json!("bad_content_type")));
+    assert!(n.get(&format!("/v1/records/{}", review.id())).body.contains("\"body\""), "refused calls changed nothing");
+    let r = call(&good);
     assert_eq!(r.status, 200, "{}", r.body);
     let v = r.json();
     assert_eq!(v["body_dropped"], true);
@@ -251,7 +284,8 @@ fn f_operator_redaction_and_static_files() {
     assert!(!got.contains("\"body\""), "body removed: {got}");
     // Control kinds are refused.
     let attest = text.lines().map(|l| Record::from_json_str(l).unwrap()).find(|r| r.kind() == "attest.identity").unwrap();
-    let r = http(&admin.to_string(), "POST", "/admin/redact", Some(&json!({"id": attest.id().to_hex(), "reason": "other"}).to_string()));
+    let body2 = json!({"id": attest.id().to_hex(), "reason": "other"}).to_string();
+    let r = http_with(&ad, "POST", "/admin/redact", Some(&body2), &good);
     assert_eq!(r.status, 409, "{}", r.body);
     // The body stays removed after a restart and is gone from disk.
     n.stop();
@@ -285,4 +319,22 @@ fn g_related_set_and_lookup() {
     for line in &lines {
         assert!(l.body.contains(line), "lookup bucket contains the related set");
     }
+}
+
+#[test]
+fn j_rate_limits_apply_to_loopback() {
+    let dir = tmpdir("limits");
+    let n = spawn(&dir.join("a"), &[]);
+    // Audit #14: POST is limited to 2 per second, burst 10, for loopback too.
+    let codes: Vec<u16> = (0..15).map(|_| n.post("/v1/records", "").status).collect();
+    assert!(codes.iter().filter(|c| **c == 429).count() >= 3, "{codes:?}");
+    let r = n.post("/v1/records", "");
+    if r.status == 429 {
+        assert_eq!(r.json()["error"]["code"], "rate_limited");
+    }
+    // Audit #10: heavy GETs are limited per address too; light ones are not.
+    let codes: Vec<u16> = (0..60).map(|_| n.get("/v1/stats").status).collect();
+    assert!(codes.contains(&429), "{codes:?}");
+    assert!(codes.iter().take(30).all(|c| *c == 200), "burst of 40 is allowed: {codes:?}");
+    assert!((0..30).all(|_| n.get("/v1/status").status == 200));
 }

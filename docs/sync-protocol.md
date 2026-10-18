@@ -106,6 +106,11 @@ A **head** is the last record a peer holds for an author.
 
 Paging is pulled by the receiver. A receiver sends the next `get_heads` with `after = next` only after it has processed the previous page. This bounds memory on both sides.
 
+The receiver checks that pages advance and that an exchange is finite:
+
+- every entry of a page is after the requested `after`, and `next`, when present, is the last entry of a non-empty page; otherwise `bad_message`;
+- one exchange (all pages from `after: null` to `next: null`) has at most the local author count plus 100,000 entries; otherwise `misbehavior`. A node that joins a network with more authors catches up over several exchanges.
+
 Each page reflects the responder's store when the page is built. Records the responder accepts after the session starts reach the peer by push (5.2), so changes between pages are not lost.
 
 One page of 4,096 entries is about 0.7 MB of JSON (160 bytes per unforked entry).
@@ -365,7 +370,8 @@ A **network group** is the IPv4 `/16`, the IPv6 `/32`, or for a DNS name the las
 - Configured peers (`--peer`) are always dialed and never evicted.
 - A node sends `get_peers` once per session after `Live`, and answers `get_peers` with up to 100 addresses, chosen at random with at most 2 per network group.
 - Addresses learned from peers are untrusted. They are dialed only to fill free outbound slots, and are removed after 3 failed attempts.
-- A node does not dial addresses in private, loopback, or link-local ranges learned from public peers.
+- A node does not dial addresses in private, loopback, link-local, multicast, or reserved ranges learned from public peers. IPv4-mapped (`::ffff:a.b.c.d`), IPv4-compatible, and NAT64 (`64:ff9b::/96`) IPv6 addresses are judged by their IPv4 part.
+- For a learned DNS name, the dialer resolves the name, refuses if any result is non-public, and connects to a checked address, so a second lookup cannot redirect it (DNS rebinding).
 - Reconnect after a closed session uses exponential backoff: 1 s, doubling to at most 60 s, with ±20% random jitter.
 
 ## 9. Limits, back-pressure, and admission

@@ -105,6 +105,10 @@ struct ServeArgs {
     /// Node-wide byte budget for all tier-3 logs.
     #[arg(long, default_value_t = 1 << 30)]
     tier3_budget: u64,
+    /// Header with the client address, trusted only on loopback connections
+    /// (for a reverse proxy on the same host), for example x-forwarded-for.
+    #[arg(long)]
+    trust_proxy_header: Option<String>,
 }
 
 fn fail(msg: impl std::fmt::Display) -> ! {
@@ -208,6 +212,7 @@ async fn serve(a: ServeArgs) {
             t3_budget: a.tier3_budget,
             ..Default::default()
         },
+        trust_proxy_header: a.trust_proxy_header.as_ref().map(|h| h.to_ascii_lowercase()),
     };
     let build = BuildInfo { version: env!("CARGO_PKG_VERSION"), build_hash: build_hash() };
     let node = Arc::new(Node::open(config, policy, build).unwrap_or_else(|e| fail(e)));
@@ -264,8 +269,11 @@ async fn serve(a: ServeArgs) {
     }
     if let Some(admin) = node.config.admin {
         let l = tokio::net::TcpListener::bind(admin).await.unwrap_or_else(|e| fail(format!("bind --admin {admin}: {e}")));
-        let r = perch_node::admin::router(node.clone());
-        tracing::info!(%admin, "operator controls listening");
+        let admin = l.local_addr().unwrap_or(admin);
+        let (token, path) = perch_node::admin::new_token(&node.config.data).unwrap_or_else(|e| fail(format!("admin token: {e}")));
+        println!("perch-node admin on http://{admin} (bearer token {token}, also in {})", path.display());
+        let r = perch_node::admin::router(perch_node::admin::Admin { node: node.clone(), token: Arc::new(token), addr: admin });
+        tracing::info!(%admin, token_file = %path.display(), "operator controls listening");
         tokio::spawn(async move {
             let _ = axum::serve(l, r).await;
         });

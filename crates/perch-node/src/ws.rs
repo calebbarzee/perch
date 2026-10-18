@@ -12,7 +12,7 @@ use perch_sync::{Role, Session};
 use tokio::sync::{Notify, broadcast, mpsc};
 
 use crate::config::limits;
-use crate::node::{Node, PeerInfo};
+use crate::node::Node;
 
 /// A frame from the transport.
 pub enum In {
@@ -68,9 +68,44 @@ fn is_private_ip(ip: std::net::IpAddr) -> bool {
     perch_sync::address::is_private_host(&ip.to_string())
 }
 
-async fn send_all(tx: &mpsc::Sender<Out>, msgs: Vec<Message>) -> bool {
+/// Bytes of text frames queued for the writer per connection (audit #14).
+pub const OUT_QUEUE_BYTES: usize = 16 * 1024 * 1024;
+
+/// Sender side of a connection's outbound queue, bounded in bytes.
+#[derive(Clone)]
+pub struct OutTx {
+    tx: mpsc::Sender<(Out, Option<tokio::sync::OwnedSemaphorePermit>)>,
+    bytes: Arc<tokio::sync::Semaphore>,
+}
+
+/// Receiver side; the permit is released after the frame is written.
+pub type OutRx = mpsc::Receiver<(Out, Option<tokio::sync::OwnedSemaphorePermit>)>;
+
+/// An outbound queue of at most [`OUT_QUEUE_BYTES`] of text.
+pub fn out_queue() -> (OutTx, OutRx) {
+    let (tx, rx) = mpsc::channel(256);
+    (OutTx { tx, bytes: Arc::new(tokio::sync::Semaphore::new(OUT_QUEUE_BYTES)) }, rx)
+}
+
+impl OutTx {
+    pub async fn send(&self, o: Out) -> bool {
+        let permit = match &o {
+            Out::Text(t) => {
+                let n = t.len().clamp(1, OUT_QUEUE_BYTES) as u32;
+                match self.bytes.clone().acquire_many_owned(n).await {
+                    Ok(p) => Some(p),
+                    Err(_) => return false,
+                }
+            }
+            _ => None,
+        };
+        self.tx.send((o, permit)).await.is_ok()
+    }
+}
+
+async fn send_all(tx: &OutTx, msgs: Vec<Message>) -> bool {
     for m in msgs {
-        if tx.send(Out::Text(m.to_json())).await.is_err() {
+        if !tx.send(Out::Text(m.to_json())).await {
             return false;
         }
     }
@@ -118,39 +153,22 @@ fn duplicate_check(node: &Node, s: &Session) -> bool {
     false
 }
 
-/// Runs one session until the transport closes or the session ends.
+/// Runs one session until the transport closes or the session ends. The
+/// session must already be registered ([`Node::register_session`] or
+/// [`Node::reserve_inbound`]); it is unregistered on return.
+#[allow(clippy::too_many_arguments)]
 pub async fn drive(
     node: Arc<Node>,
+    id: u64,
+    kill: Arc<Notify>,
     outbound: bool,
     url: Option<String>,
     remote: Option<SocketAddr>,
     mut rx: mpsc::Receiver<In>,
-    tx: mpsc::Sender<Out>,
+    tx: OutTx,
 ) -> End {
-    let id = node.next_session_id();
     let mut s = Session::new(id, node.sync_cfg.clone(), outbound);
     s.set_shareable_addresses(node.shareable(url.as_deref()));
-    let kill = Arc::new(Notify::new());
-    node.peers.lock().unwrap_or_else(|e| e.into_inner()).insert(
-        id,
-        PeerInfo {
-            session: id,
-            outbound,
-            url: url.clone(),
-            remote,
-            node: None,
-            role: None,
-            state: s.state().as_str(),
-            messages_sent: 0,
-            messages_received: 0,
-            records_sent: 0,
-            records_received: 0,
-            behind: 0,
-            ahead: 0,
-            score: 0,
-            kill: kill.clone(),
-        },
-    );
     let mut changes_rx = node.changes.subscribe();
     let mut end = End::default();
     let source_private = match remote {
@@ -280,7 +298,7 @@ pub async fn drive(
                     end.reason = "idle timeout".into();
                     continue;
                 }
-                if ticks % ping_every == 0 && tx.send(Out::Ping).await.is_err() {
+                if ticks % ping_every == 0 && !tx.send(Out::Ping).await {
                     end.reason = "transport closed".into();
                 }
                 if ticks % refresh_every == 0 {
@@ -296,7 +314,7 @@ pub async fn drive(
         }
     }
     let _ = tx.send(Out::Close).await;
-    node.peers.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
+    node.unregister_session(id);
     tracing::debug!(session = id, reason = %end.reason, "session ended");
     end
 }
@@ -304,14 +322,15 @@ pub async fn drive(
 /// Maximum WebSocket message size accepted on sync connections.
 pub const MAX_WS_MESSAGE: usize = proto::MAX_MESSAGE_BYTES;
 
-/// Runs a session over an accepted axum WebSocket.
-pub async fn serve_axum(node: Arc<Node>, socket: axum::extract::ws::WebSocket, remote: SocketAddr) {
+/// Runs a session over an accepted axum WebSocket. `id` was reserved by
+/// [`Node::reserve_inbound`].
+pub async fn serve_axum(node: Arc<Node>, socket: axum::extract::ws::WebSocket, remote: SocketAddr, id: u64, kill: Arc<Notify>) {
     use axum::extract::ws::Message as M;
     let (mut sink, mut stream) = socket.split();
-    let (in_tx, in_rx) = mpsc::channel::<In>(64);
-    let (out_tx, mut out_rx) = mpsc::channel::<Out>(256);
+    let (in_tx, in_rx) = mpsc::channel::<In>(4);
+    let (out_tx, mut out_rx) = out_queue();
     let writer = tokio::spawn(async move {
-        while let Some(o) = out_rx.recv().await {
+        while let Some((o, permit)) = out_rx.recv().await {
             let r = match o {
                 Out::Text(t) => sink.send(M::Text(t.into())).await,
                 Out::Ping => sink.send(M::Ping(Default::default())).await,
@@ -320,6 +339,7 @@ pub async fn serve_axum(node: Arc<Node>, socket: axum::extract::ws::WebSocket, r
                     break;
                 }
             };
+            drop(permit);
             if r.is_err() {
                 break;
             }
@@ -339,7 +359,7 @@ pub async fn serve_axum(node: Arc<Node>, socket: axum::extract::ws::WebSocket, r
             }
         }
     };
-    let driver = drive(node, false, None, Some(remote), in_rx, out_tx);
+    let driver = drive(node, id, kill, false, None, Some(remote), in_rx, out_tx);
     tokio::pin!(driver);
     tokio::select! {
         _ = &mut driver => {}
@@ -351,20 +371,81 @@ pub async fn serve_axum(node: Arc<Node>, socket: axum::extract::ws::WebSocket, r
     let _ = writer.await;
 }
 
-/// Dials `url` and runs a session over it.
-pub async fn dial(node: Arc<Node>, url: &str) -> Result<End, String> {
+/// Splits a `ws://host:port/path` URL into host and port.
+fn host_port(url: &str) -> Result<(String, u16, bool), String> {
+    let tls = url.starts_with("wss://");
+    let rest = url.strip_prefix("wss://").or_else(|| url.strip_prefix("ws://")).ok_or("not a ws:// or wss:// URL")?;
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let authority = authority.rsplit('@').next().unwrap_or(authority);
+    let (host, port) = if let Some(v6) = authority.strip_prefix('[') {
+        let (h, after) = v6.split_once(']').ok_or("bad IPv6 host")?;
+        (h.to_string(), after.strip_prefix(':').map(str::to_string))
+    } else {
+        match authority.rsplit_once(':') {
+            Some((h, p)) => (h.to_string(), Some(p.to_string())),
+            None => (authority.to_string(), None),
+        }
+    };
+    let port = match port {
+        Some(p) => p.parse::<u16>().map_err(|_| "bad port".to_string())?,
+        None => if tls { 443 } else { 80 },
+    };
+    if host.is_empty() {
+        return Err("empty host".into());
+    }
+    Ok((host, port, tls))
+}
+
+/// Resolves `host:port`. Unless `private_ok`, refuses if any resolved
+/// address is private, loopback, or link-local (audit #15). The caller
+/// connects to a returned address, so a second lookup cannot change it.
+pub async fn resolve_checked(host: &str, port: u16, private_ok: bool) -> Result<Vec<SocketAddr>, String> {
+    let addrs: Vec<SocketAddr> = tokio::net::lookup_host((host, port))
+        .await
+        .map_err(|e| format!("resolve {host}: {e}"))?
+        .collect();
+    if addrs.is_empty() {
+        return Err(format!("{host} has no addresses"));
+    }
+    if !private_ok && let Some(a) = addrs.iter().find(|a| perch_sync::address::is_private_ip(a.ip())) {
+        return Err(format!("{host} resolves to the non-public address {}", a.ip()));
+    }
+    Ok(addrs)
+}
+
+/// Dials `url` and runs a session over it. `private_ok` allows private
+/// resolved addresses (configured peers, or addresses learned on a private network).
+pub async fn dial(node: Arc<Node>, url: &str, private_ok: bool) -> Result<End, String> {
     use tokio_tungstenite::tungstenite::Message as M;
     use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
+    let (host, port, tls) = host_port(url)?;
+    if tls {
+        return Err("wss:// peers need TLS support, which this build does not include".into());
+    }
+    let addrs = resolve_checked(&host, port, private_ok).await?;
+    let mut last_err = String::from("no address");
+    let mut stream = None;
+    for a in addrs.iter().take(4) {
+        match tokio::time::timeout(Duration::from_secs(10), tokio::net::TcpStream::connect(a)).await {
+            Ok(Ok(s)) => {
+                stream = Some(s);
+                break;
+            }
+            Ok(Err(e)) => last_err = e.to_string(),
+            Err(_) => last_err = "connect timeout".into(),
+        }
+    }
+    let stream = stream.ok_or(last_err)?;
     let cfg = WebSocketConfig::default().max_message_size(Some(MAX_WS_MESSAGE)).max_frame_size(Some(MAX_WS_MESSAGE));
-    let (ws, _) = tokio::time::timeout(Duration::from_secs(10), tokio_tungstenite::connect_async_with_config(url, Some(cfg), false))
+    let (ws, _) = tokio::time::timeout(Duration::from_secs(10), tokio_tungstenite::client_async_with_config(url, stream, Some(cfg)))
         .await
-        .map_err(|_| "connect timeout".to_string())?
+        .map_err(|_| "handshake timeout".to_string())?
         .map_err(|e| e.to_string())?;
     let (mut sink, mut stream) = ws.split();
-    let (in_tx, in_rx) = mpsc::channel::<In>(64);
-    let (out_tx, mut out_rx) = mpsc::channel::<Out>(256);
+    let (in_tx, in_rx) = mpsc::channel::<In>(4);
+    let (out_tx, mut out_rx) = out_queue();
     let writer = tokio::spawn(async move {
-        while let Some(o) = out_rx.recv().await {
+        while let Some((o, permit)) = out_rx.recv().await {
             let r = match o {
                 Out::Text(t) => sink.send(M::Text(t.into())).await,
                 Out::Ping => sink.send(M::Ping(Default::default())).await,
@@ -373,6 +454,7 @@ pub async fn dial(node: Arc<Node>, url: &str) -> Result<End, String> {
                     break;
                 }
             };
+            drop(permit);
             if r.is_err() {
                 break;
             }
@@ -392,7 +474,8 @@ pub async fn dial(node: Arc<Node>, url: &str) -> Result<End, String> {
             }
         }
     };
-    let driver = drive(node, true, Some(url.to_string()), None, in_rx, out_tx);
+    let (id, kill) = node.register_session(true, Some(url.to_string()), None);
+    let driver = drive(node, id, kill, true, Some(url.to_string()), None, in_rx, out_tx);
     tokio::pin!(driver);
     let end = tokio::select! {
         e = &mut driver => e,
@@ -400,4 +483,44 @@ pub async fn dial(node: Arc<Node>, url: &str) -> Result<End, String> {
     };
     let _ = writer.await;
     Ok(end)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn host_port_parsing() {
+        assert_eq!(host_port("ws://127.0.0.1:7701/v1/sync").unwrap(), ("127.0.0.1".into(), 7701, false));
+        assert_eq!(host_port("wss://node.example.org/v1/sync").unwrap(), ("node.example.org".into(), 443, true));
+        assert_eq!(host_port("ws://[::1]:9/v1/sync").unwrap(), ("::1".into(), 9, false));
+        assert!(host_port("http://x").is_err());
+    }
+
+    /// Audit #14: the outbound queue holds at most OUT_QUEUE_BYTES of text.
+    #[tokio::test]
+    async fn outbound_queue_is_bounded_in_bytes() {
+        let (tx, mut rx) = out_queue();
+        let mb = "x".repeat(1024 * 1024);
+        for _ in 0..16 {
+            assert!(tx.send(Out::Text(mb.clone())).await);
+        }
+        let blocked = tokio::time::timeout(Duration::from_millis(200), tx.send(Out::Text(mb.clone()))).await;
+        assert!(blocked.is_err(), "17th MiB waits for the writer");
+        let (_, permit) = rx.recv().await.unwrap();
+        drop(permit);
+        let ok = tokio::time::timeout(Duration::from_millis(500), tx.send(Out::Text(mb))).await;
+        assert!(matches!(ok, Ok(true)), "space is released after a write");
+    }
+
+    /// Audit #15: names and mapped addresses that resolve to private IPs are refused.
+    #[tokio::test]
+    async fn resolution_refuses_private_addresses() {
+        for host in ["localhost", "127.0.0.1", "::ffff:127.0.0.1", "::1"] {
+            let e = resolve_checked(host, 80, false).await.unwrap_err();
+            assert!(e.contains("non-public"), "{host}: {e}");
+            assert!(resolve_checked(host, 80, true).await.is_ok(), "{host} allowed when private_ok");
+        }
+        assert!(resolve_checked("8.8.8.8", 80, false).await.is_ok());
+    }
 }
