@@ -552,6 +552,10 @@ export function computeState(store, policy) {
   const purchaseOf = (rv) => {
     const rc = rv._receipt;
     if (!rc) return 'none';
+    // The listing's first version has no body here: the receipt cannot be
+    // checked on this device (ARCHITECTURE 4.7).
+    const lr = recs.get(rc.listing);
+    if (lr && !lr.r.body) return 'listing_unavailable';
     const lroot = recs.get(rc.listing) ? root(rc.listing) : null;
     const lv = lroot ? listingViews.get(lroot) : null;
     if (!lv || mockSign(lv.seller, receiptMessage(rc)) !== rc.sig) return 'receipt_invalid';
@@ -565,6 +569,7 @@ export function computeState(store, policy) {
   };
 
   const productViews = new Map();
+  const searchInfo = new Map(); // key -> { verified_source, values }
   const countedReviews = []; // { product, receiptSeller } for AuthorView.seller_reviews
   const allKeys = new Set([...products.keys()]);
   for (const k of allKeys) {
@@ -643,9 +648,17 @@ export function computeState(store, policy) {
       };
     }
 
+    // Hiding applies per description (product chain). Hidden chains give no
+    // facts (ARCHITECTURE 7.6).
+    const mods = prods.map(({ e, rt }) => moderationOf(rt, e, 'product'));
+    const src = prods.filter((_, i) => mods[i].status === 'visible');
+    const verifiedSrc = src.filter(({ e }) => verified(e.author));
+    const matchSrc = verifiedSrc.length ? verifiedSrc : src;
+    const values = (f) => [...new Set(matchSrc.map(({ e }) => e.r.body[f]).filter((v) => v != null))];
+    searchInfo.set(k, { verified_source: verifiedSrc.length > 0, values: { name: values('name'), brand: values('brand'), category: values('category'), mpn: values('mpn') } });
     const fact = (field) => {
       const groups = new Map();
-      for (const { e } of prods) {
+      for (const { e } of src) {
         const value = e.r.body[field];
         if (value === undefined) continue;
         if (!groups.has(value)) groups.set(value, []);
@@ -663,10 +676,10 @@ export function computeState(store, policy) {
     };
     const attributes = {};
     const attrNames = new Set();
-    for (const { e } of prods) for (const n of Object.keys(e.r.body.attributes || {})) attrNames.add(n);
+    for (const { e } of src) for (const n of Object.keys(e.r.body.attributes || {})) attrNames.add(n);
     for (const n of [...attrNames].sort()) {
       const groups = new Map();
-      for (const { e } of prods) {
+      for (const { e } of src) {
         const v = e.r.body.attributes?.[n];
         if (v === undefined) continue;
         if (!groups.has(v)) groups.set(v, []);
@@ -677,17 +690,16 @@ export function computeState(store, policy) {
     }
     const images = [];
     const seenImg = new Set();
-    for (const { e } of prods) {
+    for (const { e } of src) {
       for (const img of e.r.body.images || []) {
         if (seenImg.has(img.url)) continue;
         seenImg.add(img.url);
         images.push({ url: img.url, sha256: img.sha256 ?? null, author_verified: verified(e.author) });
       }
     }
-    const firstBody = prods[0]?.e.r.body || {};
+    const firstBody = src[0]?.e.r.body || {};
     // A product key can group several product chains. The mock sums their
     // flags and reports hidden only when every chain is hidden.
-    const mods = prods.map(({ e, rt }) => moderationOf(rt, e, 'product'));
     const moderation = {
       status: mods.length && mods.every((m) => m.status === 'hidden') ? 'hidden' : 'visible',
       flags: mods.reduce(
@@ -708,8 +720,9 @@ export function computeState(store, policy) {
       key: k,
       moderation,
       excluded_sources,
-      name: fact('name'),
-      brand: fact('brand'),
+      // With no visible description, name and brand are empty (views.md 10).
+      name: fact('name') ?? { value: '', sources: [], conflicts: [] },
+      brand: fact('brand') ?? { value: '', sources: [], conflicts: [] },
       category: fact('category'),
       description: fact('description'),
       gtin: k.startsWith('gtin:') ? k.slice(5) : null,
@@ -817,7 +830,7 @@ export function computeState(store, policy) {
     return { semantic_valid: reason === null, reason, root: rt, versions, ignored };
   };
 
-  return { productViews, listingViews, authorViews, stats, now, chains, chainSummary, flagsFor, recordStatus };
+  return { productViews, listingViews, authorViews, stats, now, chains, chainSummary, flagsFor, recordStatus, searchInfo };
 }
 
 export function searchState(state, q, { sort = 'relevance', currency = null } = {}) {
@@ -830,11 +843,14 @@ export function searchState(state, q, { sort = 'relevance', currency = null } = 
     const brand = p.brand?.value ?? '';
     const category = p.category?.value ?? null;
     const tokens = (t) => (String(t || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || []);
+    // With a verified source, only verified authors' values match (7.8).
+    const info = state.searchInfo?.get(p.key) ?? { verified_source: false, values: { name: [name], brand: [brand], category: [category], mpn: [p.mpn] } };
+    const all = (f) => info.values[f].flatMap(tokens);
     const fields = [
-      ['name', tokens(name), 30, 15],
-      ['mpn', tokens(p.mpn), 25, 10],
-      ['brand', tokens(brand), 20, 10],
-      ['category', tokens(category), 10, 5],
+      ['name', all('name'), 30, 15],
+      ['mpn', all('mpn'), 25, 10],
+      ['brand', all('brand'), 20, 10],
+      ['category', all('category'), 10, 5],
     ];
     let score = 0;
     const why = [];
@@ -882,6 +898,7 @@ export function searchState(state, q, { sort = 'relevance', currency = null } = 
       score: Math.round(score * 100) / 100,
       why,
       moderation_status: p.moderation?.status ?? 'visible',
+      verified_source: info.verified_source,
       rating_mean: vi.mean,
       rating_count: vi.count,
       rating_smoothed: Math.round(smoothed * 100) / 100,
@@ -902,8 +919,10 @@ export function searchState(state, q, { sort = 'relevance', currency = null } = 
     rating_mean: (a, b) => b.rating_smoothed - a.rating_smoothed || b.rating_count - a.rating_count || tie(a, b),
   };
   const base = sorters[sort] || sorters.relevance;
-  // Hits whose product record is not visible come after all visible hits.
-  hits.sort((a, b) => (a.moderation_status === 'visible' ? 0 : 1) - (b.moderation_status === 'visible' ? 0 : 1) || base(a, b));
+  // Visible hits with a verified source first, then visible hits without
+  // one, then hits whose product is not visible (ARCHITECTURE 7.8).
+  const groupOf = (h) => (h.moderation_status !== 'visible' ? 2 : h.verified_source ? 0 : 1);
+  hits.sort((a, b) => groupOf(a) - groupOf(b) || base(a, b));
   return hits;
 }
 

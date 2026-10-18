@@ -161,3 +161,14 @@ export function keyLabel(key) {
   if (key.startsWith('rec:')) return `Record ${shortHex(key.slice(4))}`;
   return key;
 }
+
+// Product key of a product record body (ARCHITECTURE 4.8; perch-core
+// product_key.rs): gtin: + 14 digits, mpn: + brand + ":" + MPN (trimmed of
+// ASCII whitespace, ASCII-lowercased, "%" and ":" escaped), else rec: + root.
+export function productKeyOf(body, rootId) {
+  if (body.gtin) return 'gtin:' + String(body.gtin).padStart(14, '0');
+  const trim = (x) => String(x).replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '').replace(/[A-Z]/g, (c) => c.toLowerCase());
+  const esc = (x) => x.replace(/%/g, '%25').replace(/:/g, '%3a');
+  if (body.mpn && body.brand) return 'mpn:' + esc(trim(body.brand)) + ':' + esc(trim(body.mpn));
+  return 'rec:' + rootId;
+}

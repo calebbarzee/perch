@@ -685,3 +685,8 @@ h3.inline { display: inline; }
 .char-count { margin: 0.25rem 0 0; }
 .attestor-list li { padding: 0.25rem 0; }
 .proofs pre { white-space: pre-wrap; word-break: break-all; }
+
+/* Search hits without a verified source (ARCHITECTURE 7.8). */
+.unverified-hits { margin-top: 1.5rem; }
+.unverified-hits h2 { font-size: 1.125rem; margin-bottom: 0.25rem; }
+.description-flags { margin: 0.5rem 0; }

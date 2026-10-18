@@ -233,9 +233,39 @@ try {
   check('record inspector renders', (await page.locator('.screen-record .notice-good').count()) === 1);
 
   // C5: hidden product records come last, collapsed.
-  await go(page, '#/search?q=charger');
+  // A product whose every description is hidden matches only by GTIN.
+  await go(page, '#/search?q=6901234567892');
   await page.waitForSelector('.moderated-hits');
   check('search groups hits with hidden product records', (await page.locator('.moderated-hits .hit').count()) === 1);
+  // Follow-up (1): products without a verified source form their own group.
+  await go(page, '#/search?q=kestrel');
+  await page.waitForSelector('[data-group=unverified] .hit');
+  const groups = await page.locator('.hit').evaluateAll((els) => els.map((e) => e.closest('[data-group]')?.dataset.group));
+  check('verified-source products come first, then the labeled unverified group', groups[0] === 'verified' && groups.at(-1) === 'unverified' && groups.indexOf('unverified') > groups.lastIndexOf('verified'), groups.join(','));
+  check('unverified group is labeled', (await page.locator('#h-unverified-hits').textContent()).startsWith('No verified description'));
+  check('ranking disclosure says verified sources come first', (await page.locator('.computed summary').first().textContent()) === 'How ranking works' && (await page.locator('.computed').first().textContent()).includes('verified source always come first'));
+  await go(page, '#/search?q=iphone');
+  await page.waitForSelector('.screen-search .empty');
+  check('an unverified key cannot add words to a product with a verified source', (await page.locator('.hit').count()) === 0);
+  // Follow-up (3): one hidden description of a visible product.
+  await go(page, `#/product/${encodeURIComponent('gtin:05012345678900')}`);
+  await page.waitForSelector('.screen-product');
+  {
+    const n = page.locator('[data-status=hidden-descriptions]');
+    check('hidden description shown as a count', (await n.count()) === 1 && (await n.locator('.notice-title').textContent()) === '1 description of this product was hidden by moderation');
+    await n.locator('.flag-list summary').click();
+    await page.waitForSelector('[data-status=hidden-descriptions] .description-flags .flags li');
+    check('hidden description lists its flags', (await n.locator('.flags li').count()) === 5 && !(await n.textContent()).includes('True Wireless'));
+    check('hidden description gives no facts', (await page.locator('h1').textContent()) === 'Aster A40 wireless earbuds');
+  }
+  // Follow-up (2): a receipt that cannot be checked here is neutral.
+  await go(page, `#/product/${encodeURIComponent('gtin:07612345678900')}`);
+  await page.waitForSelector('.screen-product');
+  {
+    const r = page.locator('.review[data-purchase=listing_unavailable]');
+    const b = r.locator('p.badges .badge').first();
+    check('listing_unavailable receipt shown in neutral color', (await r.count()) === 1 && (await b.textContent()).includes("Receipt can't be checked") && (await b.getAttribute('class')).includes('badge-muted'));
+  }
   // C6: why as sentences with a raw toggle.
   await go(page, '#/search?q=kettle');
   await page.locator('.why summary').first().click();

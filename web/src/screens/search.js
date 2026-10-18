@@ -124,8 +124,12 @@ export default {
       return section;
     }
 
-    // Hits whose product record is hidden come last, collapsed (docs/ux.md 8.1).
+    // Three groups, in view order (ARCHITECTURE 7.8): products with a
+    // verified source, products without one, then products that are not
+    // visible, collapsed (docs/ux.md 8.1).
     const visible = hits.filter((x) => (x.moderation_status ?? 'visible') === 'visible');
+    const verifiedHits = visible.filter((x) => x.verified_source !== false);
+    const unverifiedHits = visible.filter((x) => x.verified_source === false);
     const moderated = hits.filter((x) => (x.moderation_status ?? 'visible') !== 'visible');
     section.append(
       h('p', { class: 'result-count', role: 'status' },
@@ -135,18 +139,28 @@ export default {
         /^\d{8}$|^\d{12,14}$/.test(q.trim()) && gtinCheckDigit(q.trim()) === null ? ' Searching by GTIN.' : '',
       ),
       h('details', { class: 'computed' },
-        h('summary', { text: 'How relevance works' }),
+        h('summary', { text: 'How ranking works' }),
+        h('p', { text: 'Products with a verified source always come first: at least one description by an identity-verified author. For them, only text from verified authors matches the query, so a new key cannot add words to a product. Products without a verified source follow, in their own group.' }),
         h('p', { text: 'Each word of the query must match the product. Exact word matches score more than word starts: name 30 or 15, MPN 25 or 10, brand 20 or 10, category 10 or 5. A matching GTIN scores 100.' }),
         h('p', { text: 'The rating adds up to 20 points or takes up to 20 away. It is the mean of the identity-verified ratings with five neutral ratings of 1 to 5 added, so a few reviews move it less than many. A current price adds 5.' }),
         h('p', { text: 'Ranking uses only reviews from identity-verified people. No one can pay for position.' }),
       ),
     );
-    const list = h('ol', { class: 'results', 'aria-label': 'Search results' });
-    for (const hit of visible) list.append(resultItem(hit, sort));
-    if (visible.length) section.append(list);
+    if (verifiedHits.length) {
+      section.append(h('ol', { class: 'results', 'aria-label': 'Search results', dataset: { group: 'verified' } }, verifiedHits.map((hit) => resultItem(hit, sort))));
+    }
+    if (unverifiedHits.length) {
+      section.append(
+        h('section', { class: 'unverified-hits', 'aria-labelledby': 'h-unverified-hits' },
+          h('h2', { id: 'h-unverified-hits', text: `No verified description (${unverifiedHits.length})` }),
+          h('p', { class: 'muted', text: 'Names and details of these products come from unverified authors.' }),
+          h('ol', { class: 'results', dataset: { group: 'unverified' } }, unverifiedHits.map((hit) => resultItem(hit, sort))),
+        ),
+      );
+    }
     if (moderated.length) {
       const group = h('details', { class: 'moderated-hits', open: !visible.length },
-        h('summary', { text: `${fmt.plural(moderated.length, 'more product')} ${moderated.length === 1 ? 'matches' : 'match'}, but ${moderated.length === 1 ? 'its product record is' : 'their product records are'} hidden by moderation. Show them.` }),
+        h('summary', { text: `${fmt.plural(moderated.length, 'more product')} ${moderated.length === 1 ? 'matches' : 'match'}, but every description of ${moderated.length === 1 ? 'it is' : 'them is'} hidden by moderation. Show them.` }),
         h('ol', { class: 'results' }, moderated.map((hit) => resultItem(hit, sort))),
       );
       section.append(group);
@@ -198,14 +212,16 @@ function resultItem(hit, sort) {
     : null;
   return h('li', { class: 'hit', dataset: { key: hit.key } },
     h('div', { class: 'hit-main' },
-      h('h2', { class: 'hit-name' }, h('a', { href: routes.product(hit.key) }, bdi(hit.name))),
+      h('h2', { class: 'hit-name' }, h('a', { href: routes.product(hit.key) }, hit.name ? bdi(hit.name) : fmt.keyLabel(hit.key))),
       h('p', { class: 'hit-meta' },
-        bdi(hit.brand),
+        hit.brand ? bdi(hit.brand) : null,
         hit.category ? [h('span', { class: 'sep', 'aria-hidden': 'true', text: ' / ' }), h('span', { text: fmt.categoryText(hit.category) })] : null,
       ),
       hit.moderation_status && hit.moderation_status !== 'visible'
         ? h('p', { class: 'badges' }, badge('muted', hit.moderation_status === 'hidden' ? 'Hidden by moderation' : hit.moderation_status === 'retracted' ? 'Withdrawn' : 'Removed by node', 'eyeOff'))
-        : null,
+        : hit.verified_source === false
+          ? h('p', { class: 'badges' }, badge('warn', 'No verified description', 'shield', 'No identity-verified author has published a description of this product. Its name and details come from unverified keys.'))
+          : null,
       h('details', { class: 'why' },
         h('summary', {}, 'Why this position'),
         h('ul', {}, hit.why.map((w) => h('li', {}, bdi(whySentence(w))))),

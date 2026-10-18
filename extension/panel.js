@@ -305,8 +305,11 @@ async function check(settings) {
   // Moderation (item 5).
   const hiddenReviews = view.reviews.filter((x) => x.status === 'hidden').length;
   const hiddenListings = view.listings.filter((x) => x.status === 'hidden').length;
-  const modParts = [hiddenReviews ? plural(hiddenReviews, 'review') : null, hiddenListings ? plural(hiddenListings, 'listing') : null].filter(Boolean);
-  const moderation = modParts.length ? h('p', { class: 'sub', 'data-testid': 'moderation', text: `${modParts.join(' and ')} ${hiddenReviews + hiddenListings === 1 ? 'is' : 'are'} hidden by moderation.` }) : null;
+  // Hiding applies per description of the product (ARCHITECTURE 7.6).
+  const hiddenDescriptions = view.excluded_sources?.hidden ?? 0;
+  const modParts = [hiddenDescriptions ? plural(hiddenDescriptions, 'description') : null, hiddenReviews ? plural(hiddenReviews, 'review') : null, hiddenListings ? plural(hiddenListings, 'listing') : null].filter(Boolean);
+  const nHidden = hiddenDescriptions + hiddenReviews + hiddenListings;
+  const moderation = modParts.length ? h('p', { class: 'sub', 'data-testid': 'moderation', text: `${modParts.join(', ')} ${nHidden === 1 ? 'is' : 'are'} hidden by moderation.` }) : null;
 
   // Disagreement between nodes (item 6).
   const total = summarize(view);

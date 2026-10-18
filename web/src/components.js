@@ -130,6 +130,7 @@ export const SENTENCE = {
     seller_unverified: "The receipt is valid, but the seller's identity is not verified under your policy.",
     buyer_unverified: "The receipt is valid, but the reviewer's identity is not verified under your policy.",
     self: 'The seller of the listing wrote this review.',
+    listing_unavailable: "The receipt names a listing whose first version is not on this device, so its signature cannot be checked here. This is not an error: the status updates when the listing arrives from a node.",
   },
 };
 
@@ -269,23 +270,70 @@ export function flagList(client, rootId) {
       details.append(h('p', { class: 'hint', text: `Flags could not be listed (${e.message}).` }));
       return;
     }
-    details.append(
-      h('ul', { class: 'plain flags' },
-        flags.map((f) =>
-          h('li', { class: f.counted ? 'counted' : 'not-counted' },
-            authorChip(f.author, f.author_name, { verified: f.author_verified }),
-            ' ',
-            f.reason ? h('strong', { text: fmt.FLAG_REASONS[f.reason] || f.reason }) : null,
-            h('span', { class: 'muted', text: ` ${fmt.date(f.ts)}` }),
-            ' ',
-            recordLink(f.record, 'record'),
-            f.counted ? null : h('span', { class: 'hint', text: ` Not counted: ${FLAG_EXCLUDED[f.excluded_reason] || f.excluded_reason}.` }),
-            f.note ? userText('p', f.note, { class: 'flag-note' }) : null,
-          ),
-        ),
-      ),
-    );
+    details.append(flagItems(flags));
   }, { once: false });
+  return details;
+}
+
+function flagItems(flags) {
+  return h('ul', { class: 'plain flags' },
+    flags.map((f) =>
+      h('li', { class: f.counted ? 'counted' : 'not-counted' },
+        authorChip(f.author, f.author_name, { verified: f.author_verified }),
+        ' ',
+        f.reason ? h('strong', { text: fmt.FLAG_REASONS[f.reason] || f.reason }) : null,
+        h('span', { class: 'muted', text: ` ${fmt.date(f.ts)}` }),
+        ' ',
+        recordLink(f.record, 'record'),
+        f.counted ? null : h('span', { class: 'hint', text: ` Not counted: ${FLAG_EXCLUDED[f.excluded_reason] || f.excluded_reason}.` }),
+        f.note ? userText('p', f.note, { class: 'flag-note' }) : null,
+      ),
+    ),
+  );
+}
+
+// Flags on every description (product chain) of a product key. The view
+// gives only counts, so the list is built on request from the flag records
+// on this device. A hidden description's text is never shown (7.6): each
+// description appears as its record link and author.
+export function descriptionFlagList(client, key) {
+  const details = h('details', { class: 'flag-list' }, h('summary', { text: 'Show flags' }));
+  details.addEventListener('toggle', () => {
+    if (!details.open || details.dataset.loaded) return;
+    details.dataset.loaded = '1';
+    const targets = new Set();
+    try {
+      for (const line of client.exportJsonl().split('\n')) {
+        if (!line.includes('"flag"')) continue;
+        let r;
+        try {
+          r = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        if (r.kind === 'flag' && typeof r.body?.target === 'string') targets.add(r.body.target);
+      }
+      const roots = [];
+      for (const t of [...targets].sort()) {
+        const rec = client.record(t);
+        if (rec?.kind === 'product' && rec.body && fmt.productKeyOf(rec.body, t) === key) roots.push([t, rec.author]);
+      }
+      if (!roots.length) {
+        details.append(h('p', { class: 'hint', text: 'No flag records for this product are on this device.' }));
+        return;
+      }
+      for (const [root, author] of roots) {
+        details.append(
+          h('div', { class: 'description-flags', dataset: { root } },
+            h('p', {}, 'Description ', recordLink(root), ' by ', authorChip(author, null)),
+            flagItems(client.flags(root) || []),
+          ),
+        );
+      }
+    } catch (e) {
+      details.append(h('p', { class: 'hint', text: `Flags could not be listed (${e.message}).` }));
+    }
+  });
   return details;
 }
 
@@ -298,10 +346,15 @@ export function moderationNotice(view, kind, policy, client = null, rootId = nul
     const threshold = policy?.flag_thresholds?.[kind] ?? policy?.flag_threshold ?? null;
     const counted = view.flags.counted;
     const verifiedOnly = policy?.flags_require_verified;
+    const who = fmt.plural(counted, verifiedOnly ? 'identity-verified person' : 'person', verifiedOnly ? 'identity-verified people' : 'people');
     const parts = [
-      h('p', {}, `${fmt.plural(counted, verifiedOnly ? 'identity-verified person' : 'person', verifiedOnly ? 'identity-verified people' : 'people')} flagged this ${what}. `
-        + (threshold != null ? `Your policy hides a ${what} at ${threshold}. ` : '')
-        + `${fmt.plural(view.flags.count, 'flag')} in total.`),
+      kind === 'product'
+        ? h('p', {}, `Every description of this product is hidden. ${who} flagged them. `
+          + (threshold != null ? `Your policy hides a description at ${threshold}. ` : '')
+          + `${fmt.plural(view.flags.count, 'flag')} in total.`)
+        : h('p', {}, `${who} flagged this ${what}. `
+          + (threshold != null ? `Your policy hides a ${what} at ${threshold}. ` : '')
+          + `${fmt.plural(view.flags.count, 'flag')} in total.`),
     ];
     const reasons = fmt.reasonsText(view.flags.reasons);
     if (reasons) parts.push(h('p', {}, `Reasons: ${reasons}.`));
@@ -515,6 +568,7 @@ export const PURCHASE_TEXT = {
   none: 'No receipt',
   receipt_invalid: "Receipt not accepted: not signed by the listing's seller",
   wrong_product: 'Receipt is for a different product',
+  listing_unavailable: "Receipt can't be checked on this device: the listing's first version is not available here",
   seller_unverified: "Receipt from a seller whose identity is not verified",
   buyer_unverified: "Receipt valid, but the reviewer's identity is not verified",
   self: 'Seller reviewing their own listing',

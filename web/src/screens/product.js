@@ -3,7 +3,7 @@ import * as fmt from '../format.js';
 import {
   routes, authorChip, badge, notice, stars, moderationNotice, factValue, productImage,
   priceText, emptyState, definitionList, PURCHASE_TEXT, EXCLUDED_TEXT, PRICE_EXCLUDED_TEXT, icon, hex, recordLink, urlLink,
-  SENTENCE, lookupAuthor, restrictedBadge, restrictedLabel, flagSummary, computedDisclosure,
+  SENTENCE, lookupAuthor, restrictedBadge, restrictedLabel, flagSummary, computedDisclosure, descriptionFlagList, appealBlock,
 } from '../components.js';
 import { announce } from '../dom.js';
 import { priceChart } from '../chart.js';
@@ -29,18 +29,21 @@ export default {
     section.append(
       h('header', { class: 'product-head' },
         h('p', { class: 'crumbs' }, h('a', { href: routes.search(p.brand?.value || ''), text: 'Search' }), p.category ? [' / ', h('span', { text: fmt.categoryText(p.category.value) })] : null),
-        h('h1', {}, bdi(p.name?.value ?? p.key)),
+        h('h1', {}, p.name?.value ? bdi(p.name.value) : fmt.keyLabel(p.key)),
         h('p', { class: 'product-sub' }, h('span', { class: 'brand' }, bdi(p.brand?.value ?? '')), ' ', h('span', { class: 'key', text: fmt.keyLabel(p.key) })),
       ),
     );
 
-    // Product records hidden by moderation: the facts stay visible, because
-    // other sellers' listings and reviews share the product key.
+    // Hiding applies per description (ARCHITECTURE 7.6). Listings and
+    // reviews share the product key and stay visible.
     if (p.moderation && p.moderation.status !== 'visible') {
-      const firstSource = p.name?.sources?.[0]?.record;
-      const rootId = firstSource ? client.recordStatus?.(firstSource)?.root ?? firstSource : null;
-      const mod = moderationNotice(p.moderation, 'product', policy, client, rootId);
-      if (mod) section.append(mod);
+      const mod = moderationNotice(p.moderation, 'product', policy, null, null);
+      if (mod) {
+        mod.querySelector('.notice-body')?.append(descriptionFlagList(client, p.key));
+        section.append(mod);
+      }
+    } else if (p.excluded_sources?.hidden) {
+      section.append(hiddenDescriptions(p, policy, client));
     }
 
     // Review filters, shared by the histogram buttons and the review list.
@@ -70,6 +73,24 @@ export default {
     return section;
   },
 };
+
+// Some descriptions of a visible product are hidden: their text gives no
+// facts, and the flags are listed per description.
+function hiddenDescriptions(p, policy, client) {
+  const n = p.excluded_sources.hidden;
+  const f = p.moderation.flags;
+  const reasons = fmt.reasonsText(f.reasons);
+  const threshold = policy?.flag_thresholds?.product ?? policy?.flag_threshold ?? null;
+  const box = notice('hidden', n === 1 ? '1 description of this product was hidden by moderation' : `${n} descriptions of this product were hidden by moderation`,
+    h('p', { text: `Their text is not used for the name, brand, or details shown here.${threshold != null ? ` Your policy hides a description at ${threshold} counted flags.` : ''}` }),
+    h('p', { text: `${fmt.plural(f.count, 'person', 'people')} flagged descriptions of this product; ${fmt.number(f.counted)} counted.${reasons ? ` Reasons: ${reasons}.` : ''}` }),
+    descriptionFlagList(client, p.key),
+    appealBlock(p.moderation, 'author'),
+    h('p', { class: 'hint', text: 'Hidden descriptions stay in the data. A new description of the same product is a separate claim and is flagged on its own.' }),
+  );
+  box.dataset.status = 'hidden-descriptions';
+  return box;
+}
 
 // Rating histogram (docs/ux.md 8.2 item 9, T6). Each row is a button that
 // sets the star filter of the review list. With 1 to 5 reviews, counts are
@@ -437,7 +458,7 @@ export function reviewItem(r, policy, client = null) {
     ),
   );
   if (purchaseText) {
-    const tone = r.purchase === 'verified' ? 'good' : r.purchase === 'none' ? 'muted' : 'warn';
+    const tone = r.purchase === 'verified' ? 'good' : r.purchase === 'none' || r.purchase === 'listing_unavailable' ? 'muted' : 'warn';
     li.append(h('p', { class: 'badges' }, badge(tone, purchaseText, 'receipt', SENTENCE.purchase[r.purchase] || null)));
   }
   const mod = moderationNotice(r, 'review', policy, client, r.id);

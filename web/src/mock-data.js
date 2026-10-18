@@ -7,6 +7,7 @@
 import { sha256Hex } from './sha256.js';
 import { canonicalJson } from './canonical.js';
 import { mockAuthor, makeRecord, makeReceipt } from './mock-crypto.js';
+import { productKeyOf } from './format.js';
 
 const DAY = 86400000;
 const T0 = Date.UTC(2026, 2, 2, 9, 0, 0); // 2 March 2026
@@ -19,11 +20,7 @@ function gtin13(base12) {
 }
 
 export function productKeyFor(body, rootId) {
-  if (body.gtin) return 'gtin:' + body.gtin.padStart(14, '0');
-  const trim = (s) => s.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '').replace(/[A-Z]/g, (c) => c.toLowerCase());
-  const esc = (s) => s.replace(/%/g, '%25').replace(/:/g, '%3a');
-  if (body.mpn) return 'mpn:' + esc(trim(body.brand)) + ':' + esc(trim(body.mpn));
-  return 'rec:' + rootId;
+  return productKeyOf(body, rootId);
 }
 
 const PRODUCTS = {
@@ -107,7 +104,7 @@ export function buildMockDataset() {
   // Products.
   ev(5, 'brightline', 'product', { ...PRODUCTS.kettle, images: [{ url: 'https://img.brightline.example/k2-front.jpg' }] }, { name: 'p-kettle' });
   ev(5, 'brightline', 'product', PRODUCTS.earbuds, { name: 'p-earbuds' });
-  ev(6, 'quickdeals', 'product', { ...PRODUCTS.earbuds, name: 'Aster A40 True Wireless Earbuds', images: [{ url: 'https://cdn.quickdeals.example/a40.png' }] });
+  ev(6, 'quickdeals', 'product', { ...PRODUCTS.earbuds, name: 'Aster A40 True Wireless Earbuds', images: [{ url: 'https://cdn.quickdeals.example/a40.png' }] }, { name: 'p-earbuds-qd' });
   ev(5, 'harbor', 'product', PRODUCTS.backpack, { name: 'p-backpack' });
   ev(5, 'brightline', 'product', PRODUCTS.coffee);
   ev(5, 'brightline', 'product', PRODUCTS.monitor);
@@ -143,7 +140,9 @@ export function buildMockDataset() {
         price: { amount, currency: opts.currency || 'EUR' },
         availability,
       });
-      ev(day, seller, 'listing', body, i === 0 ? { name } : { replaces: name, name: `${name}#${i}` });
+      // stripRoot: the first version's body is missing on this device, so
+      // receipts for the listing cannot be checked (ARCHITECTURE 4.7).
+      ev(day, seller, 'listing', body, i === 0 ? { name, stripBody: Boolean(opts.stripRoot) } : { replaces: name, name: `${name}#${i}` });
     });
     return name;
   };
@@ -165,6 +164,7 @@ export function buildMockDataset() {
   listing('harbor', 'shoe', [[10, 13900], [90, 11900], [150, 9900]], { ships_to: ['NO', 'SE', 'DK'], currency: 'NOK' });
   listing('harbor', 'shoe', [[10, 1390], [150, 1190]], { host: 'eu.harbor-outfitters.example' });
   listing('brightline', 'lamp', [[10, 3999], [120, 3499]]);
+  listing('harbor', 'lamp', [[15, 4299], [60, 3999]], { stripRoot: true });
   listing('cedar', 'mixer', [[12, 29900], [110, 27900], [175, 26900]]);
   listing('brightline', 'vacuum', [[10, 39900], [100, 34900], [170, 32900]]);
   listing('quickdeals', 'vacuum', [[14, 19900]]);
@@ -243,6 +243,7 @@ export function buildMockDataset() {
   review(70, 'hiro', 'skillet', 5, 'Seasoning held up after six weeks of daily use.', { receipt: receipt('harbor', 'l-harbor-skillet', 'hiro', 30) });
   review(72, 'chloe', 'shoe', 4, 'Good grip on wet rock. Runs half a size small.');
   review(74, 'dev', 'lamp', 5, 'The warm setting is pleasant for reading.');
+  review(72, 'grace', 'lamp', 4, 'Bright enough for drawing.', { listing: 'l-harbor-lamp', receipt: receipt('harbor', 'l-harbor-lamp', 'grace', 65) });
   review(90, 'cedar', 'mixer', 5, 'We use this mixer in our own test kitchen.', { receipt: receipt('cedar', 'l-cedar-mixer', 'cedar', 88) });
   review(95, 'grace', 'mixer', 4, 'Strong motor, loud on the highest speed.', { receipt: receipt('cedar', 'l-cedar-mixer', 'grace', 85) });
   review(96, 'noor', 'vacuum', 4, 'Maps the flat well and avoids cables.');
@@ -257,6 +258,13 @@ export function buildMockDataset() {
   flag(58, 'grace', 'l-quickdeals-earbuds', 'fraud', 'Price is 60 percent below every other seller.');
   flag(59, 'kai', 'l-quickdeals-earbuds', 'counterfeit');
   ev(64, 'quickdeals', 'appeal', (r) => ({ target: r.root('l-quickdeals-earbuds'), note: 'Our units come from an authorized distributor in Poland. We can show the invoice to any attestor.' }));
+  // Five verified people hide one description of the earbuds; the other
+  // description stays (hiding is per description, ARCHITECTURE 7.6).
+  for (const [i, who] of ['farid', 'hiro', 'ines', 'ben', 'noor'].entries()) flag(40 + i, who, 'p-earbuds-qd', 'misleading', i === 0 ? 'The listing photos show another model.' : undefined);
+  // A product with no verified source, and a rename attempt by an
+  // unverified key on a product that has one (ARCHITECTURE 7.8).
+  ev(21, 'tomorrow', 'product', { name: 'Kestrel kettle descaler tablets', brand: 'Kestrel', category: 'appliances/kitchen' }, { name: 'p-descaler' });
+  ev(22, 'tomorrow', 'product', { name: 'Kestrel K2 kettle iphone charger', brand: 'Kestrel', gtin: PRODUCTS.kettle.gtin });
   // One flag and an appeal on a visible listing (docs/ux-review.md M5).
   flag(100, 'omar', 'l-cedar-coffee', 'misleading', 'The photo shows a different model.');
   ev(102, 'cedar', 'appeal', (r) => ({ target: r.root('l-cedar-coffee'), note: 'The photo shows the current model. The box design changed in 2026.' }));
