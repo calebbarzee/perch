@@ -331,6 +331,8 @@ Only the latest review per (author, product) counts. Reviews by a product's sell
 
 - A record chain of kind `listing`, `review`, `product`, or `profile` is **hidden** when distinct, unretracted flags on its root reach the threshold for its kind. If `flags_require_verified` is true, only flags from verified authors count, once per person key. A flag never counts if its author's person (7.3) equals the person of the target's author, or, for reviews, the person of any author of a listing for the reviewed product.
 - Hiding affects display only, never semantics. A hidden record still counts for every rule that is not display: a hidden flag still counts, a hidden profile's author is still verified, and a hidden listing still anchors receipts. Flags on other kinds are recorded but hide nothing in v1. This also prevents cycles of flags hiding flags.
+- Display-only in practice: hidden reviews still count in ratings (otherwise a few hired flaggers could delete negative ratings); hidden listings do not feed `price_range` or `min_price`, because those show a listing's price. Only listings that are `in_stock` or `preorder` feed price figures.
+- For restriction, a listing counts as hidden when its counted flags reach the threshold, even if the seller later retracts it or it becomes unavailable.
 - An **appeal** is a public request by the target's author. It does not change status by itself. Status changes when flaggers retract their flags. Detail and alternatives: [`docs/moderation.md`](docs/moderation.md).
 - A seller is **restricted** when both hold, counted per person key across all of the person's keys (7.3): hidden listings ≥ `seller_hidden_listing_limit`; and distinct counted flaggers across those listings ≥ `seller_min_distinct_flaggers`. No ratio is used, because a seller could dilute it with dummy listings. Views mark all of a restricted seller's listings.
 - Forked, revoked, and retired authors per 7.3 and 5.2.
@@ -415,7 +417,9 @@ RecordStatus { semantic_valid: bool, reason|null, root, versions: [id] }
 Currency     { code, minor_units }
 ```
 
-`excluded_reason` values: `hidden`, `unavailable`, `retracted`, `seller`, `forked`, `revoked`, `superseded`. `RatingSummary.excluded` counts reviews per reason. Search sort orders are `relevance` (default), `price`, `rating_count`, and `rating_mean`; sorting happens in Rust with the 7.7 tie-break.
+The canonical form of a view result is its RFC 8785 serialization (`perch_views::canonical_json`). The HTTP API returns view results in this form, so API output and wasm output can be compared byte for byte.
+
+`excluded_reason` values: `unavailable`, `retracted`, `seller`, `forked`, `revoked`, `superseded` (`hidden` is reserved and always 0, because hidden reviews still count). `RatingSummary.excluded` counts reviews per reason. Search sort orders are `relevance` (default), `price`, `rating_count`, and `rating_mean`; sorting happens in Rust with the 7.7 tie-break.
 
 `mean` and `score` may be fractional numbers per 7.7. All other numbers are integers.
 
@@ -444,7 +448,7 @@ Detail: [`docs/api.md`](docs/api.md). All responses are JSON unless noted. View 
 | `GET /v1/export.jsonl` | Entire dataset as JSON Lines |
 | `GET /v1/sync` (WebSocket) | Sync protocol |
 
-The **related set** of a product is: its product records; listings, observations, and reviews for it; flags, appeals, retracts, and redacts targeting any of those; the attestations, revokes, profiles, and retire records of every author involved (including attestors); and fork evidence for those authors. Records come without their full log prefixes. Clients load them into a sparse store (5.5). `perch-views` provides the function that computes this set, so the node and the wasm client agree.
+The **related set** of a product is: its product records; listings, observations, and reviews for it; flags, appeals, retracts, and redacts targeting any of those; the attestations, revokes, profiles, and retire records of every author involved (including attestors); and fork evidence for those authors. Records come without their full log prefixes. Clients load them into a sparse store (5.5). It also includes restriction inputs (all listings of the seller person's keys, the flags on them, and the flaggers' attestations). `perch-views` computes the set as `related_records(store, key, &policy)` by tracing every lookup that `product_view` makes, so a sparse store holding the set gives the same view as the full store for any policy with the same trusted attestors. The node uses its default policy.
 
 Nodes never hold user secret keys. Clients sign records locally and submit them.
 
