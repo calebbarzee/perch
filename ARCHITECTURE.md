@@ -396,7 +396,8 @@ RatingSummary { count, mean|null, histogram: [n1, n2, n3, n4, n5],
                 verified_identity: { count, mean|null, histogram },
                 excluded: { hidden, unavailable, retracted, seller, forked, revoked, superseded } }
 
-ProductView  { key, moderation: Moderation, name: Fact<string>, brand: Fact<string>, category: Fact<string>|null,
+ProductView  { key, moderation: Moderation,
+               excluded_sources: { hidden, retracted, unavailable, forked, revoked }, name: Fact<string>, brand: Fact<string>, category: Fact<string>|null,
                description: Fact<string>|null, gtin|null, mpn|null,
                attributes: { name: Fact<string> }, images: [{ url, sha256|null, author_verified: bool }],
                listings: [ListingView], reviews: [ReviewView], ratings: RatingSummary,
@@ -407,19 +408,19 @@ SearchHit    { key, name, brand, category|null, score, why: [string],
                verified_purchase_count, verified_purchase_mean|null,
                min_price: { amount, currency }|null }
 
-Stats        { records, authors, products, listings, reviews, forks, invalid, redacted }
+Stats        { records, authors, products, listings, reviews, forks, invalid, redacted, unknown }
 
 ChainSummary { root, latest, kind, ts, status: "visible"|"hidden"|"retracted"|"unavailable"|"invalid",
                product|null, title|null }
 FlagView     { record, author, author_name|null, author_verified: bool, reason, note|null, counted: bool,
                excluded_reason: string|null, ts }
-RecordStatus { semantic_valid: bool, reason|null, root, versions: [id] }
+RecordStatus { semantic_valid: bool, reason|null, root, versions: [id], ignored: string|null }
 Currency     { code, minor_units }
 ```
 
 The canonical form of a view result is its RFC 8785 serialization (`perch_views::canonical_json`). The HTTP API returns view results in this form, so API output and wasm output can be compared byte for byte.
 
-`excluded_reason` values: `unavailable`, `retracted`, `seller`, `forked`, `revoked`, `superseded` (`hidden` is reserved and always 0, because hidden reviews still count). `RatingSummary.excluded` counts reviews per reason. Search sort orders are `relevance` (default), `price`, `rating_count`, and `rating_mean`; sorting happens in Rust with the 7.7 tie-break.
+`excluded_reason` values: `unavailable`, `retracted`, `seller`, `forked`, `revoked`, `superseded` (`hidden` is reserved and always 0, because hidden reviews still count). `RatingSummary.excluded` counts reviews per reason. Search sort orders are `relevance` (default), `price`, `rating_count`, and `rating_mean`; sorting happens in Rust with the 7.7 tie-break. `FlagView.excluded_reason` values: `forked`, `self`, `product_seller`, `unverified`, `duplicate_person`. Exact rules for every view: [`docs/views.md`](docs/views.md).
 
 `mean` and `score` may be fractional numbers per 7.7. All other numbers are integers.
 
@@ -471,7 +472,7 @@ client.ingest(recordsOrJsonl)                 -> { inserted, duplicate, fork, ga
 client.connect(wsUrl) / disconnect(wsUrl)     -> Promise
 client.peers()                                -> [{ url, state, sent, received, behind, ahead }]
 client.setPolicy(policy) / policy() / policyHash()
-client.search(q, { sort? })                   -> [SearchHit]
+client.search(q, { sort?, currency? })        -> [SearchHit]
 client.product(key)                           -> ProductView | null
 client.listing(id)                            -> ListingView | null
 client.authorView(id)                         -> AuthorView | null
