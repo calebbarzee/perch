@@ -8,7 +8,7 @@ This document explains how Perch ties keys to real people and businesses, how a 
 
 Anyone can create an Ed25519 key in under a millisecond. If each key counted as one voice, one person could post a million reviews or flags. [Douceur (2002)](https://www.microsoft.com/en-us/research/publication/the-sybil-attack/) shows that a system without a logically central identity authority cannot prevent this.
 
-Perch does not trust key counts. Flags and ranking count only **verified** authors, once per **person key** (7.3, 7.6, 7.8). An identity attestor decides who is a distinct person. The policy decides which attestors to believe.
+Perch does not trust key counts. Flags and ranking count only **verified** authors, once per **person**: a set of keys linked by shared `(attestor, person)` pairs (7.3, 7.6, 7.8). An identity attestor decides who is a distinct person. The policy decides which attestors to believe.
 
 ## 2. Keys and authors
 
@@ -263,7 +263,7 @@ Before adopting BBS:
 | Topic | v1 (identity attestation) | v2 (anonymous credential) |
 |---|---|---|
 | Added bytes per review | 0 | 672 hex characters for a BBS proof with U = 2, plus 96 for the pseudonym |
-| Verify cost per review | One Ed25519 verify (see `threat-model.md` section 9 for a measured figure) | One BBS proof check (1.6 ms native in libbbs; wasm not measured) |
+| Verify cost per review | One Ed25519 verify: 44.5 µs native (`threat-model.md` section 9.1) | One BBS proof check (1.6 ms native in libbbs; wasm not measured) |
 | Linkability | Public `person` links all keys | Unlinkable across contexts |
 | Attestor knowledge | Knows which key is whose | Knows who holds a credential, not which reviews they wrote |
 | Revocation | `attest.revoke` per key | Short expiry plus re-issuance; revocation lists or accumulators add size |
@@ -294,7 +294,8 @@ The last row is the main cost. With unlinkable reviews, a person who posts fraud
 | Liveness check | A test that a live person, not a photo, is present during identity verification. |
 | mdoc | Mobile document format of ISO/IEC 18013-5, used for mobile driving licences. |
 | Merkle tree | A hash tree; a short proof shows that a leaf is in it. |
-| Person key | The `(attestor, person)` pair that counts one human or business once. |
+| Person | A connected component of keys linked by shared `(attestor, person)` pairs; counted once (contract 7.3). |
+| Person key | The lowest `(attestor, person)` pair in a person; used to identify and sort persons. |
 | Privacy Pass | IETF protocol for anonymous tokens (RFC 9576–9578). |
 | Trusted setup | A one-time ceremony to create parameters for some proof systems; if all participants collude, proofs can be forged. |
 | VOPRF | Verifiable oblivious pseudorandom function. |

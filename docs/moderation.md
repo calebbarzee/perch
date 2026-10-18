@@ -217,17 +217,19 @@ Bluesky lets anyone run a labeling service, and users subscribe to the ones they
    | `seller_hidden_listing_limit` | 3 | User's "repeat fraud" rule |
    | `seller_min_distinct_flaggers` | 9 | A restricting brigade needs at least 9 persons |
 
-2. The app shows, for every hidden item: the flag count, the reasons, each flagger's key and verification, and the appeal text. Users can expand hidden items.
-3. The app shows the seller's appeal next to the flags.
+2. **Flags on reviews by any seller of the product do not count** (adopted into 7.6). A seller cannot hire flaggers on its own keys to hide reviews of its product. Hired verified persons still count; see section 3.3.
+3. The app shows, for every hidden item: the flag count, the reasons, each flagger's key and verification, and the appeal text. Users can expand hidden items.
+4. The app shows the seller's appeal next to the flags.
+
+These defaults are in the contract's default policy (7.1).
 
 ### 5.2 v1.1 (small contract changes)
 
-1. **Flags on reviews by the product's sellers do not count.** A seller should not be able to hide reviews of its own product. Today only the review's own author is excluded. Contract change in 7.6.
-2. **Time floor for flags:** a flag's effective time is `max(flag root ts, flagger's counting attestation ts)` (3.6).
-3. **Time decay:** flags count for 180 days from the effective time (4.7).
-4. **Rate limit:** at most 10 counted flags per person per 30 days (4.8).
-5. **Moderator lists:** `trusted_moderators` in the policy (4.10).
-6. **Audience-relative threshold:** `flag_threshold_reviewer_permille`, with E = distinct verified persons who reviewed the product (4.1). Start at 5‰ (0.5%).
+1. **Time floor for flags:** a flag's effective time is `max(flag root ts, flagger's counting attestation ts)` (3.6).
+2. **Time decay:** flags count for 180 days from the effective time (4.7).
+3. **Rate limit:** at most 10 counted flags per person per 30 days (4.8).
+4. **Moderator lists:** `trusted_moderators` in the policy (4.10).
+5. **Audience-relative threshold:** `flag_threshold_reviewer_permille`, with E = distinct verified persons who reviewed the product (4.1). Start at 5‰ (0.5%).
 
 ### 5.3 v2 (evaluate)
 
@@ -256,6 +258,7 @@ Tests in `crates/perch-tests/tests/moderation.rs` check the v1 rule:
 |---|---|
 | `verified_flags_hide_at_threshold` | T distinct verified persons hide; T − 1 do not |
 | `seller_self_flag_not_counted` | Target's author never counts |
+| `product_seller_flags_on_review_not_counted` | Flags by a seller of the product on its reviews do not count |
 | `unverified_sybil_flags_not_counted` | Unverified authors do not count when `flags_require_verified` |
 | `one_person_many_keys_flags_count_once` | Person key counting |
 | `flag_retraction_unhides` | Retracted flags stop counting |
@@ -287,4 +290,5 @@ Tests in `crates/perch-tests/tests/moderation.rs` check the v1 rule:
 | Grinding | Retrying a choice until a random outcome favors the attacker. |
 | Labeler | In Bluesky, a service that publishes moderation labels users can subscribe to. |
 | Matrix factorization | A model that explains ratings as products of hidden per-user and per-item factors. |
-| Person key | The `(attestor, person)` pair that counts one human or business once. |
+| Person | A connected component of keys linked by shared `(attestor, person)` pairs; counted once (contract 7.3). |
+| Person key | The lowest `(attestor, person)` pair in a person; used to identify and sort persons. |

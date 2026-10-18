@@ -1,14 +1,12 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! Fixtures for Perch cross-crate and adversarial tests.
+//!
+//! The fixtures build records from raw JSON with an independent canonical
+//! encoder (RFC 8785 restricted to integers, contract 4.2) and sign them with
+//! ed25519-dalek directly. Tests therefore check `perch-core` and the other
+//! crates against a second implementation of the contract, not against
+//! themselves.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub mod fixture;
+pub mod sut;
+pub mod vectors;
+pub mod world;

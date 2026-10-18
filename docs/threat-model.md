@@ -105,7 +105,7 @@ The weakest boundary is between the user and the code that the browser runs. If 
 | T13 | Eclipse: one node hides records, fork evidence, or log tails from a client ([Heilman et al. 2015](https://www.usenix.org/conference/usenixsecurity15/technical-sessions/presentation/heilman)) | E4 | M | H | Client connects to ≥ 3 nodes when available and shows head disagreements (2.1, 10) | Signed head checkpoints from many nodes |
 | T14 | A peer strips bodies before relaying | E4 | M | M | Header-only records relayed; `want_bodies` fetch from other peers (6) | — |
 | T15 | Flood of authors or records exhausts storage; held gap records fill memory | E8 | H | M | Per-node admission policy; caps on held records and messages (9) | Admission defaults in `sync-protocol.md` |
-| T15a | Sybil storage flood: many free keys, each within the per-log limits A1 and A2 | E8 | H | H | Per-key limits only (A1, A2) | Admission tiers with a global budget for unverified authors (R13) |
+| T15a | Sybil storage flood: many free keys, each within the per-log limits A1 and A2 | E8 | H | H | Admission tiers with a global budget for unverified authors (contract 9; R13) | — |
 | T16 | Peer table poisoning: one operator fills a node's peer list | E4 | M | M | Capped and diverse address table (6) | — |
 | T17 | Self-fork: one node hides a user's last record, so the user publishes at an existing seq and forks | E4 | M | H | Publish guard from local head, backup head, and all nodes (8.2, 10) | — |
 | T18 | Node API returns altered view results to third-party clients | E4 | M | M | Policy hash header; `?now=` pinning; export for re-computation (8.1) | — |
@@ -172,13 +172,13 @@ Each guarantee in contract section 1 maps to the mechanism that enforces it and 
 
 | Guarantee | Mechanism | Tests |
 |---|---|---|
-| Every claim has a known author | Strict Ed25519 over `perch/record/v1\n` + canonical header (4.2, 4.3) | `isolated.rs`: `tampered_author_rejected`, `tampered_sig_rejected`, `signature_from_other_key_rejected`, `small_order_public_key_rejected`, `non_canonical_s_rejected`, `receipt_signature_not_valid_as_record` |
-| No one can alter a claim | ID = SHA-256 of header; `body_hash` in header (4.2) | `isolated.rs`: `tampered_body_rejected`, `tampered_seq_rejected`, `body_hash_mismatch_rejected`; `encoding.rs`: `key_order_and_whitespace_verify`, `escaped_equivalent_strings_verify`, `duplicate_key_rejected`, `non_integer_number_tokens_rejected`, `lone_surrogate_rejected`, `uppercase_hex_rejected`, `replaces_null_rejected`, `unknown_top_level_field_rejected`, `keys_sorted_by_utf16_not_utf8`; `limits.rs`: `oversize_line_rejected`, `oversize_body_rejected`, `depth_16_accepted_depth_17_rejected`, `wide_body_within_limit_accepted`, `integer_beyond_2_53_rejected` |
-| No one can silently edit or delete history | Per-author log with `prev`; fork evidence; truncation at fork seq (5.2) | `log.rs`: `same_seq_fork_detected_and_truncated`, `prev_mismatch_fork_detected`, `fork_state_independent_of_arrival_order`, `replayed_record_is_duplicate`, `ts_decrease_rejected`, `gap_is_held_not_stored`; `references.rs`: `replaces_other_author_ignored`, `replaces_other_kind_ignored`, `replacement_changing_fixed_field_ignored`, `retract_of_other_authors_record_ignored`, `retraction_is_final`, `flags_survive_price_update` |
-| No one controls the data | Complete-prefix sync; body fetch; convergence (6) | `sync.rs`: `out_of_order_delivery_converges`, `forked_author_from_peer_truncated`, `invalid_records_not_accepted_from_peer`, `two_nodes_converge_to_same_views` |
-| No one can buy ranking | Views computed locally; ranking from identity-verified reviews only; verified purchase rules (7.5, 7.8) | `ranking.rs`: `unverified_reviews_do_not_change_search_rating`, `many_keys_one_person_count_once`; `purchase.rs`: `receipt_by_non_seller_not_verified`, `review_citing_someone_elses_receipt_not_verified`, `receipt_for_other_product_not_verified`, `seller_review_with_own_receipt_not_verified`, `unverified_seller_receipt_not_verified`, `tampered_receipt_not_verified`, `receipt_survives_listing_retract`, `valid_receipt_is_verified_purchase`; `identity.rs`: `expired_attestation_not_verified`, `retracted_attestation_not_verified`, `self_issued_attestation_not_verified`, `untrusted_attestor_not_verified`, `attestor_trusted_for_other_kind_not_verified`, `not_after_seq_cuts_off_attestor`, `revoke_ignores_later_records`, `revoke_from_unrelated_attestor_ignored`; `time.rs`: `future_ts_ignored` |
-| Moderation is visible | Display-only hiding by published threshold; records never deleted (7.6) | `moderation.rs`: `verified_flags_hide_at_threshold`, `seller_self_flag_not_counted`, `product_seller_flags_on_review_not_counted`, `unverified_sybil_flags_not_counted`, `one_person_many_keys_flags_count_once`, `flag_retraction_unhides`, `restriction_requires_distinct_flaggers`, `restriction_follows_person_to_new_key`, `hidden_listing_still_anchors_receipts` |
-| Legal removal is visible | Header kept; `redact` notice; control kinds keep bodies (5.3) | `redaction.rs`: `header_only_record_accepted`, `body_restored_when_hash_matches`, `body_with_wrong_hash_rejected` |
+| Every claim has a known author | Strict Ed25519 over `perch/record/v1\n` + canonical header (4.2, 4.3) | `isolated.rs`: `valid_record_verifies_with_expected_id`, `tampered_author_rejected`, `tampered_sig_rejected`, `signature_from_other_key_rejected`, `signature_without_domain_prefix_rejected`, `small_order_public_key_rejected`, `non_canonical_s_rejected`, `receipt_signature_not_valid_as_record` |
+| No one can alter a claim | ID = SHA-256 of header; `body_hash` in header (4.2) | `isolated.rs`: `tampered_body_rejected`, `body_hash_mismatch_rejected`, `tampered_seq_rejected`, `tampered_ts_and_kind_rejected`, `header_only_record_verifies`; `encoding.rs`: `key_order_and_whitespace_verify`, `escaped_equivalent_strings_verify`, `keys_sorted_by_utf16_not_utf8`, `invalid_encodings_rejected` (26 vectors, each with one defect), `duplicate_key_rejected`, `non_integer_number_tokens_rejected`, `lone_surrogate_rejected`, `uppercase_hex_rejected`, `replaces_null_rejected`, `unknown_top_level_field_rejected`, `unknown_body_fields_preserved`, `unknown_kind_passes_isolated_level`; `core_semantics.rs`: `non_replaceable_kind_with_replaces_is_semantically_invalid`, `body_schema_rejects_bad_values`, `text_lengths_count_scalar_values_not_bytes`, `product_keys_match_contract`, `control_and_replaceable_kinds_match_contract`; `limits.rs`: `body_at_limit_accepted`, `oversize_body_rejected`, `oversize_line_rejected`, `depth_16_accepted_depth_17_rejected`, `very_deep_json_does_not_crash`, `wide_body_within_limit_accepted`, `integer_beyond_2_53_rejected`, `ts_beyond_2_53_rejected` |
+| No one can silently edit or delete history | Per-author log with `prev`; fork evidence; truncation at fork seq (5.2); reference rules (4.6) | `core_semantics.rs`: `evidence_pair_order_is_total_and_canonical`, `evidence_pair_rejects_other_authors`; `log.rs`: `in_order_log_inserted`, `replayed_record_is_duplicate`, `gap_is_held_not_stored`, `same_seq_fork_detected_and_truncated`, `prev_mismatch_fork_detected`, `fork_state_independent_of_arrival_order` (all 120 orders), `records_after_fork_not_accepted`, `ts_decrease_rejected`, `equal_ts_accepted`, `invalid_record_never_stored`; `references.rs`: `replacement_updates_price_and_keeps_root`, `replaces_other_author_ignored`, `replaces_other_kind_ignored`, `replacement_changing_fixed_field_ignored`, `replaces_unknown_record_ignored`, `retract_of_other_authors_record_ignored`, `own_retract_retracts_whole_chain`, `retraction_is_final`, `retract_of_control_kind_ignored`, `flags_survive_price_update`, `flag_on_later_version_counts_for_root` |
+| No one controls the data | Complete-prefix sync; evidence relay; convergence (6) | `sync.rs`: `two_nodes_converge_to_same_views`, `out_of_order_delivery_converges`, `forked_author_from_peer_truncated`, `invalid_records_not_accepted_from_peer`, `replayed_messages_do_not_duplicate` |
+| No one can buy ranking | Views computed locally; ranking from identity-verified reviews only; verified purchase rules; domain verification (7.3–7.5, 7.8) | `core_semantics.rs`: `url_rules_reject_phishing_forms`, `url_hosts_are_ascii_and_lowercase`, `domain_matching_is_label_aligned`; `ranking.rs`: `unverified_reviews_do_not_change_search_rating`, `many_keys_one_person_count_once`, `phishing_listing_excluded_from_price_range`, `userinfo_url_not_domain_verified`, `lookalike_hosts_not_domain_verified`; `purchase.rs`: `valid_receipt_is_verified_purchase`, `receipt_by_non_seller_not_verified`, `review_citing_someone_elses_receipt_not_verified`, `receipt_for_other_product_not_verified`, `seller_review_with_own_receipt_not_verified`, `unverified_seller_receipt_not_verified`, `sybil_buyers_of_verified_seller_not_verified_purchase`, `tampered_receipt_not_verified`, `receipt_survives_listing_retract`, `receipt_after_seller_revoke_cutoff_not_verified`, `one_counted_review_per_author_and_product`, `unverified_buyer_not_verified_purchase_by_default`; `identity.rs`: `attested_author_is_verified`, `expired_attestation_not_verified`, `retracted_attestation_not_verified`, `self_issued_attestation_not_verified`, `untrusted_attestor_not_verified`, `attestor_trusted_for_other_kind_not_verified`, `not_after_seq_cuts_off_attestor`, `forked_attestor_attestations_after_fork_do_not_count`, `revoke_ignores_later_records`, `revoke_from_unrelated_attestor_ignored`, `revoke_by_cut_off_attestor_ignored`, `stolen_key_fork_does_not_restrict_person_after_revoke`, `forked_seller_restricted_on_other_keys`, `attestation_in_future_ignored`; `time.rs`: `future_ts_ignored`, `views_are_pure_functions_of_policy_now` |
+| Moderation is visible | Display-only hiding by published threshold; per-person counting and exclusions; records never deleted (7.6) | `moderation.rs`: `verified_flags_hide_at_threshold`, `seller_self_flag_not_counted`, `seller_other_key_same_person_flag_not_counted`, `unverified_sybil_flags_not_counted`, `one_person_many_keys_flags_count_once`, `flag_retraction_unhides`, `appeal_alone_does_not_unhide`, `appeal_by_non_author_ignored`, `product_seller_flags_on_review_not_counted`, `product_seller_alt_key_flags_on_review_not_counted`, `review_hidden_at_its_threshold_still_counts_in_ratings`, `flags_on_flags_hide_nothing`, `restriction_requires_distinct_flaggers`, `restriction_not_diluted_by_dummy_listings`, `retracting_hidden_listings_does_not_escape_restriction`, `hidden_listing_excluded_from_price_range`, `restriction_follows_person_to_new_key`, `hidden_listing_still_anchors_receipts`, `flags_require_verified_off_counts_keys`; `moderation_numbers.rs`: `false_hide_table_matches_doc`, `jury_capture_table_matches_doc` |
+| Legal removal is visible | Header kept; control kinds keep bodies (5.3) | `redaction.rs`: `header_only_record_accepted`, `body_restored_when_hash_matches`, `body_with_wrong_hash_rejected`, `control_kind_without_body_has_no_effect` |
 
 Section 9 of this document lists which tests pass against the current crates.
 
@@ -204,9 +204,9 @@ The `ts` rule binds only within one log. A new key can claim any past `ts` for i
 
 ### R3. One count per attestor, not per human (V22, part 1)
 
-Person keys are `(attestor, person)`. A human verified by 2 trusted attestors has 2 person keys and counts twice.
+A person is a connected component of keys linked by shared `(attestor, person)` pairs (7.3). If one key carries attestations from 2 attestors, both pairs fall into one person. A human who gets key K1 verified by attestor X and a different key K2 verified by attestor Y has no shared pair, so the human counts as 2 persons.
 
-- Exposure: with A trusted attestors, one human counts up to A times. With the default of 2 attestors, a brigade needs half as many humans.
+- Exposure: with A trusted identity attestors, one human counts up to A times by using one key per attestor. With the default of 2 attestors, a brigade needs half as many humans.
 - Mitigations: keep the default attestor list short; attestors may publish a shared, salted pseudonym if they agree on a matching rule (for example a national ID number), but that increases linkage.
 
 ### R4. Linkage of a human's keys (V22, part 2)
@@ -330,7 +330,7 @@ Weaker alternatives considered:
 | First come, first kept for unverified authors | Arrival order differs per node, so tier-3 contents would never converge, and an attacker who floods first wins. |
 | Reject all unverified authors | Blocks new users from posting their first records before they get verified. |
 
-Requested change (for `sync-protocol.md` and contract section 9): add the three tiers as deterministic admission rules, and apply A1 and A2 per person key in tier 1. Tier membership needs view logic (counting attestations), so `perch-views` should export the tier function for `perch-node` to call.
+Adopted into contract section 9. Original request: add the three tiers as deterministic admission rules, and apply A1 and A2 per person key in tier 1. Tier membership needs view logic (counting attestations), so `perch-views` should export the tier function for `perch-node` to call.
 
 ## 8. Legal exposure
 
@@ -352,7 +352,31 @@ The adversarial tests live in `crates/perch-tests`. Run them with:
 cargo test -p perch-tests
 ```
 
-Status is filled in once the tests run against the current crates.
+Tests are grouped by the layer they need. A test whose layer is not yet wired into `src/sut.rs` prints `SKIP` and passes.
+
+| Layer | Test files | Status (2026-10-18) |
+|---|---|---|
+| Core (`perch-core`) | `isolated.rs`, `encoding.rs`, `limits.rs`, `core_semantics.rs` | 43 of 43 pass |
+| Store (`perch-store`) | `log.rs`, `redaction.rs` | not yet wired |
+| Views (`perch-views`) | `references.rs`, `identity.rs`, `purchase.rs`, `moderation.rs`, `ranking.rs`, `time.rs` | not yet wired |
+| Sync (`perch-sync`) | `sync.rs` | not yet wired |
+| None (fixtures, doc numbers) | `src/` unit tests, `moderation_numbers.rs` | 9 of 9 pass |
+
+### 9.1 Measured verification cost
+
+`tests/verify_cost.rs` measures strict Ed25519 verification (ed25519-dalek 3.0, release build, shared 2-core build machine, 400-byte message, 20,000 runs):
+
+| Operation | Time per signature |
+|---|---|
+| `verify_strict` | 44.5 µs |
+
+At that rate, one core verifies about 22,000 records per second. Verifying 10,000 records takes about 0.45 s at this rate. Wasm speed is not measured here.
+
+Run it with:
+
+```sh
+cargo test -p perch-tests --release --test verify_cost -- --ignored --nocapture
+```
 
 ## Appendix A: terms and acronyms
 
@@ -367,7 +391,8 @@ Status is filled in once the tests run against the current crates.
 | GDPR | EU General Data Protection Regulation. |
 | HSM | Hardware security module: a device that holds a key and signs without revealing it. |
 | JCS | JSON Canonicalization Scheme ([RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)). |
-| Person key | The `(attestor, person)` pair that counts one human or business once. |
+| Person | A connected component of keys linked by shared `(attestor, person)` pairs; counted once (contract 7.3). |
+| Person key | The lowest `(attestor, person)` pair in a person; used to identify and sort persons. |
 | Small-order point | An elliptic-curve point whose multiples cycle through a few values; a public key made from one can accept signatures on many messages. |
 | Sybil | One actor posing as many. |
 | Witness | A party that signs what it has seen and when, so that others can check timing. |
