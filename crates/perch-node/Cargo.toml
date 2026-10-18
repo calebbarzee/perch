@@ -4,5 +4,30 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+description = "Perch node: WebSocket sync, HTTP API, JSONL persistence, static web app"
+
+[[bin]]
+name = "perch-node"
+path = "src/main.rs"
 
 [dependencies]
+perch-core = { workspace = true }
+perch-store = { workspace = true }
+perch-sync = { workspace = true }
+perch-views = { workspace = true }
+perch-demo = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+axum = { workspace = true }
+tokio-tungstenite = { workspace = true }
+futures-util = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { workspace = true }
+getrandom = { workspace = true }
+form_urlencoded = "1"
+
+[dev-dependencies]
