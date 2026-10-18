@@ -150,7 +150,7 @@ All text fields are UTF-8 strings. Lengths are in Unicode scalar values. `Id` me
 |---|---|---|---|
 | `profile` | anyone | `name` (1–100), `role` (`seller`, `buyer`, `tester`, `crawler`, `attestor`, `node`, `other`), `url`? (URL), `about`? (≤2000) | yes |
 | `attest.identity` | identity attestor | `subject` (Author), `person` (Hex64: a stable pseudonym for the human or business, the same for every key the attestor verifies for them), `level` (`person`, `business`), `country`? ([ISO 3166-1](https://www.iso.org/iso-3166-country-codes.html) alpha-2), `expires` (Unix ms) | yes; `subject` and `person` fixed |
-| `attest.domain` | domain attestor | `subject` (Author), `domain` (lowercase ASCII hostname, ≤253), `expires` (Unix ms). Issued after the attestor checks `https://<domain>/.well-known/perch.json` or a DNS TXT record naming `subject`. | yes; `subject` and `domain` fixed |
+| `attest.domain` | domain attestor | `subject` (Author), `domain` (lowercase ASCII hostname, ≤253), `expires` (Unix ms). Issued after the attestor checks either `https://<domain>/.well-known/perch.json` containing `{ "perch": 1, "authors": ["<subject hex>"] }`, or a DNS TXT record at `_perch.<domain>` with value `perch-author=<subject hex>`. | yes; `subject` and `domain` fixed |
 | `attest.revoke` | attestor | `subject` (Author), `valid_through_seq` (integer ≥ 0). Declares the subject's key compromised after that seq. | no |
 | `product` | anyone | `name` (1–300), `brand` (1–100), `gtin`? (8, 12, 13, or 14 digits with a valid check digit), `mpn`? (1–100), `category`? (≤200, lowercase, `/`-separated), `attributes`? (object, ≤64 entries, keys 1–64, values ≤500), `images`? (≤16 × `{ "url": URL, "sha256"?: Hex64 }`), `description`? (≤5000) | yes; `gtin` and `mpn` fixed |
 | `listing` | seller | `product` (ProductKey), `url` (URL), `price` (Price), `availability` (`in_stock`, `out_of_stock`, `preorder`, `discontinued`), `condition` (`new`, `used`, `refurbished`), `title`? (≤300), `ships_to`? (list of alpha-2, ≤250), `location`? (`{ "country", "region"? (≤100) }`) | yes; `product` fixed |
@@ -238,6 +238,14 @@ Fork rules, chosen so every node reaches the same state regardless of arrival or
 - Persistence is an append-only file of records in canonical wire form, one per line ([JSON Lines](https://jsonlines.org)). The file is also the public export format.
 - On start, a node replays and fully re-verifies the file.
 - The `Store` trait hides storage. v1 has one implementation: in-memory indexes plus optional JSONL persistence. Browsers persist to IndexedDB or localStorage.
+
+### 5.5 Sparse stores
+
+A **sparse store** holds isolated-valid records without requiring complete log prefixes. It checks signatures and body hashes but not `prev` continuity or `ts` order. The extension and other light clients use it to load a related set (8.1).
+
+- A sparse store cannot detect forks by itself. It relies on evidence pairs included in the related set, and on comparing several nodes.
+- Views over a sparse store use the same code and rules as over a full store.
+- The web app uses a full store filled by sync.
 
 ## 6. Sync
 
@@ -338,40 +346,58 @@ These shapes are the contract between `perch-views`, `perch-wasm`, the HTTP API,
 ```text
 Source       { author, record, verified: bool }
 Fact<T>      { value: T, sources: [Source], conflicts: [{ value: T, sources: [Source] }] }
+Appeal       { record, note, ts }
+Redaction    { record|null, by|null, reason|null, note|null }   // record/by/reason null when no notice was published
+AuthorStatus "ok"|"forked"|"retired"|"revoked"
 
 AuthorView   { id, name|null, role|null, url|null, about|null,
                verified: { level, country|null, attestor, expires }|null,
-               status: "ok"|"forked"|"retired"|"revoked", restricted: bool,
+               domains: [{ domain, attestor, expires }],
+               status: AuthorStatus, restricted: bool,
+               revoked: { attestor, valid_through_seq }|null, fork_seq|null,
                record_count, hidden_listing_count }
 
 ListingView  { id (root id), latest (record id), seller (author id), seller_name|null,
-               seller_verified: bool, seller_restricted: bool, domain_verified: bool,
+               seller_verified: bool, seller_restricted: bool, seller_status: AuthorStatus,
+               domain_verified: bool, domain: { domain, attestor, expires }|null,
                product, title|null, url, price: { amount, currency },
                availability, condition, updated_ts,
                status: "visible"|"hidden"|"retracted"|"unavailable",
-               flags: { count, counted, reasons: { reason: n } }, appealed: bool,
+               flags: { count, counted, reasons: { reason: n } },
+               appealed: bool, appeal: Appeal|null, redaction: Redaction|null,
                price_history: [{ ts, amount, currency, source: "seller"|"observation", record }] }
 
 ReviewView   { id (root id), latest, author, author_name|null, author_verified: bool,
-               verified_purchase: bool, rating, title|null, text, ts, listing|null,
+               author_status: AuthorStatus,
+               verified_purchase: bool,
+               purchase: "verified"|"none"|"receipt_invalid"|"wrong_product"|
+                         "seller_unverified"|"buyer_unverified"|"self",
+               counted: bool, excluded_reason: string|null,
+               rating, title|null, text, ts, listing|null,
                status: "visible"|"hidden"|"retracted"|"unavailable",
-               flags: { count, counted, reasons: { reason: n } } }
+               flags: { count, counted, reasons: { reason: n } },
+               appeal: Appeal|null, redaction: Redaction|null }
 
 RatingSummary { count, mean|null, histogram: [n1, n2, n3, n4, n5],
                 verified_purchase: { count, mean|null, histogram },
-                verified_identity: { count, mean|null, histogram } }
+                verified_identity: { count, mean|null, histogram },
+                excluded: { hidden, unavailable, retracted, seller, forked, revoked, superseded } }
 
 ProductView  { key, name: Fact<string>, brand: Fact<string>, category: Fact<string>|null,
                description: Fact<string>|null, gtin|null, mpn|null,
                attributes: { name: Fact<string> }, images: [{ url, sha256|null, author_verified: bool }],
                listings: [ListingView], reviews: [ReviewView], ratings: RatingSummary,
-               price_range: { currency: { min, max, median } } }
+               price_range: { currency: { min, max, median, count, excluded_unverified_domain } } }
 
 SearchHit    { key, name, brand, category|null, score, why: [string],
-               rating_mean|null, rating_count, min_price: { amount, currency }|null }
+               rating_mean|null, rating_count,
+               verified_purchase_count, verified_purchase_mean|null,
+               min_price: { amount, currency }|null }
 
 Stats        { records, authors, products, listings, reviews, forks, invalid, redacted }
 ```
+
+`excluded_reason` values: `hidden`, `unavailable`, `retracted`, `seller`, `forked`, `revoked`, `superseded`. `RatingSummary.excluded` counts reviews per reason. Search sort orders are `relevance` (default), `price`, `rating_count`, and `rating_mean`; sorting happens in Rust with the 7.7 tie-break.
 
 `mean` and `score` may be fractional numbers per 7.7. All other numbers are integers.
 
@@ -393,11 +419,14 @@ Detail: [`docs/api.md`](docs/api.md). All responses are JSON unless noted. View 
 | `GET /v1/authors/{id}/log?from=&limit=` | Signed records of one log |
 | `GET /v1/search?q=` | `[SearchHit]` |
 | `GET /v1/products/{key}` | `ProductView` |
-| `GET /v1/lookup/{prefix}` | `[SearchHit]` for every product whose `sha256(key)` hex starts with `prefix` (4 hex characters). Lets the extension look up a product without revealing which one. |
+| `GET /v1/products/{key}/records` | JSONL of every signed record needed to compute that product's view (the **related set**, see below) |
+| `GET /v1/lookup/{prefix}` | JSONL of the related sets of every product whose `sha256(key)` hex starts with `prefix` (4 hex characters). Lets the extension look up a product without revealing which one, then verify and compute locally. |
 | `GET /v1/listings/{id}` | `ListingView` |
 | `GET /v1/stats` | `Stats` |
 | `GET /v1/export.jsonl` | Entire dataset as JSON Lines |
 | `GET /v1/sync` (WebSocket) | Sync protocol |
+
+The **related set** of a product is: its product records; listings, observations, and reviews for it; flags, appeals, retracts, and redacts targeting any of those; the attestations, revokes, profiles, and retire records of every author involved (including attestors); and fork evidence for those authors. Records come without their full log prefixes. Clients load them into a sparse store (5.5). `perch-views` provides the function that computes this set, so the node and the wasm client agree.
 
 Nodes never hold user secret keys. Clients sign records locally and submit them.
 
@@ -418,7 +447,7 @@ client.ingest(recordsOrJsonl)                 -> { inserted, duplicate, fork, ga
 client.connect(wsUrl) / disconnect(wsUrl)     -> Promise
 client.peers()                                -> [{ url, state, sent, received, behind, ahead }]
 client.setPolicy(policy) / policy() / policyHash()
-client.search(q)                              -> [SearchHit]
+client.search(q, { sort? })                   -> [SearchHit]
 client.product(key)                           -> ProductView | null
 client.listing(id)                            -> ListingView | null
 client.authorView(id)                         -> AuthorView | null
@@ -467,7 +496,8 @@ These apply to the official web app and extension.
 - The app uses the default policy bundled in its release. It never adopts a node's `/v1/policy` or attestor list without the user's explicit action.
 - The app shows the active policy hash, the app version, and the SHA-256 of the running wasm module.
 - The app connects to several nodes when configured and shows head disagreements between them.
-- The extension looks up products by 4-hex hash prefix (`/v1/lookup/{prefix}`), never by the full product key. Results computed by a node are labeled with that node's address, and link to the app for local verification.
+- The extension looks up products by 4-hex hash prefix (`/v1/lookup/{prefix}`), never by the full product key. It embeds the same wasm client, verifies the returned records, and computes views locally. It queries at least 2 nodes when configured and shows disagreement.
+- Keys: at key creation the app offers "Keep my key on this device" (IndexedDB), checked by default, and the user can turn it off. Before the first publish the user must confirm a backup (exportKey). Losing the key on reload would push users toward throwaway keys and accidental forks.
 
 ## 11. Build and test
 
@@ -499,7 +529,7 @@ These apply to the official web app and extension.
 | D12 (v2) | References resolve to root IDs; key fields fixed across versions | Price updates cannot shed flags; listings cannot move reviews to another product. |
 | D13 (v2) | Verified flags and reviews count once per attested person | One person with many keys cannot multiply influence. |
 | D14 (v2) | Domain attestations for seller URLs | Stops phishing listings from leading price rankings. |
-| D15 (v2) | Keys stay in wasm memory with explicit backup; non-extractable Web Crypto keys deferred | Web Crypto Ed25519 support is recent and would move signing out of the shared Rust code. Revisit in v2. |
+| D15 (v2, amended v3) | Keys are used in wasm memory and, by default, kept in IndexedDB with a confirmed backup; non-extractable Web Crypto keys deferred | Losing keys on reload causes throwaway identities and forks. Web Crypto Ed25519 would move signing out of the shared Rust code. Revisit later; passphrase encryption is a planned option. |
 | D16 (v3) | Hiding is display-only and limited to listings, reviews, products, and profiles | Moderation cannot change verification or other rules, and flags cannot hide flags. |
 | D17 (v3) | Restriction is per person and has no ratio | New keys and dummy listings cannot escape it. |
 | D18 (v3) | Ranking uses identity-verified reviews only | Creating keys cannot change ranking. |
