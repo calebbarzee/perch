@@ -6,7 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use perch_core::kinds::names;
-use perch_core::{AuthorId, Record, RecordId, kinds};
+use perch_core::{AuthorId, Hex32, Record, RecordId, kinds};
 use serde_json::{Map, Value};
 
 /// Index entries of one record.
@@ -15,6 +15,8 @@ pub(crate) struct IndexKeys {
     pub product: Option<String>,
     pub target: Option<RecordId>,
     pub subject: Option<AuthorId>,
+    /// `body.person` of an `attest.identity` record.
+    pub person: Option<Hex32>,
     /// IDs this record references by `body.listing`, `body.receipt.listing`, or `replaces`.
     pub refs: Vec<RecordId>,
 }
@@ -68,6 +70,11 @@ pub(crate) fn keys_for(r: &Record, root: RecordId) -> IndexKeys {
         }
         names::ATTEST_IDENTITY | names::ATTEST_DOMAIN | names::ATTEST_REVOKE => {
             k.subject = hex_author(body.get("subject"));
+            if kind == names::ATTEST_IDENTITY
+                && let Some(Value::String(p)) = body.get("person")
+            {
+                k.person = Hex32::from_hex(p).ok();
+            }
         }
         _ => {}
     }
@@ -95,6 +102,7 @@ pub(crate) struct Indexes {
     pub by_product: BTreeMap<String, BTreeSet<RecordId>>,
     pub by_target: BTreeMap<RecordId, BTreeSet<RecordId>>,
     pub by_subject: BTreeMap<AuthorId, BTreeSet<RecordId>>,
+    pub by_person: BTreeMap<(AuthorId, Hex32), BTreeSet<RecordId>>,
     pub referencing: BTreeMap<RecordId, BTreeSet<RecordId>>,
     pub replaced_by: BTreeMap<RecordId, BTreeSet<RecordId>>,
 }
@@ -126,6 +134,9 @@ impl Indexes {
         if let Some(s) = &keys.subject {
             add(&mut self.by_subject, s, id);
         }
+        if let Some(p) = &keys.person {
+            add(&mut self.by_person, &(r.author(), *p), id);
+        }
         for x in &keys.refs {
             add(&mut self.referencing, x, id);
         }
@@ -154,6 +165,9 @@ impl Indexes {
         }
         if let Some(s) = &keys.subject {
             del(&mut self.by_subject, s, &id);
+        }
+        if let Some(p) = &keys.person {
+            del(&mut self.by_person, &(r.author(), *p), &id);
         }
         for x in &keys.refs {
             del(&mut self.referencing, x, &id);

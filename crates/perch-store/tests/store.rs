@@ -249,6 +249,8 @@ fn indexes() {
     assert_eq!(s.referencing(&l1.id()), refs);
     assert_eq!(s.replaced_by(&l1.id()), vec![l2.id()]);
     assert_eq!(s.by_subject(&seller.author()), vec![at.id()]);
+    assert_eq!(s.by_person(&att.author(), &perch_core::Hex32([0x11; 32])), vec![at.id()]);
+    assert!(s.by_person(&seller.author(), &perch_core::Hex32([0x11; 32])).is_empty());
     assert_eq!(s.by_author_kind(&seller.author(), "product"), vec![p1.id(), p2.id(), p3.id()]);
     assert_eq!(s.by_kind("listing").len(), 2);
     // Removing a body re-indexes: the listing no longer has a product key.
@@ -287,6 +289,26 @@ fn sparse_mode() {
     assert_eq!(s.fork_seq(&a), Some(6));
     assert_eq!(s.len(), 1, "records at or above the fork seq dropped");
     assert_eq!(s.insert(x[7].clone()), Insert::AboveFork);
+}
+
+#[test]
+fn sparse_detects_forks_from_plain_header_only_lines() {
+    let k = kp(16);
+    let a = k.author();
+    let x = chain(&k, 6, 0);
+    // Same seq, different ID.
+    let y = branch(&k, &x, 4, 2, 1);
+    let mut s = MemoryStore::new_sparse();
+    let text = format!("{}\n{}\n", x[3].without_body().to_json_string(), y[0].without_body().to_json_string());
+    let rep = s.ingest(&text);
+    assert_eq!(rep.fork, 1);
+    assert_eq!(s.fork_seq(&a), Some(4));
+    // Consecutive with prev mismatch, in a fresh store, in reverse order.
+    let mut t = MemoryStore::new_sparse();
+    let text = format!("{}\n{}\n", y[1].without_body().to_json_string(), x[3].without_body().to_json_string());
+    t.ingest(&text);
+    assert_eq!(t.fork_seq(&a), Some(4));
+    assert_eq!(t.evidence(&a).unwrap().ids(), [x[3].id(), y[1].id()], "sorted by (seq, id)");
 }
 
 #[test]

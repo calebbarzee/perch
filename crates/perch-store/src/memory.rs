@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use perch_core::fork::fork_type;
 use perch_core::kinds::{self, names};
-use perch_core::{AuthorId, EvidencePair, Record, RecordError, RecordId};
+use perch_core::{AuthorId, EvidencePair, Hex32, Record, RecordError, RecordId};
 
 use crate::index::{IndexKeys, Indexes, keys_for};
 use crate::{Change, Head, Insert, Reject, Store, StoreError};
@@ -877,6 +877,10 @@ impl Store for MemoryStore {
 
     fn by_subject(&self, author: &AuthorId) -> Vec<RecordId> {
         self.idx.by_subject.get(author).map(|s| s.iter().copied().collect()).unwrap_or_default()
+    }
+
+    fn by_person(&self, attestor: &AuthorId, person: &Hex32) -> Vec<RecordId> {
+        self.idx.by_person.get(&(*attestor, *person)).map(|s| s.iter().copied().collect()).unwrap_or_default()
     }
 
     fn missing_bodies(&self, after: Option<&RecordId>, limit: usize) -> Vec<RecordId> {

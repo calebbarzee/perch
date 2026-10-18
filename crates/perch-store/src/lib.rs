@@ -43,7 +43,7 @@ pub use memory::{AdmissionFn, AdmissionLimit, HoldLimits, IngestReport, MemorySt
 pub use persist::{JsonlFile, ReplayReport};
 
 pub use perch_core;
-use perch_core::{AuthorId, EvidencePair, ForkError, Record, RecordError, RecordId};
+use perch_core::{AuthorId, EvidencePair, ForkError, Hex32, Record, RecordError, RecordId};
 
 /// The head of one author's log.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -274,6 +274,9 @@ pub trait Store {
 
     /// IDs of `attest.identity`, `attest.domain`, and `attest.revoke` records whose `body.subject` is `author`.
     fn by_subject(&self, author: &AuthorId) -> Vec<RecordId>;
+
+    /// IDs of `attest.identity` records by `attestor` whose raw `body.person` is `person`.
+    fn by_person(&self, attestor: &AuthorId, person: &Hex32) -> Vec<RecordId>;
 
     // ---- bodies ----
 
