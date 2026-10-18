@@ -1,6 +1,6 @@
 import { h, bdi } from '../dom.js';
 import * as fmt from '../format.js';
-import { routes, emptyState, definitionList, authorChip, recordLink, urlLink, hex } from '../components.js';
+import { routes, emptyState, definitionList, authorChip, recordLink, urlLink, hex, receiptShare, SENTENCE } from '../components.js';
 import { listingCard } from './product.js';
 import { priceChart } from '../chart.js';
 
@@ -35,7 +35,7 @@ export default {
           ['Seller page', l.url ? urlLink(l.url) : null],
           ['Ships to', l.ships_to?.length ? h('span', { text: l.ships_to.join(', ') }) : null],
           ['Ships from', l.location ? h('span', { text: `${l.location.country}${l.location.region ? `, ${l.location.region}` : ''}` }) : null],
-          ['Domain', l.domain ? h('span', {}, h('span', { class: 'host', text: l.domain.domain }), ', attested by ', authorChip(l.domain.attestor, null), ` until ${fmt.date(l.domain.expires)}`) : h('span', { text: 'Not verified for this URL.' })],
+          ['Shop domain', l.domain_verified && l.domain ? h('span', { text: SENTENCE.domain(l.domain) }) : h('span', { class: 'warn-text', text: SENTENCE.domainNot(fmt.host(l.url)) })],
           ['Status', h('span', { text: { visible: 'Visible', hidden: 'Hidden by moderation', retracted: 'Withdrawn by the seller', unavailable: 'Text removed by a node' }[l.status] || l.status })],
           ['Flags', h('span', { text: l.flags.count ? `${l.flags.count} in total, ${l.flags.counted} counted (${fmt.reasonsText(l.flags.reasons)})` : 'None' })],
           ['Listing ID', hex(l.id, { n: 64 })],
@@ -44,6 +44,9 @@ export default {
         ]),
       ),
     );
+
+    const share = receiptShare(client.authorView(l.seller));
+    if (share) section.append(h('section', { class: 'block', 'aria-labelledby': 'h-receipts' }, h('h2', { id: 'h-receipts', text: 'Receipts from this seller' }), share));
 
     if (l.price_history.length) {
       const cur = l.price.currency;

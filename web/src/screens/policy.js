@@ -58,7 +58,8 @@ export default {
     for (const [k, label, hint] of NUMBER_FIELDS) {
       form.append(field({ id: `p-${k}`, label, hint, control: h('input', { type: 'number', id: `p-${k}`, name: k, min: 0, step: 1, value: String(policy[k] ?? 0), inputmode: 'numeric' }) }));
     }
-    form.append(field({ id: 'p-review-threshold', label: 'Flags to hide a review', control: h('input', { type: 'number', id: 'p-review-threshold', name: 'review_threshold', min: 0, step: 1, value: String(policy.flag_thresholds?.review ?? policy.flag_threshold ?? 3) }) }));
+    form.append(field({ id: 'p-review-threshold', label: 'Flags to hide a review', hint: 'Hidden reviews still count in ratings; hiding collapses their text only.', control: h('input', { type: 'number', id: 'p-review-threshold', name: 'review_threshold', min: 1, step: 1, value: String(policy.flag_thresholds?.review ?? policy.flag_threshold ?? 5) }) }));
+    form.append(field({ id: 'p-product-threshold', label: 'Flags to hide a product record', control: h('input', { type: 'number', id: 'p-product-threshold', name: 'product_threshold', min: 1, step: 1, value: String(policy.flag_thresholds?.product ?? policy.flag_threshold ?? 5) }) }));
     for (const [k, label] of BOOL_FIELDS) {
       form.append(h('div', { class: 'check' }, h('input', { type: 'checkbox', id: `p-${k}`, name: k, checked: Boolean(policy[k]) }), h('label', { for: `p-${k}`, text: label })));
     }
@@ -154,8 +155,10 @@ function readForm(form, base, now) {
     next[k] = v;
   }
   const rt = Number(form.elements.review_threshold.value);
-  if (!Number.isSafeInteger(rt) || rt < 0) throw new Error('"Flags to hide a review" must be a whole number of at least 0.');
-  next.flag_thresholds = { ...(base.flag_thresholds || {}), review: rt };
+  if (!Number.isSafeInteger(rt) || rt < 1) throw new Error('Flags to hide a review must be a whole number of 1 or more.');
+  const pt = Number(form.elements.product_threshold.value);
+  if (!Number.isSafeInteger(pt) || pt < 1) throw new Error('Flags to hide a product record must be a whole number of 1 or more.');
+  next.flag_thresholds = { ...(base.flag_thresholds || {}), review: rt, product: pt };
   for (const [k] of BOOL_FIELDS) next[k] = form.elements[k].checked;
   if (now != null && !Number.isSafeInteger(now)) throw new Error('Enter a valid pinned time.');
   next.now = now;

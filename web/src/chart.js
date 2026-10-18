@@ -3,15 +3,16 @@
 // One chart per currency (one y-axis). Each listing is a series drawn as a
 // step line, because a seller's price holds until the seller changes it.
 // Seller price records are circles; prices observed by others are diamonds,
-// so the two sources differ by shape as well as by position. Series colors
-// are fixed slots assigned by listing ID, so a listing keeps its color when
-// others are added. Pointer and arrow keys move a crosshair that reports
-// every series at that date. A table lists every point.
+// so the two sources differ by shape as well as by position. At most 3
+// listings are drawn (3 color slots pass the color-vision check for every
+// pair); "Choose listings" picks which. Pointer and arrow keys move a
+// crosshair that reports every series at that date. A table lists every
+// point of every listing.
 
 import { h } from './dom.js';
 import * as fmt from './format.js';
 
-const SLOTS = 4; // validated categorical slots (see styles.css --series-*)
+const SLOTS = 3; // validated categorical slots (see styles.css --series-*)
 const M = { top: 16, right: 16, bottom: 28, left: 64 };
 
 function niceStep(range, target) {
@@ -66,10 +67,10 @@ function valueAt(series, t) {
   return v;
 }
 
+// Series for the chosen listings, in the given order; slot = position.
 export function seriesFor(listings, currency) {
   const out = [];
-  const sorted = [...listings].sort((a, b) => (a.id < b.id ? -1 : 1));
-  sorted.forEach((l, i) => {
+  listings.forEach((l, i) => {
     const points = l.price_history.filter((p) => p.currency === currency);
     if (!points.length) return;
     out.push({
@@ -84,16 +85,67 @@ export function seriesFor(listings, currency) {
   return out.slice(0, SLOTS);
 }
 
+// Listings that feed price figures come first (docs/views.md 8.3).
+const feeds = (l) => l.status === 'visible' && (l.availability === 'in_stock' || l.availability === 'preorder');
+
 export function priceChart({ listings, currency, now, title }) {
-  const series = seriesFor(listings, currency);
+  const candidates = listings.filter((l) => l.price_history.some((p) => p.currency === currency));
   const root = h('figure', { class: 'chart', dataset: { currency } });
-  const heading = h('figcaption', { class: 'chart-title' }, title || `Price history in ${currency}`);
-  root.append(heading);
-  if (!series.length) {
+  root.append(h('figcaption', { class: 'chart-title' }, title || `Price history in ${currency}`));
+  if (!candidates.length) {
     root.append(h('p', { class: 'muted', text: 'No price history in this currency.' }));
     return root;
   }
-  const omitted = listings.filter((l) => l.price_history.some((p) => p.currency === currency)).length - series.length;
+  let chosen = [...candidates.filter(feeds), ...candidates.filter((l) => !feeds(l))].slice(0, SLOTS);
+  const body = h('div', { class: 'chart-body' });
+  const status = h('p', { class: 'chart-choice', role: 'status' });
+
+  const renderBody = () => {
+    const ordered = candidates.filter((l) => chosen.includes(l));
+    status.textContent = candidates.length > SLOTS || ordered.length < candidates.length
+      ? `Showing ${ordered.length} of ${candidates.length} listings.`
+      : '';
+    body.replaceChildren(...chartBody(ordered, candidates, currency, now));
+  };
+
+  if (candidates.length > 1) {
+    const boxes = candidates.map((l, i) => {
+      const id = `ch-${currency}-${i}-${l.id.slice(0, 8)}`;
+      const box = h('input', { type: 'checkbox', id, checked: chosen.includes(l) });
+      box.addEventListener('change', () => {
+        if (box.checked && chosen.length >= SLOTS) {
+          box.checked = false;
+          status.textContent = `Choose at most ${SLOTS} listings. Clear one first.`;
+          return;
+        }
+        chosen = box.checked ? [...chosen, l] : chosen.filter((x) => x !== l);
+        renderBody();
+      });
+      return h('li', { class: 'check' }, box, h('label', { for: id }, h('bdi', { text: l.seller_name || `key ${fmt.shortHex(l.seller)}…` }), ` ${fmt.money(l.price?.amount, l.price?.currency)}`, feeds(l) ? '' : h('span', { class: 'muted', text: ' (not in price summary)' })));
+    });
+    root.append(
+      status,
+      h('details', { class: 'chart-chooser' },
+        h('summary', { text: 'Choose listings' }),
+        h('p', { class: 'hint', text: `Up to ${SLOTS} listings at a time, so each line keeps a distinct color.` }),
+        h('ul', { class: 'plain' }, boxes),
+      ),
+    );
+  }
+  root.append(body);
+  root.append(h('p', { class: 'hint', text: 'Dates are those stated by sellers and observers. They are not checked.' }));
+  renderBody();
+  return root;
+}
+
+function chartBody(chosen, allListings, currency, now) {
+  const out = [];
+  const series = seriesFor(chosen, currency);
+  if (!series.length) {
+    out.push(h('p', { class: 'muted', text: 'No listings chosen.' }));
+    out.push(priceTable(allListings, currency));
+    return out;
+  }
 
   const allPoints = series.flatMap((s) => s.points);
   const tMin = Math.min(...allPoints.map((p) => p.ts));
@@ -104,7 +156,7 @@ export function priceChart({ listings, currency, now, title }) {
 
   // Legend: always present for 2+ series; one series needs none.
   if (series.length > 1) {
-    root.append(
+    out.push(
       h('ul', { class: 'chart-legend' },
         series.map((s) =>
           h('li', {},
@@ -116,7 +168,7 @@ export function priceChart({ listings, currency, now, title }) {
       ),
     );
   }
-  root.append(
+  out.push(
     h('p', { class: 'chart-key' },
       h('span', { class: 'key-circle', 'aria-hidden': 'true' }), ' seller price record ',
       h('span', { class: 'key-diamond', 'aria-hidden': 'true' }), ' price observed by others',
@@ -124,7 +176,7 @@ export function priceChart({ listings, currency, now, title }) {
   );
 
   const plot = h('div', { class: 'chart-plot' });
-  root.append(plot);
+  out.push(plot);
   const tooltip = h('div', { class: 'chart-tooltip', role: 'status', 'aria-live': 'polite', hidden: true });
 
   const positions = [...new Set(allPoints.map((p) => p.ts))].sort((a, b) => a - b);
@@ -280,32 +332,32 @@ export function priceChart({ listings, currency, now, title }) {
     ro.observe(plot);
   }
 
-  if (omitted > 0) root.append(h('p', { class: 'hint', text: `${fmt.plural(omitted, 'more listing')} not charted. The table includes them.` }));
+  out.push(priceTable(allListings, currency));
+  return out;
+}
 
-  // Table view: every point, so no value depends on hover.
+// Table view: every point of every listing, so no value depends on hover.
+function priceTable(listings, currency) {
   const rows = listings
     .flatMap((l) => l.price_history.filter((p) => p.currency === currency).map((p) => ({ l, p })))
     .sort((a, b) => b.p.ts - a.p.ts || (a.p.record < b.p.record ? -1 : 1));
-  root.append(
-    h('details', { class: 'chart-table' },
-      h('summary', {}, `Show all ${rows.length} prices as a table`),
-      h('div', { class: 'table-scroll' },
-        h('table', {},
-          h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Date' }), h('th', { scope: 'col', text: 'Seller' }), h('th', { scope: 'col', class: 'num', text: 'Price' }), h('th', { scope: 'col', text: 'Source' }), h('th', { scope: 'col', text: 'Record' }))),
-          h('tbody', {},
-            rows.map(({ l, p }) =>
-              h('tr', {},
-                h('td', { text: fmt.date(p.ts) }),
-                h('td', {}, h('bdi', { text: l.seller_name || fmt.shortHex(l.seller) })),
-                h('td', { class: 'num', text: fmt.money(p.amount, p.currency) }),
-                h('td', { text: p.source === 'seller' ? 'Seller' : 'Observation' }),
-                h('td', {}, h('a', { href: `#/data/${p.record}`, class: 'record-link' }, h('code', { class: 'hex', text: fmt.shortHex(p.record) }))),
-              ),
+  return h('details', { class: 'chart-table' },
+    h('summary', {}, `Show all ${rows.length} prices as a table`),
+    h('div', { class: 'table-scroll' },
+      h('table', {},
+        h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Date stated' }), h('th', { scope: 'col', text: 'Seller' }), h('th', { scope: 'col', class: 'num', text: 'Price' }), h('th', { scope: 'col', text: 'Source' }), h('th', { scope: 'col', text: 'Record' }))),
+        h('tbody', {},
+          rows.map(({ l, p }) =>
+            h('tr', {},
+              h('td', { text: fmt.date(p.ts) }),
+              h('td', {}, h('bdi', { text: l.seller_name || fmt.shortHex(l.seller) })),
+              h('td', { class: 'num', text: fmt.money(p.amount, p.currency) }),
+              h('td', { text: p.source === 'seller' ? 'Seller' : 'Observation' }),
+              h('td', {}, h('a', { href: `#/data/${p.record}`, class: 'record-link' }, h('code', { class: 'hex', text: fmt.shortHex(p.record) }))),
             ),
           ),
         ),
       ),
     ),
   );
-  return root;
 }

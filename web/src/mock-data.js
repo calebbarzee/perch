@@ -117,6 +117,8 @@ export function buildMockDataset() {
   ev(6, 'brightline', 'product', PRODUCTS.vacuum);
   ev(6, 'cedar', 'product', PRODUCTS.board, { name: 'p-board' });
   ev(7, 'cedar', 'product', { name: 'Fennick Pro 10 cup coffee maker', brand: 'Fennick', gtin: PRODUCTS.coffee.gtin, category: 'appliances/kitchen' });
+  // A product record that verified people flag as counterfeit: hidden (product threshold 5).
+  ev(8, 'quickdeals', 'product', { name: 'USB-C charger 65 W, certified original', brand: 'Volta', gtin: gtin13('690123456789'), category: 'electronics/chargers' }, { name: 'p-charger' });
 
   const keyOf = {};
   for (const [k, p] of Object.entries(PRODUCTS)) keyOf[k] = p.gtin || p.mpn ? productKeyFor(p, null) : null;
@@ -254,6 +256,9 @@ export function buildMockDataset() {
   flag(90, 'chloe', 'r-omar-monitor', 'spam');
   flag(91, 'dev', 'r-omar-monitor', 'spam');
   flag(92, 'emma', 'r-omar-monitor', 'spam');
+  flag(93, 'ben', 'r-omar-monitor', 'spam');
+  flag(94, 'grace', 'r-omar-monitor', 'misleading');
+  for (const [i, who] of ['ana', 'ben', 'chloe', 'dev', 'emma'].entries()) flag(30 + i, who, 'p-charger', 'counterfeit', i === 0 ? 'No certification mark; the brand does not exist in the registry.' : undefined);
   flag(100, 'ben', 'l-quickdeals-monitor', 'misleading', 'Sold as new; arrived with an open box.');
   flag(101, 'chloe', 'l-quickdeals-monitor', 'misleading');
   flag(102, 'dev', 'l-quickdeals-monitor', 'fraud');
@@ -314,7 +319,7 @@ export function buildMockDataset() {
     now: null,
     trusted_attestors: [{ author: A(attestor), kinds: ['attest.domain', 'attest.identity', 'attest.revoke'], not_after_seq: null }],
     flag_threshold: 3,
-    flag_thresholds: { review: 3 },
+    flag_thresholds: { review: 5, product: 5 },
     flags_require_verified: true,
     seller_hidden_listing_limit: 3,
     seller_min_distinct_flaggers: 9,

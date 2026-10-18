@@ -69,48 +69,115 @@ export function recordLink(id, label) {
   return h('a', { href: routes.record(id), class: 'record-link' }, label ? label : hex(id));
 }
 
-// Looks up a display name when a view gives only a key. Set by the app.
-let nameLookup = null;
-export function setNameLookup(fn) {
-  nameLookup = fn;
+// Looks up an AuthorView by key. Set by the app; cached until the data or
+// policy changes (clearAuthorCache).
+let authorLookup = null;
+const authorCache = new Map();
+export function setAuthorLookup(fn) {
+  authorLookup = fn;
+  authorCache.clear();
 }
-
-// Author name with fingerprint and key prefix. The name is the author's own
-// claim; the key prefix is what identifies them.
-export function authorChip(id, name, { verified = false, status = 'ok', link = true } = {}) {
-  if (name == null && nameLookup) {
+export function clearAuthorCache() {
+  authorCache.clear();
+}
+export function lookupAuthor(id) {
+  if (!authorLookup || !id) return null;
+  if (!authorCache.has(id)) {
+    let v = null;
     try {
-      name = nameLookup(id);
+      v = authorLookup(id);
     } catch {
-      name = null;
+      v = null;
     }
+    authorCache.set(id, v);
   }
-  const parts = [
-    fingerprint(id, 16),
-    name ? bdi(name, { class: 'author-name' }) : h('span', { class: 'author-name unnamed', text: 'No profile' }),
-    hex(id, { n: 8, cls: 'author-key' }),
-  ];
-  if (verified) parts.push(badge('verified', 'Identity verified', 'shield'));
-  if (status && status !== 'ok') parts.push(statusBadge(status));
-  const el = link ? h('a', { href: routes.author(id), class: 'author-chip' }, parts) : h('span', { class: 'author-chip' }, parts);
-  return el;
+  return authorCache.get(id);
 }
 
-export function badge(tone, text, iconName) {
-  return h('span', { class: `badge badge-${tone}` }, iconName ? icon(iconName) : null, text);
+/** Display name of an attestor or other author, or its short key. */
+export function displayName(id) {
+  return lookupAuthor(id)?.name ?? `key ${fmt.shortHex(id)}…`;
 }
 
-export function statusBadge(status) {
+// One sentence per badge (docs/ux.md 6.2). Badges show a short label; the
+// sentence is the badge's tooltip and accessible text, and appears in full
+// on the Author screen.
+export const SENTENCE = {
+  identity: (v) =>
+    v.level === 'business'
+      ? `Business ${v.legal_name ?? 'name not given'}${v.country ? ` (${v.country})` : ''} verified by ${displayName(v.attestor)} until ${fmt.date(v.expires)}, from a company registry.`
+      : `Identity verified by ${displayName(v.attestor)} until ${fmt.date(v.expires)}. Level: person.`,
+  notVerified: 'No attestor in your policy has verified this key.',
+  domain: (d) => `${displayName(d.attestor)} confirmed until ${fmt.date(d.expires)} that this seller controls ${d.domain}.`,
+  domainNot: (host) => `No attestor in your policy has confirmed that this seller controls ${host || 'this address'}. Check the address before you pay.`,
+  forked: (a) => `This key signed two different records at position ${a?.fork_seq ?? '?'}. Its records from that position on are ignored.`,
+  revoked: (a) => a?.revoked
+    ? `${displayName(a.revoked.attestor)} reported this key as compromised. Records after #${a.revoked.valid_through_seq} are ignored.`
+    : 'An attestor reported this key as compromised.',
+  retired: (a) => a?.retired
+    ? `The owner ended this key at record #${a.retired.seq}. Later records are ignored.${a.retired.successor ? ` Successor: ${fmt.shortHex(a.retired.successor)}… Verification does not transfer.` : ''}`
+    : 'The owner ended this key. Later records are ignored.',
+  restricted: (a, policy) => a?.restriction
+    ? `${a.restriction.hidden_listings} of this seller's listings are hidden, flagged by ${a.restriction.distinct_flaggers} verified people. Policy limits: ${policy?.seller_hidden_listing_limit ?? '?'} listings and ${policy?.seller_min_distinct_flaggers ?? '?'} people.`
+    : 'This person has a key with a conflicting history.',
+};
+
+// A badge: icon + short label. With a sentence, the sentence is the tooltip
+// and, unless `quiet`, also read by screen readers after the label.
+export function badge(tone, label, iconName, sentence = null, { quiet = false } = {}) {
+  return h('span', { class: `badge badge-${tone}`, title: sentence || null },
+    iconName ? icon(iconName) : null,
+    label,
+    sentence && !quiet ? h('span', { class: 'visually-hidden', text: `: ${sentence}` }) : null,
+  );
+}
+
+export function identityBadge(verified, opts = {}) {
+  if (!verified) return badge('muted', 'Identity not verified', 'shield', SENTENCE.notVerified, opts);
+  const label = verified.level === 'business' ? 'Business verified' : 'Identity verified';
+  return badge('verified', label, 'shield', SENTENCE.identity(verified), opts);
+}
+
+export function statusBadge(status, view = null, opts = {}) {
   switch (status) {
     case 'forked':
-      return badge('bad', 'Forked log', 'fork');
+      return badge('bad', 'Conflicting history', 'fork', SENTENCE.forked(view), opts);
     case 'revoked':
-      return badge('bad', 'Key revoked', 'key');
+      return badge('bad', 'Key revoked', 'key', SENTENCE.revoked(view), opts);
     case 'retired':
-      return badge('muted', 'Retired', 'clock');
+      return badge('muted', 'Retired', 'clock', SENTENCE.retired(view), opts);
     default:
       return null;
   }
+}
+
+// Author chip (docs/ux.md 6.1): fingerprint, name as the author states it,
+// verification, status, short key. The key identifies the author; the name
+// is a claim. Data comes from the AuthorView when the lookup is set.
+export function authorChip(id, name, { verified = false, status = 'ok', link = true } = {}) {
+  const view = lookupAuthor(id);
+  if (name == null) name = view?.name ?? null;
+  const v = view ? view.verified : verified ? {} : null;
+  const st = view ? view.status : status;
+  const nameEl = name
+    ? bdi(name, { class: 'author-name' })
+    : h('span', { class: 'author-name unnamed', text: view?.profile?.status === 'hidden' ? 'Name hidden by moderation' : 'Unnamed author' });
+  const legal = v?.level === 'business' && v.legal_name && v.legal_name !== name
+    ? h('span', { class: 'legal-name' }, ' (', bdi(v.legal_name), v.country ? `, ${v.country}` : '', ')')
+    : null;
+  const parts = [
+    fingerprint(id, 16),
+    nameEl,
+    legal,
+    v && v.attestor ? identityBadge(v, { quiet: true }) : v ? badge('verified', 'Identity verified', 'shield') : identityBadge(null, { quiet: true }),
+    st && st !== 'ok' ? statusBadge(st, view, { quiet: true }) : null,
+    view?.restricted ? badge('bad', 'Restricted seller', 'ban', null) : null,
+    hex(id, { n: 8, cls: 'author-key' }),
+  ];
+  const label = `${name || 'Unnamed author'}, ${v ? (v.level === 'business' ? 'business verified' : 'identity verified') : 'identity not verified'}${st && st !== 'ok' ? `, ${st === 'forked' ? 'conflicting history' : st}` : ''}, key ${fmt.shortHex(id)}`;
+  return link
+    ? h('a', { href: routes.author(id), class: 'author-chip', 'aria-label': label }, parts)
+    : h('span', { class: 'author-chip' }, parts);
 }
 
 // Notice block: tone = info | good | warn | bad | muted.
@@ -266,26 +333,66 @@ export function sourceList(sources) {
   );
 }
 
-// Image from a record. Unverified authors' images load only on request,
-// because loading reveals the viewer's IP address to the image host (10).
+async function sha256OfBytes(bytes) {
+  if (globalThis.crypto?.subtle) {
+    const d = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+    return Array.from(d, (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  const { sha256Hex } = await import('./sha256.js');
+  return sha256Hex(bytes);
+}
+
+// Image from a record (docs/ux.md 8.2 item 4). Images from unverified
+// authors load only on request, because loading reveals the viewer's IP
+// address to the image host (ARCHITECTURE 10). An image with a stated
+// sha256 is fetched, hashed, and shown from a blob: URL only if it matches.
+// When the host blocks the fetch (CORS), the image is shown unchecked and
+// labeled "Hash not checked".
 export function productImage(img, alt) {
   const auto = img.author_verified && settings().autoLoadVerifiedImages;
-  const wrap = h('figure', { class: 'product-image' });
+  const wrap = h('figure', { class: 'product-image', dataset: { hash: img.sha256 ? 'pending' : 'none' } });
   const host = fmt.host(img.url);
-  const load = () => {
+  const hostEl = () => h('span', { class: 'host', text: host || 'unknown host' });
+  const caption = (...extra) => h('figcaption', {}, hostEl(), img.author_verified ? '' : ' (from an unverified author)', ...extra);
+  const showPlain = (label, state) => {
     const el = h('img', { src: img.url, alt: alt || '', referrerpolicy: 'no-referrer', loading: 'lazy', decoding: 'async' });
-    el.addEventListener('error', () => {
-      wrap.replaceChildren(h('p', { class: 'image-error', text: `The image from ${host} did not load.` }));
-    });
-    wrap.replaceChildren(el, h('figcaption', {}, host ? h('span', { class: 'host', text: host }) : null, img.author_verified ? '' : ' (unverified source)'));
+    el.addEventListener('error', () => wrap.replaceChildren(h('p', { class: 'image-error' }, 'The image from ', hostEl(), ' did not load.')));
+    wrap.dataset.hash = state;
+    wrap.replaceChildren(el, caption(label ? h('span', { class: 'hash-note', text: ` ${label}` }) : null));
+  };
+  const load = async () => {
+    if (!img.sha256) {
+      showPlain(null, 'none');
+      return;
+    }
+    wrap.replaceChildren(h('p', { class: 'muted', text: 'Loading and checking the image.' }));
+    let bytes;
+    try {
+      const res = await fetch(img.url, { credentials: 'omit', referrerPolicy: 'no-referrer', mode: 'cors' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      bytes = new Uint8Array(await res.arrayBuffer());
+    } catch {
+      showPlain('Hash not checked: the image host does not allow the check.', 'unchecked');
+      return;
+    }
+    const digest = await sha256OfBytes(bytes);
+    if (digest !== img.sha256) {
+      wrap.dataset.hash = 'mismatch';
+      wrap.replaceChildren(notice('bad', 'Image not shown', h('p', {}, 'The image at ', hostEl(), ' does not match its stated hash.')));
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([bytes]));
+    const el = h('img', { src: url, alt: alt || '', decoding: 'async' });
+    wrap.dataset.hash = 'match';
+    wrap.replaceChildren(el, caption(h('span', { class: 'hash-note', text: ' Hash checked.' })));
   };
   if (auto) {
     load();
   } else {
     wrap.append(
       icon('image', 'placeholder-icon'),
-      h('p', {}, img.author_verified ? 'Image from a verified author.' : 'Image from an unverified author.'),
-      h('p', { class: 'hint' }, 'Loading it shows your IP address to ', h('span', { class: 'host', text: host || 'the image host' }), '.'),
+      h('p', {}, 'Image from ', hostEl(), img.author_verified ? ', stated by a verified author.' : ', stated by an unverified author.'),
+      h('p', { class: 'hint' }, 'Loading it shows your IP address to that host.'),
       h('button', { type: 'button', class: 'button small', on: { click: load } }, 'Load image'),
     );
   }
@@ -332,3 +439,16 @@ export const EXCLUDED_TEXT = {
   revoked: 'written after the key was reported stolen',
   superseded: 'an older review by the same author',
 };
+
+// Receipt share of a seller (docs/ux.md 8.3 item 7, threat-model R8).
+export function receiptShare(authorView) {
+  const sr = authorView?.seller_reviews;
+  if (!sr || !sr.total) return null;
+  return h('div', { class: 'receipt-share', dataset: { testid: 'receipt-share' } },
+    h('p', { text: `${fmt.number(sr.with_valid_receipt)} of ${fmt.plural(sr.total, 'counted review')} of this seller's products cite a valid receipt from this seller.` }),
+    h('details', { class: 'computed' },
+      h('summary', { text: 'What this means' }),
+      h('p', { text: 'Sellers choose whom to give receipts. A low share can mean receipts are given selectively, for example only to happy buyers.' }),
+    ),
+  );
+}

@@ -3,9 +3,9 @@
 import { loadClient, APP_VERSION } from './client.js';
 import { h, clear, announce } from './dom.js';
 import { route, parseHash } from './router.js';
-import { configuredNodes, settings } from './settings.js';
+import { configuredNodes, settings, setConfig, appConfig } from './settings.js';
 import * as persist from './persist.js';
-import { hex, notice, setNameLookup } from './components.js';
+import { hex, notice, setAuthorLookup, clearAuthorCache } from './components.js';
 import { setCurrencyTable } from './format.js';
 
 import search from './screens/search.js';
@@ -37,7 +37,7 @@ const FALLBACK_POLICY = Object.freeze({
   now: null,
   trusted_attestors: [],
   flag_threshold: 3,
-  flag_thresholds: { review: 3 },
+  flag_thresholds: { review: 5, product: 5 },
   flags_require_verified: true,
   seller_hidden_listing_limit: 3,
   seller_min_distinct_flaggers: 9,
@@ -112,8 +112,36 @@ export async function setKeepKey(keep) {
   else await persist.forgetKey();
 }
 
+async function loadJson(rel) {
+  try {
+    const res = await fetch(new URL(rel, import.meta.url), { cache: 'no-store' });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+// Compares the running wasm hash with pkg/SHA256SUMS shipped with the build.
+async function loadChecksum() {
+  const url = new URL('../pkg/SHA256SUMS', import.meta.url).href;
+  const out = { url, expected: null, state: 'missing' };
+  if (app.mode !== 'wasm' || !app.build?.wasm_sha256) return { ...out, state: 'none' };
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return out;
+    const line = (await res.text()).split('\n').find((l) => /\sperch_wasm_bg\.wasm$/.test(l.trim()));
+    if (!line) return out;
+    out.expected = line.trim().split(/\s+/)[0];
+    out.state = out.expected === app.build.wasm_sha256 ? 'match' : 'mismatch';
+  } catch {
+    // stays 'missing'
+  }
+  return out;
+}
+
 async function boot() {
   const main = document.getElementById('main');
+  setConfig(await loadJson('../config.json'));
   let loaded;
   try {
     loaded = await loadClient();
@@ -136,6 +164,7 @@ async function boot() {
   } catch {
     app.build = { version: null, wasm_sha256: null };
   }
+  app.checksum = await loadChecksum();
 
   // The bundled policy is a static file shipped with this release
   // (ARCHITECTURE 10). The mock client brings its own, because its demo
@@ -194,7 +223,7 @@ async function boot() {
     }
   }
 
-  setNameLookup((id) => app.client.authorView(id)?.name ?? null);
+  setAuthorLookup((id) => app.client.authorView(id));
 
   app.client.onChange((ev) => {
     const reason = ev?.reason ?? 'records';
@@ -248,7 +277,7 @@ export function renderFooter() {
   clear(el).append(
     h('dl', { class: 'build-info' },
       h('div', {}, h('dt', { text: 'App' }), h('dd', { text: `Perch ${APP_VERSION}${app.mode === 'mock' ? ' (mock client)' : ''}` })),
-      h('div', {}, h('dt', { text: 'Wasm SHA-256' }), h('dd', {}, wasm ? hex(wasm, { n: 16 }) : h('span', { text: app.mode === 'mock' ? 'none (mock client)' : 'unknown' }))),
+      h('div', {}, h('dt', { text: 'Wasm SHA-256' }), h('dd', {}, wasm ? [hex(wasm, { n: 16 }), ' ', checksumNote(true)] : h('span', { text: app.mode === 'mock' ? 'none (mock client)' : 'unknown' }))),
       h('div', {}, h('dt', { text: 'Policy hash' }), h('dd', {}, h('a', { href: '#/policy' }, hex(policyHash, { n: 16 })))),
     ),
     h('p', { class: 'footer-note' }, 'Views are computed on this device from signed records. ', h('a', { href: '#/data', text: 'Inspect the data' }), '.'),
@@ -256,9 +285,26 @@ export function renderFooter() {
   updateNavStatus();
 }
 
+// "matches/does not match the checksum file", with links (docs/ux.md T8, 8.7).
+export function checksumNote(short = false) {
+  const c = app.checksum;
+  if (!c || c.state === 'none') return null;
+  const cfg = appConfig();
+  const fileLink = h('a', { href: c.url, target: '_blank', rel: 'noopener', text: 'SHA256SUMS' });
+  const release = cfg.release_page_url ? h('a', { href: cfg.release_page_url, target: '_blank', rel: 'noopener noreferrer', text: 'release page' }) : null;
+  const parts = [];
+  if (c.state === 'match') parts.push(h('span', { class: 'good-text', dataset: { checksum: 'match' } }, 'matches ', fileLink));
+  else if (c.state === 'mismatch') parts.push(h('span', { class: 'bad-text', dataset: { checksum: 'mismatch' } }, 'does not match ', fileLink, '. This app is not the build it claims to be.'));
+  else parts.push(h('span', { class: 'warn-text', dataset: { checksum: 'missing' } }, 'no checksum file found'));
+  if (release) parts.push(short ? [' (compare with the ', release, ')'] : [' Compare with the checksums on the ', release, '. If they differ, this app is not the published release.']);
+  else if (!short) parts.push(' The checksum file comes from the same server as the app. Compare the hash with one published by the release authors.');
+  return h('span', { class: 'checksum-note' }, ...parts);
+}
+
 function updateNavStatus() {
   const el = document.getElementById('nav-net');
   if (!el) return;
+  const menuDot = document.getElementById('nav-net-menu');
   let peers = [];
   try {
     peers = app.client.peers();
@@ -268,11 +314,30 @@ function updateNavStatus() {
   const live = peers.filter((p) => p.state === 'live').length;
   el.textContent = peers.length ? `${live}/${peers.length}` : '0';
   el.dataset.state = !peers.length ? 'none' : live === peers.length ? 'ok' : live ? 'partial' : 'down';
+  if (menuDot) {
+    menuDot.textContent = el.textContent;
+    menuDot.dataset.state = el.dataset.state;
+  }
   const link = el.closest('a');
   if (link) link.setAttribute('aria-label', `Network, ${live} of ${peers.length} nodes connected`);
 }
 
 function wireTopbar() {
+  // Below 600 px the nav is a disclosure (docs/ux.md 5.2).
+  const nav = document.getElementById('topnav');
+  const menu = document.getElementById('menu-button');
+  const setOpen = (open) => {
+    nav.classList.toggle('open', open);
+    menu.setAttribute('aria-expanded', String(open));
+  };
+  menu?.addEventListener('click', () => setOpen(!nav.classList.contains('open')));
+  nav?.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && nav.classList.contains('open')) {
+      setOpen(false);
+      menu.focus();
+    }
+  });
+  window.addEventListener('hashchange', () => setOpen(false));
   // The hash is the router, so the skip link moves focus itself.
   document.getElementById('skip-link')?.addEventListener('click', (ev) => {
     ev.preventDefault();
@@ -328,6 +393,7 @@ async function show({ navigation, refresh = false }) {
   const focusKey = refresh ? document.activeElement?.dataset?.focusKey || document.activeElement?.id : null;
 
   if (current) current.ctx.dispose();
+  clearAuthorCache();
   const ctx = makeCtx(parsed);
   let node;
   try {

@@ -3,7 +3,9 @@ import * as fmt from '../format.js';
 import {
   routes, authorChip, badge, notice, stars, moderationNotice, factValue, productImage,
   priceText, emptyState, definitionList, PURCHASE_TEXT, EXCLUDED_TEXT, icon, hex, recordLink, urlLink,
+  SENTENCE, lookupAuthor,
 } from '../components.js';
+import { announce } from '../dom.js';
 import { priceChart } from '../chart.js';
 
 export default {
@@ -40,8 +42,11 @@ export default {
       if (mod) section.append(mod);
     }
 
+    // Review filters, shared by the histogram buttons and the review list.
+    const filter = reviewFilter(ctx, p);
+
     // Summary: rating and price side by side.
-    section.append(h('div', { class: 'summary-grid' }, ratingPanel(p.ratings), pricePanel(p)));
+    section.append(h('div', { class: 'summary-grid' }, ratingPanel(p.ratings, filter), pricePanel(p)));
 
     // Listings.
     section.append(listingsSection(p, policy, client));
@@ -56,7 +61,7 @@ export default {
     }
 
     // Reviews.
-    section.append(reviewsSection(p, policy, client));
+    section.append(reviewsSection(p, policy, client, filter));
 
     // Details: facts with sources.
     section.append(detailsSection(p));
@@ -65,18 +70,30 @@ export default {
   },
 };
 
-function histogram(hist, label) {
-  const max = Math.max(1, ...hist);
+// Rating histogram (docs/ux.md 8.2 item 9, T6). Each row is a button that
+// sets the star filter of the review list. With 1 to 5 reviews, counts are
+// shown as text without bars; with 0, no histogram.
+function histogram(hist, label, filter) {
   const total = hist.reduce((a, b) => a + b, 0);
-  return h('table', { class: 'histogram' },
+  if (!total) return null;
+  const bars = total > 5;
+  const max = Math.max(1, ...hist);
+  return h('table', { class: ['histogram', bars ? null : 'no-bars'] },
     h('caption', { class: 'visually-hidden', text: label }),
     h('tbody', {},
       [5, 4, 3, 2, 1].map((star) => {
         const n = hist[star - 1];
         return h('tr', {},
-          h('th', { scope: 'row', text: `${star} star${star === 1 ? '' : 's'}` }),
-          h('td', { class: 'bar-cell' }, h('span', { class: 'bar', style: null, dataset: { w: String(Math.round((n / max) * 100)) } })),
-          h('td', { class: 'num', text: total ? `${n}` : '0' }),
+          h('th', { scope: 'row' },
+            h('button', {
+              type: 'button',
+              class: 'link-button',
+              'aria-label': `${star} star${star === 1 ? '' : 's'}: ${n}. Show these reviews.`,
+              on: { click: () => filter?.setStars(star, { focus: true }) },
+            }, `${star} star${star === 1 ? '' : 's'}`),
+          ),
+          bars ? h('td', { class: 'bar-cell', 'aria-hidden': 'true' }, h('span', { class: 'bar', dataset: { w: String(Math.round((n / max) * 100)) } })) : null,
+          h('td', { class: 'num', text: fmt.number(n) }),
         );
       }),
     ),
@@ -84,10 +101,11 @@ function histogram(hist, label) {
 }
 
 function sizeBars(root) {
+  if (!root) return;
   for (const b of root.querySelectorAll('.bar[data-w]')) b.style.width = `${b.dataset.w}%`;
 }
 
-function ratingPanel(r) {
+function ratingPanel(r, filter) {
   const vi = r.verified_identity;
   const vp = r.verified_purchase;
   const panel = h('section', { class: 'panel rating-panel', 'aria-labelledby': 'h-rating' },
@@ -102,22 +120,23 @@ function ratingPanel(r) {
       h('p', { class: 'headline-sub', text: `from ${fmt.plural(vi.count, 'identity-verified reviewer')}` }),
     );
   } else {
-    panel.append(h('p', { class: 'headline-rating none', text: 'No ratings from identity-verified reviewers yet.' }));
+    panel.append(h('p', { class: 'headline-rating none', text: 'No rating from identity-verified reviewers.' }));
   }
-  const hist = histogram(vi.histogram, 'Ratings from identity-verified reviewers');
+  const hist = histogram(vi.histogram, 'Ratings from identity-verified reviewers', filter);
   sizeBars(hist);
-  panel.append(hist);
+  if (hist) panel.append(hist);
   panel.append(
     h('dl', { class: 'secondary-ratings' },
       h('div', { dataset: { testid: 'rating-purchase' } },
         h('dt', {}, icon('receipt'), ' Verified purchases'),
-        h('dd', { text: vp.count ? `${fmt.mean(vp.mean)} from ${fmt.plural(vp.count, 'review')}` : 'None' }),
+        h('dd', { text: vp.count ? `${fmt.mean(vp.mean)} from ${fmt.plural(vp.count, 'review')}` : 'No verified-purchase reviews' }),
       ),
       h('div', { dataset: { testid: 'rating-all' } },
         h('dt', { text: 'All counted reviews' }),
-        h('dd', { text: r.count ? `${fmt.mean(r.mean)} from ${fmt.plural(r.count, 'review')}` : 'None' }),
+        h('dd', { text: r.count ? `${fmt.mean(r.mean)} from ${fmt.plural(r.count, 'review')}` : 'No rating' }),
       ),
     ),
+    h('p', { class: 'hint', text: 'All counted reviews include reviewers whose identity is not verified.' }),
   );
   const ex = Object.entries(r.excluded || {}).filter(([, n]) => n > 0);
   if (ex.length) {
@@ -127,7 +146,10 @@ function ratingPanel(r) {
       ),
     );
   }
-  panel.append(h('p', { class: 'hint', text: 'The headline counts each identity-verified person once, so new keys cannot change it.' }));
+  panel.append(
+    h('p', { class: 'hint', text: 'Hidden reviews still count in ratings. Hiding collapses their text only.' }),
+    h('p', { class: 'hint', text: 'The headline counts each identity-verified person once, so new keys cannot change it.' }),
+  );
   return panel;
 }
 
@@ -176,10 +198,10 @@ export function listingCard(l, policy, { showProduct = false, client = null } = 
   const li = h('li', { class: ['listing', `status-${l.status}`], dataset: { listing: l.id, status: l.status } });
   const seller = authorChip(l.seller, l.seller_name, { verified: l.seller_verified, status: l.seller_status });
   const badges = h('p', { class: 'badges' },
-    l.domain_verified
-      ? badge('good', `Domain verified: ${l.domain?.domain ?? fmt.host(l.url)}`, 'globe')
-      : badge('warn', 'Domain not verified', 'globe'),
-    l.seller_restricted ? badge('bad', 'Seller restricted', 'ban') : null,
+    l.domain_verified && l.domain
+      ? badge('good', `Shop domain verified: ${l.domain.domain}`, 'globe', SENTENCE.domain(l.domain))
+      : badge('warn', 'Domain not verified', 'globe', SENTENCE.domainNot(fmt.host(l.url))),
+    l.seller_restricted ? badge('bad', 'Restricted seller', 'ban', SENTENCE.restricted(lookupAuthor(l.seller), policy)) : null,
     l.flags.count ? badge('muted', `${fmt.plural(l.flags.count, 'flag')}`, 'flag') : null,
   );
   const mod = moderationNotice(l, 'listing', policy, client, l.id);
@@ -193,7 +215,7 @@ export function listingCard(l, policy, { showProduct = false, client = null } = 
   );
   li.append(head, badges);
   if (l.seller_restricted) {
-    li.append(notice('bad', 'Seller restricted', h('p', {}, `Under your policy, ${policy.seller_hidden_listing_limit} or more of this seller's listings are hidden by moderation, or the seller signed two histories. `, h('a', { href: routes.author(l.seller), text: 'See the seller' }), '.')));
+    li.append(notice('bad', 'Restricted seller', h('p', {}, SENTENCE.restricted(lookupAuthor(l.seller), policy), ' ', h('a', { href: routes.author(l.seller), text: 'See the seller' }), '.')));
   }
   if (mod) li.append(mod);
   li.append(
@@ -208,10 +230,45 @@ export function listingCard(l, policy, { showProduct = false, client = null } = 
   return li;
 }
 
-function reviewsSection(p, policy, client) {
+const SOURCES = [
+  ['everyone', 'Everyone', () => true],
+  ['purchase', 'Verified purchases', (r) => r.verified_purchase],
+  ['identity', 'Identity-verified people', (r) => r.author_verified],
+];
+
+// Review filter state, kept in the URL (?reviews=&stars=) with replaceState,
+// so Back and shared links restore it without re-rendering the screen.
+function reviewFilter(ctx, p) {
+  const f = {
+    source: SOURCES.some(([v]) => v === ctx.params.reviews) ? ctx.params.reviews : 'everyone',
+    stars: /^[1-5]$/.test(ctx.params.stars || '') ? Number(ctx.params.stars) : null,
+    listeners: [],
+    reviews: p.reviews,
+    onChange(fn) {
+      this.listeners.push(fn);
+    },
+    set(source, stars, opts = {}) {
+      this.source = source;
+      this.stars = stars;
+      const params = new URLSearchParams();
+      if (source !== 'everyone') params.set('reviews', source);
+      if (stars) params.set('stars', String(stars));
+      const base = location.hash.split('?')[0];
+      history.replaceState(null, '', base + (params.toString() ? `?${params}` : ''));
+      for (const fn of this.listeners) fn(opts);
+    },
+    setStars(stars, opts) {
+      this.set(this.source, stars, opts);
+    },
+  };
+  return f;
+}
+
+function reviewsSection(p, policy, client, filter) {
+  const hidden = p.reviews.filter((r) => r.status === 'hidden').length;
   const sec = h('section', { class: 'block', 'aria-labelledby': 'h-reviews' },
     h('div', { class: 'block-head' },
-      h('h2', { id: 'h-reviews', text: `Reviews (${p.reviews.length})` }),
+      h('h2', { id: 'h-reviews', tabindex: '-1', text: `Reviews (${p.reviews.length})` }),
       h('a', { class: 'button', href: routes.publish('review', { product: p.key }), text: 'Write a review' }),
     ),
   );
@@ -219,34 +276,54 @@ function reviewsSection(p, policy, client) {
     sec.append(h('p', { class: 'muted', text: 'No reviews yet.' }));
     return sec;
   }
-  const filters = h('div', { class: 'review-filter', role: 'group', 'aria-label': 'Show reviews' });
-  const list = h('ul', { class: 'reviews' });
-  const opts = [
-    ['all', 'All'],
-    ['identity', 'Identity verified'],
-    ['purchase', 'Verified purchase'],
-    ['excluded', 'Not counted'],
-  ];
-  const apply = (which) => {
-    for (const b of filters.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.filter === which));
-    for (const li of list.children) {
-      const d = li.dataset;
-      const show =
-        which === 'all' ||
-        (which === 'identity' && d.identity === 'true') ||
-        (which === 'purchase' && d.purchase === 'verified') ||
-        (which === 'excluded' && d.counted === 'false');
-      li.hidden = !show;
+  sec.append(h('p', { class: 'muted', text: `${fmt.plural(p.reviews.length, 'review')}${hidden ? `, ${hidden} hidden` : ''}, newest first.` }));
+
+  const sourceGroup = h('fieldset', { class: 'radio-row' }, h('legend', { text: 'Show reviews from' }));
+  for (const [v, label, pred] of SOURCES) {
+    const id = `rf-src-${v}`;
+    const input = h('input', { type: 'radio', name: 'rf-source', id, value: v, checked: filter.source === v });
+    input.addEventListener('change', () => filter.set(v, filter.stars));
+    sourceGroup.append(h('span', { class: 'radio' }, input, h('label', { for: id, text: `${label} (${p.reviews.filter(pred).length})` })));
+  }
+  const starGroup = h('fieldset', { class: 'radio-row' }, h('legend', { text: 'Stars' }));
+  const starInputs = [];
+  const renderStars = () => {
+    const pred = SOURCES.find(([v]) => v === filter.source)[2];
+    const base = p.reviews.filter(pred);
+    starGroup.replaceChildren(h('legend', { text: 'Stars' }));
+    starInputs.length = 0;
+    for (const v of [null, 5, 4, 3, 2, 1]) {
+      const id = `rf-star-${v ?? 'all'}`;
+      const n = v ? base.filter((r) => r.rating === v).length : base.length;
+      const input = h('input', { type: 'radio', name: 'rf-stars', id, value: String(v ?? ''), checked: filter.stars === v });
+      input.addEventListener('change', () => filter.set(filter.source, v));
+      starInputs.push(input);
+      starGroup.append(h('span', { class: 'radio' }, input, h('label', { for: id, text: v ? `${v} (${n})` : `All (${n})` })));
     }
   };
-  for (const [v, label] of opts) {
-    const n = p.reviews.filter((r) =>
-      v === 'all' ? true : v === 'identity' ? r.author_verified : v === 'purchase' ? r.verified_purchase : !r.counted,
-    ).length;
-    filters.append(h('button', { type: 'button', class: 'chip', dataset: { filter: v }, 'aria-pressed': String(v === 'all'), on: { click: () => apply(v) } }, `${label} (${n})`));
-  }
+  const list = h('ul', { class: 'reviews' });
+  const shown = h('p', { class: 'result-count', role: 'status' });
   for (const r of p.reviews) list.append(reviewItem(r, policy, client));
-  sec.append(filters, list);
+  const apply = (opts = {}) => {
+    const pred = SOURCES.find(([v]) => v === filter.source)[2];
+    let n = 0;
+    for (const li of list.children) {
+      const r = p.reviews.find((x) => x.id === li.dataset.review);
+      const show = pred(r) && (!filter.stars || r.rating === filter.stars);
+      li.hidden = !show;
+      if (show) n++;
+    }
+    for (const input of sourceGroup.querySelectorAll('input')) input.checked = input.value === filter.source;
+    renderStars();
+    shown.textContent = n === p.reviews.length ? '' : `Showing ${fmt.plural(n, 'review')}.`;
+    if (opts.focus) {
+      document.getElementById('h-reviews')?.focus();
+      announce(`Showing ${fmt.plural(n, 'review')} with ${filter.stars} star${filter.stars === 1 ? '' : 's'}.`);
+    }
+  };
+  filter.onChange(apply);
+  sec.append(h('div', { class: 'review-filter' }, sourceGroup, starGroup), shown, list);
+  apply();
   return sec;
 }
 

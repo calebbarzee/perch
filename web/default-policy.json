@@ -13,7 +13,8 @@
   ],
   "flag_threshold": 3,
   "flag_thresholds": {
-    "review": 3
+    "review": 5,
+    "product": 5
   },
   "flags_require_verified": true,
   "seller_hidden_listing_limit": 3,

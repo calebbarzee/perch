@@ -43,21 +43,41 @@ export async function bundledPolicy() {
   return res.json();
 }
 
+// inPage: show the in-page tab (off by default: the shop's page can detect
+// an added iframe). setupDone: the user saved the first-run settings.
 export const DEFAULT_SETTINGS = Object.freeze({
   nodes: ['http://127.0.0.1:7700'],
   appUrl: '',
+  inPage: false,
+  setupDone: false,
+  hiddenSites: [],
 });
 
 export async function loadSettings() {
   const s = await chrome.storage.local.get(DEFAULT_SETTINGS);
   const nodes = Array.isArray(s.nodes) ? s.nodes.filter((n) => typeof n === 'string' && n) : [];
-  return { nodes: nodes.length ? nodes : [...DEFAULT_SETTINGS.nodes], appUrl: typeof s.appUrl === 'string' ? s.appUrl : '' };
+  return {
+    nodes: nodes.length ? nodes : [...DEFAULT_SETTINGS.nodes],
+    appUrl: typeof s.appUrl === 'string' ? s.appUrl : '',
+    inPage: Boolean(s.inPage),
+    setupDone: Boolean(s.setupDone),
+    hiddenSites: Array.isArray(s.hiddenSites) ? s.hiddenSites.filter((x) => typeof x === 'string') : [],
+  };
 }
 
-// The web app link: the configured app URL, or the first node (nodes serve
-// the app at their root).
-export function appProductUrl(settings, key) {
+// The web app: the configured address, or the first node (nodes serve the
+// app at their root). The product key goes in the fragment, which the
+// browser does not send to the server.
+export function appUrl(settings) {
   const base = settings.appUrl || (settings.nodes[0] ? new URL('/', settings.nodes[0]).href : '');
+  if (!base) return '';
+  const u = new URL(base);
+  u.hash = '';
+  return u.href;
+}
+
+export function appProductUrl(settings, key) {
+  const base = appUrl(settings);
   if (!base) return null;
   const u = new URL(base);
   u.hash = `#/product/${encodeURIComponent(key)}`;

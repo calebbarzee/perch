@@ -2,12 +2,24 @@
   "manifest_version": 3,
   "name": "Perch",
   "version": "0.1.0",
-  "description": "Shows signed reviews, ratings, and prices from the open Perch network on product pages.",
-  "minimum_chrome_version": "120",
+  "description": "Shows signed reviews, ratings, and prices from the open Perch network for products you view.",
+  "minimum_chrome_version": "127",
   "icons": { "128": "icon.png" },
   "permissions": ["storage"],
   "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "Perch",
+    "default_icon": { "128": "icon.png" },
+    "default_popup": "panel.html#mode=popup"
+  },
+  "commands": {
+    "toggle-panel": {
+      "suggested_key": { "default": "Alt+Shift+P" },
+      "description": "Show or hide Perch for this product"
+    }
+  },
   "content_scripts": [
     {
       "matches": ["https://*/*", "http://*/*"],

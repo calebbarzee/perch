@@ -141,10 +141,22 @@ export function categoryText(cat) {
   return cat ? cat.split('/').join(' / ') : '';
 }
 
+// GTIN as printed under the barcode (docs/ux.md 8.2): from the 14-digit
+// form, the last 8 digits when the first 6 are 0, else the last 12 when the
+// first 2 are 0, else the last 13 when the first is 0, else all 14.
+export function printedGtin(gtin14) {
+  const g = String(gtin14 || '');
+  if (!/^\d{14}$/.test(g)) return g;
+  if (g.startsWith('000000')) return g.slice(6);
+  if (g.startsWith('00')) return g.slice(2);
+  if (g.startsWith('0')) return g.slice(1);
+  return g;
+}
+
 // ProductKey -> label for humans.
 export function keyLabel(key) {
   if (!key) return '';
-  if (key.startsWith('gtin:')) return `GTIN ${key.slice(5)}`;
+  if (key.startsWith('gtin:')) return `GTIN ${printedGtin(key.slice(5))}`;
   if (key.startsWith('mpn:')) return `MPN ${key.slice(4)}`;
   if (key.startsWith('rec:')) return `Record ${shortHex(key.slice(4))}`;
   return key;

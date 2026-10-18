@@ -1,6 +1,8 @@
 # Perch browser extension
 
-The extension shows Perch data on product pages: the rating from identity-verified reviewers, the split by verified purchase, the price range, the number of listings, and a link to the product in the Perch web app.
+The extension shows Perch data for the product on a shop's page: the rating from identity-verified reviewers, the split by verified purchase, the price range, the number of listings, whether this site is a verified shop domain, and a link to the product in the Perch web app.
+
+By default it shows this only in the toolbar button's popup (or with Alt+Shift+P), and leaves the shop's page unchanged. In settings, "On the page" adds a small tab to product pages instead. The shop's page cannot read the tab, but it can detect that an iframe was added and so learn that the user runs Perch; that is why the tab is off by default.
 
 It runs the same wasm client as the web app. It checks every signature and computes every number in your browser. Nodes only deliver signed records.
 
@@ -8,12 +10,13 @@ It runs the same wasm client as the web app. It checks every signature and compu
 
 | Data | Sent to | When |
 |---|---|---|
-| The first 4 hex characters of `sha256("gtin:" + 14-digit GTIN)` | Each node in the settings (default `http://127.0.0.1:7700`) | Once per product page that has a GTIN in its schema.org markup |
+| The first 4 hex characters of `sha256("gtin:" + 14-digit GTIN)` | Each node in the settings (default `http://127.0.0.1:7700`) | When Perch is shown for a product: on opening the popup, or on a product page when "On the page" is on |
 
 Nothing else leaves the browser. In particular:
 
 - The extension sends no page address, no full product key, no cookies, and no `Referer` header.
-- A 4-hex prefix matches about 1 in 65,536 product keys, so the node learns a bucket of products, not the product.
+- A 4-hex prefix splits products into 65,536 groups. On a node with 100,000 products a group holds about 1.5 products, so the node can often tell which product was viewed; on a node with 1,000,000 products a group holds about 15.
+- The page's host name is used inside the browser only, for the "This site" line.
 - The extension holds no key and cannot publish.
 - The settings (node list and web app address) are stored in `chrome.storage.local` on this device only.
 
@@ -21,8 +24,8 @@ The panel itself is an extension page inside an iframe. The shop's page cannot r
 
 ## How it works
 
-1. `content.js` reads schema.org `Product` markup on the page: JSON-LD (`gtin`, `gtin8`, `gtin12`, `gtin13`, `gtin14`) or microdata (`itemprop`). It accepts only GTINs with a valid check digit. It makes no requests.
-2. If it finds a GTIN, it adds the panel (`panel.html`).
+1. `content.js` reads schema.org `Product` markup on the page: JSON-LD (`gtin`, `gtin8`, `gtin12`, `gtin13`, `gtin14`, including GS1 Digital Link URLs) or microdata (`itemprop`). It keeps distinct GTINs with a valid check digit. It makes no requests.
+2. It tells the background worker the count, which sets the toolbar button: grey with no GTIN, a number with 2 or more. With exactly 1 GTIN and "On the page" on, it adds the panel (`panel.html`) as a 200 × 40 px tab; Enter or a click expands it, Escape collapses it. Pages with 2 or more GTINs get no in-page panel; the popup lets the user pick one.
 3. The panel computes the product key `gtin:` + GTIN padded to 14 digits, and its SHA-256 prefix.
 4. The panel requests `GET /v1/lookup/{prefix}` from every configured node. Each node returns JSONL: the related records of every product in that bucket (ARCHITECTURE 8.1).
 5. The panel loads each node's records into a sparse client (`PerchClient.create({ sparse: true })`), which rejects records with bad signatures or hashes. It computes the product view with the policy bundled in the extension (`default-policy.json`).
@@ -34,7 +37,7 @@ The panel itself is an extension page inside an iframe. The shop's page cannot r
 scripts/build-wasm.sh          # writes extension/pkg, extension/default-policy.json, extension/fonts
 ```
 
-In Chromium: open `chrome://extensions`, turn on Developer mode, choose "Load unpacked", and select the `extension/` folder.
+In Chromium: open `chrome://extensions`, turn on Developer mode, choose "Load unpacked", and select the `extension/` folder. The settings page opens on install; Perch shows nothing until the settings are saved once.
 
 Nodes other than `127.0.0.1` and `localhost` need a host permission. The settings page asks for it when you save.
 
@@ -46,15 +49,16 @@ The manifest's content security policy allows `'wasm-unsafe-eval'` for extension
 NODE_PATH=/opt/npm-tools/node_modules node tests/browser/extension.mjs
 ```
 
-The test loads the unpacked extension in headless Chromium, opens a local page with JSON-LD for a demo product, and checks the numbers in the panel against the product view.
+The test loads the unpacked extension in headless Chromium (Playwright `channel: 'chromium'`; the default headless shell does not load extensions). It checks the default (no panel before setup, toolbar button only), the collapsed tab, expansion and Escape, the numbers against the product view, the "This site" and privacy lines, single-GTIN detection, and that each node receives only the 4-hex prefix.
 
 ## Files
 
 | File | Purpose |
 |---|---|
 | `manifest.json` | Manifest V3 |
-| `content.js` | Finds the GTIN; adds the panel |
-| `panel.html`, `panel.js`, `panel.css` | Lookup, verification, and display |
+| `content.js` | Finds GTINs; adds the in-page tab when enabled |
+| `background.js` | First-run settings page, toolbar button state, Alt+Shift+P |
+| `panel.html`, `panel.js`, `panel.css` | Lookup, verification, and display (tab, popup, and page modes) |
 | `options.html`, `options.js`, `options.css` | Node list and web app address |
 | `src/client.js` | Loads the wasm client and the bundled policy |
 | `pkg/`, `default-policy.json`, `fonts/` | Generated by `scripts/build-wasm.sh` |

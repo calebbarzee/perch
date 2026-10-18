@@ -11,19 +11,39 @@
 <body>
   <main>
     <h1>Perch extension settings</h1>
-    <p>On product pages, the extension reads the product number (GTIN) from the page. It asks the nodes below for records in a bucket of about 1 in 65,536 products. It never sends the full product number, the page address, or anything else.</p>
-    <p>The extension checks every signature and computes ratings and prices in your browser with the policy bundled in this extension. A node can withhold records but cannot change them. Use at least 2 independent nodes so the panel can show when they disagree.</p>
+    <p>On a product page, Perch reads the product number (GTIN) from the page. It asks the nodes below for the records of a group of products and checks every signature in your browser.</p>
+
+    <h2>What leaves your browser</h2>
+    <table>
+      <thead><tr><th scope="col">Data</th><th scope="col">Sent to</th><th scope="col">When</th></tr></thead>
+      <tbody><tr><td>The first 4 hex characters of <code>sha256(product key)</code></td><td>Each node in the list below</td><td>Once per product page with a GTIN, when Perch is shown</td></tr></tbody>
+    </table>
+    <p>Nothing else leaves the browser: no page address, no full product key, no cookies, no Referer header.</p>
+    <p>A 4-character prefix splits products into 65,536 groups. On a node with 100,000 products, a group holds about 1.5 products, so the node can often tell which product you viewed. On a node with 1,000,000 products, a group holds about 15.</p>
+
     <form id="form" novalidate>
+      <fieldset>
+        <legend>Show Perch</legend>
+        <div class="radio"><input type="radio" name="show" id="show-toolbar" value="toolbar"><label for="show-toolbar">Toolbar button only</label></div>
+        <p class="hint">The shop's page is not changed. Click the Perch button or press Alt+Shift+P.</p>
+        <div class="radio"><input type="radio" name="show" id="show-page" value="page"><label for="show-page">On the page, as a small tab</label></div>
+        <p class="hint">The shop's page can detect the added tab and learn that you use Perch. It cannot read what the tab shows.</p>
+      </fieldset>
       <div class="field">
         <label for="nodes">Nodes</label>
-        <p class="hint" id="nodes-hint">One HTTP address per line, for example http://127.0.0.1:7700</p>
+        <p class="hint" id="nodes-hint">One address per line, for example http://127.0.0.1:7700. Use at least 2 independent nodes, so Perch can show when they disagree. Your browser asks you to allow each node that is not on this computer.</p>
         <textarea id="nodes" rows="4" spellcheck="false" aria-describedby="nodes-hint"></textarea>
       </div>
       <div class="field">
         <label for="app">Web app address (optional)</label>
-        <p class="hint" id="app-hint">The panel links here. Empty: the first node's address, which serves the app.</p>
+        <p class="hint" id="app-hint">"Open in Perch" links here. Empty: the first node's address, which serves the app.</p>
         <input id="app" type="url" spellcheck="false" aria-describedby="app-hint">
       </div>
+      <fieldset id="hidden-sites">
+        <legend>Hidden on these sites</legend>
+        <ul id="sites"></ul>
+        <p class="hint" id="no-sites">None.</p>
+      </fieldset>
       <button type="submit">Save</button>
       <p id="status" role="status"></p>
     </form>

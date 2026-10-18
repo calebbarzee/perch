@@ -1,4 +1,6 @@
-import { h, field, announce } from '../dom.js';
+import { h, field, announce, copyText } from '../dom.js';
+import { checksumNote } from '../app.js';
+import { APP_VERSION } from '../client.js';
 import * as fmt from '../format.js';
 import { notice } from '../components.js';
 import { configuredNodes, saveSettings, urlNodes, validNodeUrl, defaultNodes } from '../settings.js';
@@ -28,6 +30,15 @@ export default {
     const live = peers.filter((p) => p.state === 'live');
     if (nodes.length < 3) {
       section.append(notice('info', `Connected to ${fmt.plural(nodes.length, 'node')}`, h('p', { text: 'Add at least 3 independent nodes so one node cannot hide records from you unnoticed.' })));
+    }
+    const pubStatus = typeof client.publishStatus === 'function' ? client.publishStatus() : null;
+    const unproven = (pubStatus?.nodes || []).filter((n) => n.unproven);
+    if (unproven.length) {
+      section.append(
+        notice('warn', 'A node claims records it cannot prove',
+          h('p', { text: `${unproven.map((n) => n.url).join(', ')} ${unproven.length === 1 ? 'claims' : 'claim'} a newer head for your log but did not send the signed records. The claim is ignored.` }),
+        ),
+      );
     }
     const disagreeing = live.filter((p) => p.behind || p.ahead);
     if (disagreeing.length) {
@@ -110,6 +121,30 @@ export default {
       ctx.refresh();
     });
     section.append(form);
+
+    // This device and the running build (docs/ux.md 8.7 items 4 and 5).
+    const stats = client.stats();
+    section.append(
+      h('section', { class: 'panel', 'aria-labelledby': 'h-device' },
+        h('h2', { id: 'h-device', text: 'This device' }),
+        h('p', { text: `${fmt.plural(stats.records, 'record')} from ${fmt.plural(stats.authors, 'author')}: ${fmt.plural(stats.products, 'product')}, ${fmt.plural(stats.listings, 'listing')}, ${fmt.plural(stats.reviews, 'review')}. ${fmt.plural(stats.forks, 'conflicting history', 'conflicting histories')}, ${fmt.plural(stats.invalid, 'invalid record')}, ${fmt.plural(stats.redacted, 'removed body', 'removed bodies')}.` }),
+      ),
+    );
+    const wasm = ctx.app.build?.wasm_sha256;
+    const grouped = wasm ? wasm.match(/.{1,16}/g).join('\u2009') : null;
+    section.append(
+      h('section', { class: 'panel', 'aria-labelledby': 'h-build' },
+        h('h2', { id: 'h-build', text: 'Build' }),
+        h('dl', { class: 'facts' },
+          h('div', { class: 'fact-row' }, h('dt', { text: 'App version' }), h('dd', { text: `${APP_VERSION}${ctx.app.mode === 'mock' ? ' (mock client)' : ''}` })),
+          h('div', { class: 'fact-row' }, h('dt', { text: 'Wasm SHA-256' }), h('dd', {},
+            wasm ? [h('code', { class: 'hex hex-full', id: 'net-wasm-sha', text: grouped }), ' ', h('button', { type: 'button', class: 'button small', on: { click: () => copyText(wasm) } }, 'Copy')] : h('span', { text: 'none (mock client)' }),
+          )),
+          h('div', { class: 'fact-row' }, h('dt', { text: 'Policy hash' }), h('dd', {}, h('code', { class: 'hex hex-full', text: client.policyHash() }))),
+        ),
+        wasm ? h('p', {}, 'The wasm module ', checksumNote(false)) : null,
+      ),
+    );
 
     if (urlNodes()) {
       section.append(h('p', { class: 'hint', text: 'The page address sets the node list (?nodes=). Changes here apply after you remove that part of the address.' }));

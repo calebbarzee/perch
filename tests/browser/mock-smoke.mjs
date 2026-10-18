@@ -163,6 +163,29 @@ try {
   await page.waitForSelector('#record-json');
   check('record inspector renders', (await page.locator('.screen-record .notice-good').count()) === 1);
 
+  // C5: hidden product records come last, collapsed.
+  await go(page, '#/search?q=charger');
+  await page.waitForSelector('.moderated-hits');
+  check('search groups hits with hidden product records', (await page.locator('.moderated-hits .hit').count()) === 1);
+  // C6: why as sentences with a raw toggle.
+  await go(page, '#/search?q=kettle');
+  await page.locator('.why summary').first().click();
+  const why = await page.locator('.why li').first().textContent();
+  check('why shown as sentences', /^Name contains "kettle": \+30$/.test(why), why);
+  check('raw why toggle', (await page.locator('.why .link-button').first().textContent()) === 'Show raw');
+  // C8: histogram rows set the star filter.
+  await go(page, `#/product/${encodeURIComponent('gtin:04006381333931')}`);
+  await page.waitForSelector('.histogram button');
+  await page.locator('.histogram button').first().click();
+  const shownStars = await page.locator('.review:not([hidden]) .stars').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+  check('histogram button filters reviews by stars', shownStars.length > 0 && shownStars.every((l) => l.startsWith('5 ')), shownStars.join('; '));
+  check('star filter stored in the URL', (await page.evaluate(() => location.hash)).includes('stars=5'));
+  // C4: buttons are never disabled; the gate shows on press.
+  await go(page, '#/publish?kind=receipt');
+  check('Sign receipt is enabled', await page.locator('#form-receipt button[type=submit]').isEnabled());
+  await page.locator('#form-receipt button[type=submit]').click();
+  check('Sign receipt without listings explains why', (await page.locator('#form-receipt .notice').count()) === 1);
+
   await go(page, '#/nowhere');
   check('unknown route shows not found', (await page.locator('h1').textContent()) === 'Page not found');
 
@@ -183,6 +206,16 @@ try {
   await dark.page.waitForSelector('.chart-svg');
   const overflow = await dark.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check('no horizontal scroll at 375 px', overflow <= 0, `overflow ${overflow}px`);
+  // C11: Menu disclosure below 600 px.
+  check('nav collapsed behind a Menu button', (await dark.page.locator('#menu-button').isVisible()) && !(await dark.page.locator('#topnav-list').isVisible()));
+  await dark.page.click('#menu-button');
+  check('Menu opens the nav', (await dark.page.locator('#topnav-list').isVisible()) && (await dark.page.getAttribute('#menu-button', 'aria-expanded')) === 'true');
+  await dark.page.keyboard.press('Escape');
+  check('Escape closes the menu', !(await dark.page.locator('#topnav-list').isVisible()));
+  await dark.page.setViewportSize({ width: 360, height: 800 });
+  await dark.page.waitForTimeout(300);
+  const overflow360 = await dark.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  check('no horizontal scroll at 360 px', overflow360 <= 0, `overflow ${overflow360}px`);
   await dark.page.screenshot({ path: path.join(shots, 'mock-product-dark-narrow.png'), fullPage: true });
   await dark.ctx.close();
 } catch (e) {

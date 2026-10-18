@@ -39,26 +39,66 @@ export default {
     }
     section.append(h('p', { class: 'signing-as' }, 'Signing as ', authorChip(author, client.authorView(author)?.name ?? null)));
 
-    const blockedReasons = [];
-    if (!backupConfirmed(client)) blockedReasons.push(h('p', {}, 'Confirm that you saved a backup of your key. ', h('a', { href: '#/keys', text: 'Go to Keys' }), '.'));
-    const guard = publishBlocker(client);
-    if (guard) blockedReasons.push(h('p', { text: guard }));
-    const blocked = blockedReasons.length > 0;
-    if (blocked && kind !== 'receipt') section.append(notice('warn', 'Publishing is paused', ...blockedReasons));
+    // The gate (docs/ux.md 8.5.1) shows above the form; the form stays
+    // editable, and the submit button stays enabled.
+    const g = gateNotice(client);
+    if (g && kind !== 'receipt') section.append(g);
 
     const forms = { review: reviewForm, listing: listingForm, receipt: receiptTool, product: productForm, profile: profileForm, flag: flagForm, appeal: appealForm, retract: retractForm };
-    section.append(forms[kind](ctx, { blocked: kind === 'receipt' ? false : blocked }));
+    section.append(forms[kind](ctx, {}));
     return section;
   },
 };
 
+// The first unmet publish condition as a notice, or null.
+export function gateNotice(client, { summary = false } = {}) {
+  const title = summary ? 'Not published yet' : 'Publishing is paused';
+  if (!client.author()) {
+    return notice('warn', title, h('p', {}, 'You need a key to publish. Your key signs everything you publish. ', h('a', { href: '#/keys', text: 'Create or import a key' }), '.'));
+  }
+  if (!backupConfirmed(client)) {
+    return notice('warn', title, h('p', {}, 'Confirm your key backup before your first record. Without a backup, a lost key cannot be recovered. ', h('a', { href: '#/keys', text: 'Back up key' }), '.'));
+  }
+  const st = typeof client.publishStatus === 'function' ? client.publishStatus() : { ready: !publishBlocker(client), reason: publishBlocker(client), nodes: [] };
+  if (!st.ready) {
+    const lines = (st.nodes || []).map((n) => {
+      let host = n.url;
+      try {
+        host = new URL(n.url).host;
+      } catch {
+        // keep the raw URL
+      }
+      const state = n.unproven ? 'claims records it cannot prove (ignored)' : n.checked ? `done${n.head ? `, record #${n.head.seq}` : ', no records of yours'}` : 'waiting';
+      return h('li', {}, h('span', { class: 'host', text: host }), `: ${state}`);
+    });
+    return notice('warn', title,
+      h('p', { text: 'Checking your latest record on each node, so you do not publish over it.' }),
+      lines.length ? h('ul', { class: 'plain node-lines' }, lines) : null,
+      st.reason ? h('p', { text: st.reason }) : null,
+      h('p', {}, h('a', { href: '#/network', text: 'Network' })),
+    );
+  }
+  return null;
+}
+
+// Shows the gate in the form's status area and moves focus to it.
+function showGate(status, client) {
+  const g = gateNotice(client, { summary: true });
+  if (!g) return false;
+  g.setAttribute('tabindex', '-1');
+  g.setAttribute('role', 'alert');
+  status.replaceChildren(g);
+  g.focus();
+  return true;
+}
+
 // Shared submit flow: build body, show preview, publish, report.
-function publishForm(ctx, { id, kind, fields, build, blocked, submitLabel = 'Sign and publish', replaces, afterPublish }) {
+function publishForm(ctx, { id, kind, fields, build, submitLabel = 'Sign and publish', replaces, afterPublish }) {
   const { client } = ctx;
   const status = h('div', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
   const preview = h('details', { class: 'record-preview' }, h('summary', { text: 'Preview the record body' }), h('pre', { class: 'json' }));
   const form = h('form', { class: 'publish-form panel', id, novalidate: true }, ...fields, preview,
-    h('p', { class: 'actions' }, h('button', { type: 'submit', class: 'button primary', disabled: blocked, text: submitLabel })),
+    h('p', { class: 'actions' }, h('button', { type: 'submit', class: 'button primary', text: submitLabel })),
     status,
   );
   const updatePreview = () => {
@@ -74,7 +114,7 @@ function publishForm(ctx, { id, kind, fields, build, blocked, submitLabel = 'Sig
   requestAnimationFrame(updatePreview);
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    if (blocked) return;
+    if (showGate(status, client)) return;
     let body;
     try {
       body = build(form, { strict: true });
@@ -91,13 +131,17 @@ function publishForm(ctx, { id, kind, fields, build, blocked, submitLabel = 'Sig
       const res = client.publish(kind, body, opts);
       await persistKey();
       announce('Published.');
+      const live = client.peers().filter((p) => p.state === 'live').length;
       status.replaceChildren(
         notice('good', 'Published',
-          h('p', {}, 'Record ', recordLink(res.id), ' is signed and stored on this device. Connected nodes receive it now.'),
+          h('p', {}, 'Record ', recordLink(res.id), live
+            ? ` is signed and stored on this device. Sending it to ${fmt.plural(live, 'connected node')}.`
+            : ' is saved on this device. It will be sent when a node connects.'),
           afterPublish ? afterPublish(res, body) : null,
         ),
       );
-      form.querySelector('button[type=submit]').disabled = true;
+      // Clear the fields, so a second press does not publish the same record again.
+      form.reset();
     } catch (e) {
       status.replaceChildren(notice('bad', 'Not published', h('p', { text: e.message || String(e) })));
     }
@@ -304,11 +348,17 @@ function receiptTool(ctx) {
     field({ id: 'f-rlisting', label: 'Your listing', control: listingSel }),
     field({ id: 'f-buyer', label: "Buyer's public key", hint: '64 hex characters. The buyer finds it on their Keys screen.', control: buyer }),
     field({ id: 'f-purchased', label: 'Purchase time', control: when }),
-    h('p', { class: 'actions' }, h('button', { type: 'submit', class: 'button primary', disabled: !mine.length, text: 'Sign receipt' })),
+    h('p', { class: 'actions' }, h('button', { type: 'submit', class: 'button primary', text: 'Sign receipt' })),
     out,
   );
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
+    if (!mine.length) {
+      out.replaceChildren(notice('warn', 'No listing to sign for', h('p', {}, 'A receipt names one of your listings. ', h('a', { href: routes.publish('listing'), text: 'Publish a listing' }), ' first.')));
+      out.firstChild.setAttribute('tabindex', '-1');
+      out.firstChild.focus();
+      return;
+    }
     try {
       const b = buyer.value.trim().toLowerCase();
       if (!/^[0-9a-f]{64}$/.test(b)) fail("The buyer's key must be 64 hex characters.", 'buyer');

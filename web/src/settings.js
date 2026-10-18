@@ -41,13 +41,31 @@ export function urlNodes() {
   return v.split(',').map((s) => s.trim()).filter(Boolean);
 }
 
+// Release configuration from web/config.json (set by the app at boot).
+// bootstrap_nodes: node sync addresses; a relative path such as "/v1/sync"
+// means the node that serves this page. release_page_url: where the release
+// publishes its checksums; empty hides the link.
+let config = { bootstrap_nodes: ['/v1/sync'], release_page_url: '' };
+export function setConfig(c) {
+  if (c && typeof c === 'object') config = { ...config, ...c };
+}
+export function appConfig() {
+  return config;
+}
+
 export function defaultNodes() {
-  // A node that serves the app also serves sync at /v1/sync.
-  if (location.protocol === 'http:' || location.protocol === 'https:') {
-    const ws = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return [`${ws}//${location.host}/v1/sync`];
+  const out = [];
+  const served = location.protocol === 'http:' || location.protocol === 'https:';
+  for (const entry of config.bootstrap_nodes || []) {
+    if (typeof entry !== 'string') continue;
+    if (/^wss?:\/\//.test(entry)) {
+      out.push(entry);
+    } else if (served && entry.startsWith('/')) {
+      const ws = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      out.push(`${ws}//${location.host}${entry}`);
+    }
   }
-  return [];
+  return [...new Set(out)];
 }
 
 export function configuredNodes() {

@@ -235,6 +235,16 @@ async function main() {
       const t2 = c.ingest(JSON.stringify(r2));
       return { t1, t2, still: c.record(id)?.body?.rating === JSON.parse(line).body.rating };
     });
+    // Identity-point key with R = identity, S = 0: some Web Crypto Ed25519
+    // implementations accept it for any message. perch-core must not.
+    const forged = (() => {
+      const identity = '01' + '00'.repeat(31);
+      const body = { name: 'Forged', role: 'seller' };
+      const bodyHash = createHash('sha256').update(canon(body)).digest('hex');
+      return JSON.stringify({ v: 1, author: identity, seq: 1, prev: null, ts: Date.now(), kind: 'profile', body_hash: bodyHash, sig: identity + '00'.repeat(32), body });
+    })();
+    const f = await clientEval(page, (c, line) => ({ ingest: c.ingest([line]), verify: c.verifyRecord(line) }), forged);
+    assert(f.ingest.rejected === 1 && f.ingest.inserted === 0 && f.verify.valid === false, `identity-point forgery: ${JSON.stringify(f)}`);
     assert(res.t1.rejected === 1 && res.t1.inserted === 0, `body tamper: ${JSON.stringify(res.t1)}`);
     assert(res.t2.rejected === 1 && res.t2.inserted === 0, `signature tamper: ${JSON.stringify(res.t2)}`);
     assert(res.still, 'original record changed');

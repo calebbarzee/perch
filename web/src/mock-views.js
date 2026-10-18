@@ -536,6 +536,7 @@ export function computeState(store, policy) {
     const lroot = recs.get(rc.listing) ? root(rc.listing) : null;
     const lv = lroot ? listingViews.get(lroot) : null;
     if (!lv || mockSign(lv.seller, receiptMessage(rc)) !== rc.sig) return 'receipt_invalid';
+    rv._receiptSeller = lv.seller;
     if (rc.buyer !== rv.author) return 'receipt_invalid';
     if (lv.product !== rv._product) return 'wrong_product';
     if (!verified(lv.seller)) return 'seller_unverified';
@@ -545,6 +546,7 @@ export function computeState(store, policy) {
   };
 
   const productViews = new Map();
+  const countedReviews = []; // { product, receiptSeller } for AuthorView.seller_reviews
   const allKeys = new Set([...products.keys()]);
   for (const k of allKeys) {
     const prods = products.get(k) || [];
@@ -703,6 +705,8 @@ export function computeState(store, policy) {
       delete rv._seq;
       delete rv._afterCutoff;
       delete rv._receipt;
+      if (rv.counted) countedReviews.push({ product: k, receiptSeller: rv._receiptSeller ?? null });
+      delete rv._receiptSeller;
       delete rv._product;
     }
     productViews.set(k, view);
@@ -715,7 +719,10 @@ export function computeState(store, policy) {
     const p = profiles.get(a)?.body;
     const id = identity.get(a);
     const sellerListings = [...listingViews.values()].filter((l) => l.seller === a);
+    const listedProducts = new Set(sellerListings.map((l) => l.product));
+    const theirs = countedReviews.filter((r) => listedProducts.has(r.product));
     authorViews.set(a, {
+      seller_reviews: { total: theirs.length, with_valid_receipt: theirs.filter((r) => r.receiptSeller === a).length },
       id: a,
       name: p?.name ?? null,
       role: p?.role ?? null,
@@ -854,6 +861,7 @@ export function searchState(state, q, { sort = 'relevance', currency = null } = 
       category,
       score: Math.round(score * 100) / 100,
       why,
+      moderation_status: p.moderation?.status ?? 'visible',
       rating_mean: vi.mean,
       rating_count: vi.count,
       rating_smoothed: Math.round(smoothed * 100) / 100,
@@ -873,7 +881,9 @@ export function searchState(state, q, { sort = 'relevance', currency = null } = 
     rating_count: (a, b) => b.rating_count - a.rating_count || b.rating_smoothed - a.rating_smoothed || tie(a, b),
     rating_mean: (a, b) => b.rating_smoothed - a.rating_smoothed || b.rating_count - a.rating_count || tie(a, b),
   };
-  hits.sort(sorters[sort] || sorters.relevance);
+  const base = sorters[sort] || sorters.relevance;
+  // Hits whose product record is not visible come after all visible hits.
+  hits.sort((a, b) => (a.moderation_status === 'visible' ? 0 : 1) - (b.moderation_status === 'visible' ? 0 : 1) || base(a, b));
   return hits;
 }
 

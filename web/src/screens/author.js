@@ -1,6 +1,6 @@
 import { h, bdi, userText } from '../dom.js';
 import * as fmt from '../format.js';
-import { emptyState, definitionList, authorChip, notice, badge, recordLink, urlLink, hex, routes, moderationNotice } from '../components.js';
+import { emptyState, definitionList, authorChip, notice, badge, recordLink, urlLink, hex, routes, moderationNotice, identityBadge, SENTENCE, receiptShare } from '../components.js';
 import { fingerprint } from '../fingerprint.js';
 
 export default {
@@ -20,17 +20,17 @@ export default {
       h('div', { class: 'author-head' },
         fingerprint(a.id, 48),
         h('div', {},
-          h('h1', {}, a.name ? bdi(a.name) : 'Author without a profile'),
+          h('h1', {}, a.name ? bdi(a.name) : a.profile?.status === 'hidden' ? 'Name hidden by moderation' : 'Unnamed author'),
           h('p', { class: 'muted' }, a.role ? `${fmt.ROLES[a.role] || a.role}. ` : '', 'Names are chosen by authors; the key identifies them.'),
         ),
       ),
     );
     const badges = h('p', { class: 'badges' });
-    if (a.verified) badges.append(badge('good', `Identity verified (${a.verified.level})`, 'shield'));
-    else badges.append(badge('muted', 'Identity not verified', 'shield'));
-    for (const d of a.domains || []) badges.append(badge('good', `Domain ${d.domain}`, 'globe'));
-    if (a.restricted) badges.append(badge('bad', 'Restricted', 'ban'));
+    badges.append(identityBadge(a.verified));
+    for (const d of a.domains || []) badges.append(badge('good', `Shop domain verified: ${d.domain}`, 'globe', SENTENCE.domain(d)));
+    if (a.restricted) badges.append(badge('bad', 'Restricted seller', 'ban', SENTENCE.restricted(a, ctx.client.policy())));
     section.append(badges);
+    if (ctx.client.author() === a.id) section.append(h('p', {}, 'This is your key. ', h('a', { href: '#/keys', text: 'Go to Keys' }), '.'));
 
     if (a.status === 'forked') {
       section.append(
@@ -74,13 +74,10 @@ export default {
         ['Website', a.url ? urlLink(a.url) : null],
         ['About', a.about ? userText('p', a.about) : null],
         ['Identity', a.verified
-          ? h('span', {},
-              a.verified.level === 'business' ? 'Business' : 'Person',
-              a.verified.legal_name ? [', registered as ', bdi(a.verified.legal_name)] : '',
-              a.verified.country ? ` in ${a.verified.country}` : '',
-              ', attested by ', authorChip(a.verified.attestor, null), ` until ${fmt.date(a.verified.expires)}`)
-          : h('span', { text: 'No counting attestation under your policy.' })],
-        ['Domains', (a.domains || []).length ? h('ul', { class: 'plain' }, a.domains.map((d) => h('li', {}, h('span', { class: 'host', text: d.domain }), ', attested by ', authorChip(d.attestor, null), ` until ${fmt.date(d.expires)}`))) : null],
+          ? h('span', {}, SENTENCE.identity(a.verified), ' Attestor: ', authorChip(a.verified.attestor, null))
+          : h('span', { text: SENTENCE.notVerified })],
+        ['Shop domains', (a.domains || []).length ? h('ul', { class: 'plain' }, a.domains.map((d) => h('li', {}, SENTENCE.domain(d), ' Attestor: ', authorChip(d.attestor, null)))) : null],
+        ['Receipts', receiptShare(a) ?? undefined],
         ['Records', h('span', { text: fmt.number(a.record_count) })],
         ['Hidden listings', h('span', { text: fmt.number(a.hidden_listing_count) })],
       ]),
