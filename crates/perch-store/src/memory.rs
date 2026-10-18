@@ -45,11 +45,17 @@ pub struct AdmissionLimit {
     pub records: u64,
     /// Maximum approximate wire bytes of the log.
     pub bytes: u64,
+    /// `Some(rank)` puts the author's log in the shared pool (tier 3). The
+    /// pool's total bytes stay within [`MemoryStore::set_pool_budget`]. When
+    /// the pool is full, logs with a higher `(rank, author)` are dropped
+    /// whole to make room for a lower one; a record that would need a lower
+    /// ranked log dropped is refused.
+    pub pool_rank: Option<[u8; 32]>,
 }
 
 impl AdmissionLimit {
     /// No limit.
-    pub const UNLIMITED: AdmissionLimit = AdmissionLimit { records: u64::MAX, bytes: u64::MAX };
+    pub const UNLIMITED: AdmissionLimit = AdmissionLimit { records: u64::MAX, bytes: u64::MAX, pool_rank: None };
 }
 
 /// Admission function: limit for an author given the current store.
@@ -129,6 +135,14 @@ pub struct MemoryStore {
     track: bool,
     changes: Vec<Change>,
     admission: Option<AdmissionFn>,
+    pool_budget: u64,
+    pool_bytes: u64,
+    pool: BTreeMap<AuthorId, [u8; 32]>,
+    pool_order: BTreeSet<([u8; 32], AuthorId)>,
+    /// Lowest `(rank, author)` dropped or refused for budget since the last
+    /// rebuild. Higher ranks are refused, so the pool always holds a prefix
+    /// of the rank order.
+    pool_cutoff: Option<([u8; 32], AuthorId)>,
     /// Set when a body was dropped because of the removal list, so the
     /// persistence file still holds it and must be rewritten.
     pub(crate) needs_compaction: bool,
@@ -203,6 +217,11 @@ impl MemoryStore {
             track: false,
             changes: Vec::new(),
             admission: None,
+            pool_budget: u64::MAX,
+            pool_bytes: 0,
+            pool: BTreeMap::new(),
+            pool_order: BTreeSet::new(),
+            pool_cutoff: None,
             needs_compaction: false,
             #[cfg(not(target_arch = "wasm32"))]
             jslot: JournalSlot::default(),
@@ -482,22 +501,152 @@ impl MemoryStore {
         let Some(id) = log.recs.remove(&seq) else { return };
         if let Some(e) = self.entries.remove(&id) {
             log.bytes = log.bytes.saturating_sub(wire_len(&e.record) as u64);
+            if self.pool.contains_key(author) {
+                self.pool_bytes = self.pool_bytes.saturating_sub(wire_len(&e.record) as u64);
+            }
             self.idx.remove(&e.record, &e.keys);
             self.bodyless.remove(&id);
         }
     }
 
-    fn admission_check(&self, r: &Record, count_after: u64) -> Result<(), Reject> {
-        let Some(f) = &self.admission else { return Ok(()) };
-        let lim = f(self, &r.author());
-        let bytes = self.log_bytes(&r.author()) + wire_len(r) as u64;
+    fn admit(&mut self, r: &Record, count_after: u64) -> Result<(), Reject> {
+        let Some(f) = self.admission.clone() else { return Ok(()) };
+        let author = r.author();
+        let lim = f(self, &author);
+        let size = wire_len(r) as u64;
+        let log_bytes = self.log_bytes(&author);
         if count_after > lim.records {
             return Err(Reject::Admission(format!("log limit of {} records for this author", lim.records)));
         }
-        if bytes > lim.bytes {
+        if log_bytes + size > lim.bytes {
             return Err(Reject::Admission(format!("log limit of {} bytes for this author", lim.bytes)));
         }
+        let Some(rank) = lim.pool_rank else {
+            self.pool_leave(&author);
+            return Ok(());
+        };
+        let me = (rank, author);
+        let full = |s: &MemoryStore| {
+            Reject::Admission(format!("node budget of {} bytes for tier-3 authors is full", s.pool_budget))
+        };
+        if self.pool_cutoff.is_some_and(|c| me >= c) {
+            return Err(full(self));
+        }
+        self.pool_join(author, rank);
+        while self.pool_bytes + size > self.pool_budget {
+            let worst = self.pool_order.iter().next_back().copied();
+            match worst {
+                Some(w) if w > me => {
+                    self.remove_author(&w.1);
+                    self.pool_cutoff = Some(self.pool_cutoff.map_or(w, |c| c.min(w)));
+                }
+                _ => {
+                    if !self.logs.contains_key(&author) {
+                        self.pool_leave(&author);
+                    }
+                    self.pool_cutoff = Some(self.pool_cutoff.map_or(me, |c| c.min(me)));
+                    return Err(full(self));
+                }
+            }
+        }
         Ok(())
+    }
+
+    fn pool_join(&mut self, author: AuthorId, rank: [u8; 32]) {
+        match self.pool.get(&author) {
+            Some(old) if *old == rank => {}
+            Some(old) => {
+                let old = *old;
+                self.pool_order.remove(&(old, author));
+                self.pool_order.insert((rank, author));
+                self.pool.insert(author, rank);
+            }
+            None => {
+                self.pool.insert(author, rank);
+                self.pool_order.insert((rank, author));
+                self.pool_bytes += self.log_bytes(&author);
+            }
+        }
+    }
+
+    fn pool_leave(&mut self, author: &AuthorId) {
+        if let Some(rank) = self.pool.remove(author) {
+            self.pool_order.remove(&(rank, *author));
+            self.pool_bytes = self.pool_bytes.saturating_sub(self.log_bytes(author));
+        }
+    }
+
+    /// Sets the byte budget of the shared pool (tier 3). Default: unlimited.
+    pub fn set_pool_budget(&mut self, bytes: u64) {
+        self.pool_budget = bytes;
+    }
+
+    /// Approximate wire bytes of the logs in the shared pool.
+    pub fn pool_bytes(&self) -> u64 {
+        self.pool_bytes
+    }
+
+    /// Authors in the shared pool.
+    pub fn pool_len(&self) -> usize {
+        self.pool.len()
+    }
+
+    /// True if the persistence file holds data the store no longer has
+    /// (removed bodies or dropped logs); [`MemoryStore::compact`] rewrites it.
+    pub fn needs_compaction(&self) -> bool {
+        self.needs_compaction
+    }
+
+    /// Drops an author's whole log, evidence pair, and held records.
+    /// Returns the number of log records dropped. Used by admission.
+    pub fn remove_author(&mut self, author: &AuthorId) -> usize {
+        self.pool_leave(author);
+        let seqs: Vec<u64> = self.logs.get(author).map(|l| l.recs.keys().copied().collect()).unwrap_or_default();
+        let n = seqs.len();
+        for s in seqs {
+            self.remove_log_record(author, s);
+        }
+        if let Some(log) = self.logs.remove(author)
+            && let Some(p) = log.pair
+        {
+            for id in p.ids() {
+                self.evidence_ids.remove(&id);
+            }
+        }
+        let held: Vec<HoldKey> = self
+            .held
+            .range((*author, 0, RecordId([0; 32]))..=(*author, u64::MAX, RecordId([0xff; 32])))
+            .map(|(k, _)| *k)
+            .collect();
+        for k in held {
+            self.unhold(&k);
+        }
+        self.needs_compaction = true;
+        n
+    }
+
+    /// Recomputes pool membership: with `all`, for every author (for example
+    /// after startup replay); otherwise only for current members (for
+    /// example after the rank epoch changed). Then drops the highest ranked
+    /// logs while the pool is over budget. Returns the dropped authors.
+    pub fn rebuild_pool(&mut self, all: bool) -> Vec<AuthorId> {
+        self.pool_cutoff = None;
+        let Some(f) = self.admission.clone() else { return Vec::new() };
+        let authors: Vec<AuthorId> = if all { self.logs.keys().copied().collect() } else { self.pool.keys().copied().collect() };
+        for a in authors {
+            match f(self, &a).pool_rank {
+                Some(rank) => self.pool_join(a, rank),
+                None => self.pool_leave(&a),
+            }
+        }
+        let mut dropped = Vec::new();
+        while self.pool_bytes > self.pool_budget {
+            let Some(&w) = self.pool_order.iter().next_back() else { break };
+            self.remove_author(&w.1);
+            self.pool_cutoff = Some(self.pool_cutoff.map_or(w, |c| c.min(w)));
+            dropped.push(w.1);
+        }
+        dropped
     }
 
     fn store_log_record(&mut self, r: Record) {
@@ -511,6 +660,9 @@ impl MemoryStore {
         let log = self.logs.entry(author).or_default();
         log.recs.insert(r.seq(), id);
         log.bytes += wire_len(&r) as u64;
+        if self.pool.contains_key(&author) {
+            self.pool_bytes += wire_len(&r) as u64;
+        }
         self.entries.insert(id, Entry { record: r.clone(), keys });
         if self.mode == Mode::Sparse && r.kind() == names::PRODUCT {
             self.reindex_descendants(id);
@@ -552,6 +704,9 @@ impl MemoryStore {
         let author = new.author();
         if let Some(log) = self.logs.get_mut(&author) {
             log.bytes = log.bytes.saturating_sub(wire_len(&old.record) as u64) + wire_len(&new) as u64;
+        }
+        if self.pool.contains_key(&author) {
+            self.pool_bytes = self.pool_bytes.saturating_sub(wire_len(&old.record) as u64) + wire_len(&new) as u64;
         }
         self.idx.remove(&old.record, &old.keys);
         let keys = self.compute_keys(&new);
@@ -664,7 +819,7 @@ impl MemoryStore {
                     return Insert::AboveFork;
                 }
                 let count = self.logs.get(&author).map_or(0, |l| l.recs.len() as u64) + 1;
-                if let Err(e) = self.admission_check(&r, count) {
+                if let Err(e) = self.admit(&r, count) {
                     return Insert::Rejected(e);
                 }
                 self.store_log_record(r);
@@ -683,7 +838,7 @@ impl MemoryStore {
                     {
                         return Insert::Rejected(Reject::TsDecrease { prev_ts: p.ts(), ts: r.ts() });
                     }
-                    if let Err(e) = self.admission_check(&r, r.seq()) {
+                    if let Err(e) = self.admit(&r, r.seq()) {
                         return Insert::Rejected(e);
                     }
                     self.store_log_record(r);

@@ -216,18 +216,27 @@ WebSocket upgrade for the sync protocol ([`docs/sync-protocol.md`](sync-protocol
 
 ## 6. Admission
 
-The node applies the admission tiers of ARCHITECTURE 9 with the tier function of `perch-views`. The admission attestor set is the attestors of the node's default policy.
+The node applies the admission tiers of ARCHITECTURE 9 with `perch_views::admission_tier`. The admission attestor set is the attestors of the node's default policy.
 
-| Tier | Per-author limit |
-|---|---|
-| 1: verified authors and attestors | 1,000,000 records, 1 GiB |
-| 2: unverified authors referenced by tier-1 records | 1,000 records, 16 MiB |
-| 3: everyone else | 100 records, 1 MiB |
+| Tier | Limit | Option |
+|---|---|---|
+| 1: verified authors and attestors | 1,000,000 records and 1 GiB per **person**: summed over all keys of the person (`perch_views::person_keys`) | `--tier1-records` |
+| 2: unverified authors referenced by tier-1 records | 1,000 records and 16 MiB per author | `--tier2-records` |
+| 3: everyone else | 100 records and 1 MiB per author, and 1 GiB for all tier-3 logs together | `--tier3-records`, `--tier3-budget` |
 
-- A record over the limit gets outcome `admission`; the log keeps its complete prefix.
-- Tiers are recomputed when attestations, flags, appeals, reviews, retractions, or forks arrive, and at every heads re-exchange. A tier rise lets sync fetch the rest of the log at the next re-exchange.
+Tier-3 admission order:
+
+- Each tier-3 author has the rank `sha256(author ‖ epoch)`, where `author` is the 32 key bytes and `epoch = floor(floor(now_ms / 86,400,000) / 30)` as 8 bytes big-endian. The order rotates every 30 days.
+- When a record does not fit in the budget, the node drops whole logs of higher-ranked tier-3 authors to make room. If only lower-ranked logs remain, the record gets outcome `admission`.
+- After a log is dropped or a record refused for budget, authors ranked above it are refused until the next maintenance tick. The stored tier-3 logs are therefore always the lowest ranks.
+- Dropped logs are removed from `records.jsonl` at the next maintenance tick (compaction).
+
+Other rules:
+
+- A record over a limit gets outcome `admission`; the log keeps its complete prefix.
+- Tiers are recomputed when attestations, flags, appeals, reviews, retractions, or forks arrive. Every `--refresh-secs` (default 600 s), a maintenance tick re-evaluates the tier-3 pool and its ranks, and every session re-exchanges heads, so a tier rise fetches the rest of a log.
+- At startup the node replays `records.jsonl` without limits, then applies the tiers to every stored author.
 - `--open-admission` admits every author in full.
-- Not yet implemented in v1: the node-wide 1 GiB budget and rotation order for tier 3, and per-person (rather than per-key) limits in tier 1.
 
 ## 7. Command line
 
@@ -237,6 +246,8 @@ perch-node serve [--listen 127.0.0.1:7700] [--data ./data] [--peer ws://host:por
                  [--removed ids.txt]... [--admin 127.0.0.1:7790] [--operator-key key.json]
                  [--public-url ws://host:port/v1/sync] [--open-admission]
                  [--refresh-secs 600] [--max-outbound 8] [--import file.jsonl]...
+                 [--tier1-records 1000000] [--tier2-records 1000] [--tier3-records 100]
+                 [--tier3-budget 1073741824]
 perch-node keygen [--out key.json]
 perch-node demo --out demo.jsonl [--policy-out policy.json] [--manifest-out manifest.json]
                 [--size small|medium|large] [--seed 1]

@@ -175,10 +175,24 @@ impl Node {
             tracing::warn!(line, error = %e, "invalid line in persistence file");
         }
         store.set_track_changes(true);
-        let admission = if config.open_admission { None } else { Some(Arc::new(Admission::new(policy.clone()))) };
+        let admission =
+            if config.open_admission { None } else { Some(Arc::new(Admission::new(policy.clone(), config.tiers))) };
         if let Some(a) = &admission {
-            let a = a.clone();
-            store.set_admission(Some(Arc::new(move |s: &MemoryStore, author: &AuthorId| a.limit(s, author))));
+            let a2 = a.clone();
+            store.set_admission(Some(Arc::new(move |s: &MemoryStore, author: &AuthorId| a2.limit(s, author))));
+            store.set_pool_budget(a.limits.t3_budget);
+            let t = Instant::now();
+            let dropped = store.rebuild_pool(true);
+            if !dropped.is_empty() {
+                store.compact().map_err(|e| format!("compaction: {e}"))?;
+            }
+            tracing::info!(
+                pool_authors = store.pool_len(),
+                pool_bytes = store.pool_bytes(),
+                dropped = dropped.len(),
+                ms = t.elapsed().as_millis() as u64,
+                "admission tiers applied"
+            );
         }
         store.drain_changes();
         let node_id = random_hex(16);
@@ -264,6 +278,23 @@ impl Node {
         };
         self.publish_changes(None, changes);
         Ok(outcomes)
+    }
+
+    /// Periodic work: re-evaluate tiers and the tier-3 pool, and compact the
+    /// persistence file if logs were dropped.
+    pub fn maintain(&self) {
+        let Some(a) = &self.admission else { return };
+        a.clear();
+        let mut st = self.write();
+        let dropped = st.rebuild_pool(false);
+        if !dropped.is_empty() {
+            tracing::info!(dropped = dropped.len(), "tier-3 logs dropped over the node budget");
+        }
+        if st.needs_compaction()
+            && let Err(e) = st.compact()
+        {
+            tracing::error!(error = %e, "compaction failed");
+        }
     }
 
     /// Addresses to share with a peer: sampled from the address book, plus our own.

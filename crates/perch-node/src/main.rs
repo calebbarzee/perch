@@ -93,6 +93,18 @@ struct ServeArgs {
     /// Import a JSONL file at startup. Repeatable.
     #[arg(long = "import")]
     imports: Vec<PathBuf>,
+    /// Tier-1 log limit in records, per person.
+    #[arg(long, default_value_t = 1_000_000)]
+    tier1_records: u64,
+    /// Tier-2 log limit in records, per author.
+    #[arg(long, default_value_t = 1_000)]
+    tier2_records: u64,
+    /// Tier-3 log limit in records, per author.
+    #[arg(long, default_value_t = 100)]
+    tier3_records: u64,
+    /// Node-wide byte budget for all tier-3 logs.
+    #[arg(long, default_value_t = 1 << 30)]
+    tier3_budget: u64,
 }
 
 fn fail(msg: impl std::fmt::Display) -> ! {
@@ -189,6 +201,13 @@ async fn serve(a: ServeArgs) {
         refresh_secs: a.refresh_secs.max(5),
         max_outbound: a.max_outbound,
         imports: a.imports.clone(),
+        tiers: perch_node::admission::TierLimits {
+            t1_records: a.tier1_records,
+            t2_records: a.tier2_records,
+            t3_records: a.tier3_records,
+            t3_budget: a.tier3_budget,
+            ..Default::default()
+        },
     };
     let build = BuildInfo { version: env!("CARGO_PKG_VERSION"), build_hash: build_hash() };
     let node = Arc::new(Node::open(config, policy, build).unwrap_or_else(|e| fail(e)));
@@ -211,6 +230,18 @@ async fn serve(a: ServeArgs) {
         tokio::spawn(perch_node::peers::keep_connected(node.clone(), p));
     }
     tokio::spawn(perch_node::peers::fill_slots(node.clone()));
+    {
+        let node = node.clone();
+        tokio::spawn(async move {
+            let mut every = tokio::time::interval(std::time::Duration::from_secs(node.config.refresh_secs));
+            every.tick().await;
+            loop {
+                every.tick().await;
+                let n = node.clone();
+                let _ = tokio::task::spawn_blocking(move || n.maintain()).await;
+            }
+        });
+    }
     if let Ok(pid) = std::env::var("PERCH_EXIT_WITH_PID")
         && let Ok(pid) = pid.trim().parse::<u32>()
     {

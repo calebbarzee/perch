@@ -23,6 +23,8 @@ pub struct ServeConfig {
     pub max_outbound: usize,
     /// JSONL files imported at startup.
     pub imports: Vec<PathBuf>,
+    /// Admission tier limits.
+    pub tiers: crate::admission::TierLimits,
 }
 
 /// Limits from ARCHITECTURE 9 and docs/sync-protocol.md 9.

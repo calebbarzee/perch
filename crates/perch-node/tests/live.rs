@@ -124,7 +124,9 @@ fn d_equivocation_yields_evidence_on_all_nodes() {
     let x = profile(&k, 2, Some(r1.id()), 20, "Eve X");
     let y = profile(&k, 2, Some(r1.id()), 20, "Eve Y");
     assert_eq!(nodes[0].post("/v1/records", &x.to_json_string()).json()["results"][0]["outcome"], "inserted");
-    assert_eq!(nodes[2].post("/v1/records", &y.to_json_string()).json()["results"][0]["outcome"], "inserted");
+    // x may already have reached C by gossip, in which case y is evidence on arrival.
+    let oy = nodes[2].post("/v1/records", &y.to_json_string()).json()["results"][0]["outcome"].clone();
+    assert!(oy == "inserted" || oy == "fork", "{oy}");
     let author = format!("/v1/authors/{}?now=100", k.author());
     for n in &nodes {
         assert!(

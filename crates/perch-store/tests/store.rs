@@ -1,5 +1,5 @@
 use perch_core::{AuthorId, EvidencePair, Keypair, Record, RecordId, Unsigned, sign_record};
-use perch_store::{Change, Head, HoldLimits, Insert, MemoryStore, Mode, Reject, Store, StoreError};
+use perch_store::{AdmissionLimit, Change, Head, HoldLimits, Insert, MemoryStore, Mode, Reject, Store, StoreError};
 use serde_json::{Map, Value, json};
 
 fn obj(v: Value) -> Map<String, Value> {
@@ -339,15 +339,68 @@ fn hold_buffer_is_bounded() {
 
 #[test]
 fn admission_limits() {
-    use perch_store::AdmissionLimit;
+
     let k = kp(12);
     let c = chain(&k, 5, 0);
     let mut s = MemoryStore::new();
-    s.set_admission(Some(std::sync::Arc::new(|_: &MemoryStore, _: &AuthorId| AdmissionLimit { records: 3, bytes: u64::MAX })));
+    s.set_admission(Some(std::sync::Arc::new(|_: &MemoryStore, _: &AuthorId| AdmissionLimit {
+        records: 3,
+        bytes: u64::MAX,
+        pool_rank: None,
+    })));
     let outs: Vec<Insert> = c.iter().map(|r| s.insert(r.clone())).collect();
     assert_eq!(outs[2], Insert::Inserted);
     assert!(matches!(outs[3], Insert::Rejected(Reject::Admission(_))));
     assert_eq!(s.head(&k.author()).unwrap().seq, 3);
+}
+
+#[test]
+fn pool_budget_keeps_lowest_ranks_as_whole_logs() {
+    // Every author is pooled; rank = author bytes, so the order is known.
+    let keys: Vec<Keypair> = (30..42).map(kp).collect();
+    let mut by_rank: Vec<&Keypair> = keys.iter().collect();
+    by_rank.sort_by_key(|k| k.author());
+    let ranked: Vec<AuthorId> = by_rank.iter().map(|k| k.author()).collect();
+    let log_size = |k: &Keypair| chain(k, 2, 0).iter().map(wire_len_of).sum::<u64>();
+    let five: u64 = by_rank[..5].iter().map(|k| log_size(k)).sum();
+    let mut s = MemoryStore::new();
+    s.set_admission(Some(std::sync::Arc::new(|_: &MemoryStore, a: &AuthorId| AdmissionLimit {
+        records: 2,
+        bytes: u64::MAX,
+        pool_rank: Some(a.0),
+    })));
+    s.set_pool_budget(five + 10);
+    // Arrival order is not rank order.
+    for k in keys.iter().rev() {
+        for r in chain(k, 3, 0) {
+            s.insert(r);
+        }
+    }
+    assert_eq!(s.authors(), ranked[..5].to_vec(), "the five lowest ranks are kept");
+    for a in &ranked[..5] {
+        assert_eq!(s.head(a).unwrap().seq, 2, "whole prefixes within the per-log limit");
+    }
+    assert!(s.pool_bytes() <= five + 10);
+    assert!(s.needs_compaction());
+    // A higher-ranked author is refused while the pool is full.
+    let o = s.insert(chain(by_rank[9], 1, 0)[0].clone());
+    assert!(matches!(o, Insert::Rejected(Reject::Admission(_))), "{o:?}");
+    // Shrinking the budget drops the highest ranks on rebuild.
+    let three: u64 = by_rank[..3].iter().map(|k| log_size(k)).sum();
+    s.set_pool_budget(three + 10);
+    let dropped = s.rebuild_pool(false);
+    assert_eq!(dropped, vec![ranked[4], ranked[3]]);
+    assert_eq!(s.authors(), ranked[..3].to_vec());
+    // Authors that leave the pool stop counting against it.
+    s.set_admission(Some(std::sync::Arc::new(|_: &MemoryStore, _: &AuthorId| AdmissionLimit::UNLIMITED)));
+    s.rebuild_pool(true);
+    assert_eq!(s.pool_len(), 0);
+    assert_eq!(s.pool_bytes(), 0);
+}
+
+fn wire_len_of(r: &Record) -> u64 {
+    // Same approximation as the store's limits.
+    (r.header_canonical().len() + 160 + r.body_canonical().map_or(0, |b| b.len() + 8)) as u64
 }
 
 #[test]

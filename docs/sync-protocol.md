@@ -402,12 +402,12 @@ The tier of an author is computed by `perch-views` from the records and the node
 | 2 | Unverified authors referenced by tier-1 records | 1,000 records and 16 MiB | yes, with the same admission attestor set |
 | 3 | All others | 100 records and 1 MiB, within a node budget of 1 GiB | no; best effort |
 
-- Tier 3 authors are admitted in ascending `sha256(author ‖ floor(day / 30))` order until the node budget is reached. `day` is the node's current Unix day, so the order rotates every 30 days.
+- Tier 3 authors are admitted in ascending `sha256(author ‖ floor(day / 30))` order until the node budget is reached. `author` is the 32 key bytes; `floor(day / 30)` is 8 bytes big-endian; `day` is the node's current Unix day, so the order rotates every 30 days. The node drops whole logs of higher ranks to admit a lower rank, and after a drop or refusal it refuses higher ranks until its next maintenance tick, so it always holds a prefix of the order (`perch-store` pool, `docs/api.md` section 6).
 - A limit counts canonical wire bytes of stored records.
 - When an author's tier rises (for example, an attestation arrives), the node requests the rest of the log on its next heads exchange (9.2.3).
 - When an author leaves tier 3 admission (budget or rotation), the node drops the whole log and its evidence pair. The node does not advertise the author afterwards.
 
-Until `perch-views` exports the tier function, `perch-node` treats every author as tier 1.
+`perch-node` computes tiers with `perch_views::admission_tier` and person keys with `perch_views::person_keys`.
 
 #### 9.2.2 Effect on sync
 
@@ -429,7 +429,7 @@ Until `perch-views` exports the tier function, `perch-node` treats every author 
 | L4 | Inbound sessions | 256 total, 8 per IP address |
 | L5 | Address table | section 8.1 |
 | L6 | `POST /v1/records` per client IP address | 2 per second, burst 10 |
-| L7 | Heads re-exchange on every open session | every 10 minutes, and after any tier change |
+| L7 | Heads re-exchange on every open session | every 10 minutes (`--refresh-secs`); tier changes take effect at the next one |
 
 - L2, L3, L6, and L7 are enforced by the I/O driver, not the state machine, because the state machine has no clock.
 - A message dropped by L2 or L3 gets a non-fatal `rate_limited` error. A peer above the limit for 10 consecutive seconds is disconnected.

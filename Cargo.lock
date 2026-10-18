@@ -958,6 +958,8 @@ dependencies = [
  "perch-core",
  "perch-store",
  "perch-sync",
+ "perch-views",
+ "serde",
  "serde_json",
  "sha2",
 ]

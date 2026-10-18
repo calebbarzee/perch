@@ -284,9 +284,6 @@ pub async fn drive(
                     end.reason = "transport closed".into();
                 }
                 if ticks % refresh_every == 0 {
-                    if let Some(a) = &node.admission {
-                        a.clear();
-                    }
                     s.set_shareable_addresses(node.shareable(url.as_deref()));
                     let msgs = { let st = node.read(); s.refresh(&*st) };
                     if !send_all(&tx, msgs).await {
