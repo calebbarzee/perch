@@ -189,6 +189,15 @@ fn build() -> Built {
         ("unknown_field", good.replace(",\"v\":1}", ",\"v\":1,\"extra\":0}"), "unknown_field"),
         ("body_hash_mismatch", good.replace("Ada's Kettles", "Bob's Kettles"), "body_hash_mismatch"),
         ("prev_not_null_at_seq1", good.replace("\"prev\":null", &format!("\"prev\":\"{}\"", "0".repeat(64))), "prev_mismatch"),
+        // Universal forgery: identity-point key with R = identity, S = 0. Web Crypto
+        // (Node 22) and Python `cryptography` accept it for any message; strict
+        // verification rejects it (ARCHITECTURE 4.2).
+        (
+            "identity_point_forgery",
+            good.replace(&profile.author().to_hex(), &format!("01{}", "00".repeat(31)))
+                .replace(&profile.sig().to_hex(), &format!("01{}", "00".repeat(63))),
+            "signature",
+        ),
     ];
     let invalid = invalid_cases
         .into_iter()

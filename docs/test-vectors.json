@@ -102,6 +102,11 @@
       "error": "prev_mismatch",
       "name": "prev_not_null_at_seq1",
       "wire": "{\"author\":\"0708b156a92bfe321e81f2914570e17fa54b25c3ac6adafbd1db4be349e2d991\",\"body\":{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"seq\":1,\"sig\":\"9826a134860d827d74caba269119ef33cc29545c8c73b3b566c1f2fbdd5a17d1a2b954f86680ac012659482a500d191030ef1bdd6d8358c6a66b0ab2ad66910e\",\"ts\":1760000000000,\"v\":1}"
+    },
+    {
+      "error": "signature",
+      "name": "identity_point_forgery",
+      "wire": "{\"author\":\"0100000000000000000000000000000000000000000000000000000000000000\",\"body\":{\"name\":\"Ada's Kettles\",\"role\":\"seller\",\"url\":\"https://kettles.example/\"},\"body_hash\":\"34eabb1e461486a7c3eb41acf52e4cfdb0158d312e08d5a2f94f9656fb096386\",\"kind\":\"profile\",\"prev\":null,\"seq\":1,\"sig\":\"01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"ts\":1760000000000,\"v\":1}"
     }
   ],
   "product_keys": [
