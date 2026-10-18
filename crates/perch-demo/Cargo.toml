@@ -4,5 +4,9 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+description = "Deterministic Perch demo and test dataset generator"
 
 [dependencies]
+perch-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

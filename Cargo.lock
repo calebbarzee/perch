@@ -966,6 +966,7 @@ dependencies = [
  "getrandom 0.4.3",
  "js-sys",
  "perch-core",
+ "perch-store",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
