@@ -231,11 +231,24 @@ fn indexes() {
         "review",
         json!({"product": "gtin:04006381333931", "rating": 5, "text": "ok", "listing": l1.id().to_hex()}),
     );
+    let rd = rec(
+        &att,
+        4,
+        Some(rv.id()),
+        4,
+        "redact",
+        json!({"target": l1.id().to_hex(), "reason": "illegal", "product": "gtin:04006381333931"}),
+    );
     let mut s = MemoryStore::new();
-    for r in [&p1, &p2, &l1, &l2, &p3, &f, &at, &rv] {
+    for r in [&p1, &p2, &l1, &l2, &p3, &f, &at, &rv, &rd] {
         assert_eq!(s.insert(r.clone()), Insert::Inserted);
     }
-    let mut g = vec![p1.id(), l1.id(), l2.id(), rv.id()];
+    assert_eq!(s.by_target(&l1.id()), {
+        let mut v = vec![f.id(), rd.id()];
+        v.sort();
+        v
+    });
+    let mut g = vec![p1.id(), l1.id(), l2.id(), rv.id(), rd.id()];
     g.sort();
     assert_eq!(s.by_product("gtin:04006381333931"), g);
     let rk = format!("rec:{}", p2.id());
@@ -243,7 +256,6 @@ fn indexes() {
     r.sort();
     assert_eq!(s.by_product(&rk), r, "replacement keyed by chain root");
     assert_eq!(s.product_keys().len(), 2);
-    assert_eq!(s.by_target(&l1.id()), vec![f.id()]);
     let mut refs = vec![l2.id(), rv.id()];
     refs.sort();
     assert_eq!(s.referencing(&l1.id()), refs);
@@ -260,7 +272,7 @@ fn indexes() {
     // Fork truncation removes index entries.
     let other = rec(&seller, 3, Some(p2.id()), 3, "note", json!({}));
     assert_eq!(s.insert(other), Insert::Fork { pair_changed: true });
-    assert!(s.by_target(&l1.id()) == vec![f.id()]);
+    assert!(s.by_target(&l1.id()).contains(&f.id()));
     assert_eq!(s.by_product(&rk), vec![p2.id()]);
     assert!(s.referencing(&l1.id()) == vec![rv.id()]);
     // A header-only product root is keyed rec:<id>.

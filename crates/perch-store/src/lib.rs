@@ -252,11 +252,11 @@ pub trait Store {
     /// IDs of records of one kind by one author, ascending by seq.
     fn by_author_kind(&self, author: &AuthorId, kind: &str) -> Vec<RecordId>;
 
-    /// IDs of `product`, `listing`, `observation`, and `review` records for a product key.
+    /// IDs of `product`, `listing`, `observation`, `review`, and `redact` records for a product key.
     ///
     /// `product` records are keyed by `derive_product_key(body, root)`. A
     /// `product` record without a body or with an invalid body is keyed `rec:<root>`.
-    /// Other kinds are keyed by the raw `body.product` string.
+    /// Other kinds are keyed by the raw `body.product` string (optional for `redact`).
     fn by_product(&self, key: &str) -> Vec<RecordId>;
 
     /// All product keys in the [`Store::by_product`] index, ascending.

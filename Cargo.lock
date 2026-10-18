@@ -938,6 +938,8 @@ dependencies = [
 name = "perch-sync"
 version = "0.1.0"
 dependencies = [
+ "perch-core",
+ "perch-store",
  "serde",
  "serde_json",
  "thiserror",
@@ -958,6 +960,15 @@ dependencies = [
 [[package]]
 name = "perch-views"
 version = "0.1.0"
+dependencies = [
+ "perch-core",
+ "perch-demo",
+ "perch-store",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
 
 [[package]]
 name = "perch-wasm"

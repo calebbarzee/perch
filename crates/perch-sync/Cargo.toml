@@ -4,5 +4,13 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+description = "Perch sync protocol as a sans-IO state machine, with a deterministic multi-node simulation"
 
 [dependencies]
+perch-core = { workspace = true }
+perch-store = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true, features = ["raw_value"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]

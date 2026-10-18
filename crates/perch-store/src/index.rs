@@ -67,6 +67,13 @@ pub(crate) fn keys_for(r: &Record, root: RecordId) -> IndexKeys {
         }
         names::FLAG | names::APPEAL | names::RETRACT | names::REDACT => {
             k.target = hex_id(body.get("target"));
+            if kind == names::REDACT
+                && let Some(Value::String(p)) = body.get("product")
+                && !p.is_empty()
+                && p.len() <= 1024
+            {
+                k.product = Some(p.clone());
+            }
         }
         names::ATTEST_IDENTITY | names::ATTEST_DOMAIN | names::ATTEST_REVOKE => {
             k.subject = hex_author(body.get("subject"));

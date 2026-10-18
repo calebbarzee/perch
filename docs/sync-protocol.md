@@ -206,7 +206,7 @@ Rules for the requester:
 | `rate_limited` | Peer exceeded a rate limit; the message was dropped | no |
 | `misbehavior` | Peer score reached the limit (section 10) | yes |
 | `self_connection` | `hello.node` equals the receiver's own `node` | yes |
-| `duplicate_connection` | Another session to the same `node` exists | yes |
+| `duplicate_connection` | Another session to the same `node` exists. Both ends keep the session dialed by the peer with the lower `node` value. | yes |
 | `shutting_down` | Receiver is stopping | yes |
 
 After sending a fatal error, the sender closes the WebSocket.
@@ -261,6 +261,7 @@ For each entry `(author, seq_p, id_p)` in a page, the receiver compares it with 
 |---|---|
 | `seq_p > seq_l` | Request `from_seq = seq_l + 1`. If the peer's history differs, the first received record's `prev` does not match ours: fork evidence of type 2. |
 | `seq_p = seq_l`, `id_p ≠ id_l` | Request `from_seq = seq_l`. The received record conflicts with ours: fork evidence of type 1. |
+| `seq_p = seq_l` after capping, and the peer's uncapped head is higher | Request `from_seq = seq_l, to_seq = seq_l`. The peer's record at our head can expose a lower fork. |
 | `seq_p < seq_l`, or `seq_p = seq_l` and `id_p = id_l` | No request. If the peer lacks records, it requests them from us. |
 
 Evidence is compared separately:
@@ -303,9 +304,10 @@ Consequences:
 
 A gap is a record whose `seq` is more than one above the local head. Gaps occur when a push races with initial catch-up.
 
-- The receiver holds gapped records in a per-session buffer (cap in section 9.2) and requests the missing range with `want` (`from_seq = local head + 1`).
+- The store holds gapped records in one bounded buffer (limits in 9.2.3), and the session requests the missing range with `want` (`from_seq = local head + 1`).
 - When the store accepts a record, held records of that author that now continue the log are applied in `seq` order.
-- When the buffer is full, the oldest held records are dropped. Nothing is lost: the responder of the next `want` serves up to its current head.
+- When the buffer is full, the oldest held records are dropped. Records that peers hold are not lost: the responder of the next `want` serves up to its current head.
+- For a forked author with fork seq `n`, records up to seq `n` are held, because they can still form a lower pair once the gap fills. Higher records are dropped.
 
 ## 6. Fork evidence
 
@@ -319,7 +321,7 @@ A gap is a record whose `seq` is more than one above the local head. Gaps occur 
 
 ### 6.1 Store requirement
 
-Convergence of evidence depends on the store checking every incoming record, including both records of a received pair, against what it holds:
+`perch-store` implements this requirement. Convergence of evidence depends on the store checking every incoming record, including both records of a received pair, against what it holds:
 
 1. Same `seq` as a stored record (log or pair) with a different ID: type 1.
 2. Incoming `prev` differs from the stored record at `seq − 1`: type 2 at `seq − 1`.
@@ -327,7 +329,9 @@ Convergence of evidence depends on the store checking every incoming record, inc
 
 The store applies these checks also when the author is already forked, for incoming records with `seq ≤ fork seq + 1`. It then keeps the lowest pair among the stored pair and all new candidates. Records with `seq ≥ fork seq + 2` cannot form a lower pair and are dropped.
 
-With these checks, the stored state (prefix and pair) is enough to compute the state for the union of all records seen. Section 11 relies on this property, and the simulation tests check it.
+With these checks, two nodes that receive the same records of a two-branch fork in any order end with the same prefix and the lowest pair. A property test in `perch-store` checks this over 200 random delivery orders with duplicates and header-only copies.
+
+Evidence pairs also travel in JSON Lines files (export, persistence, related sets), where they are two consecutive lines. A store that cannot store a line on its own (gap, above the fork, or refused) tries it as a pair with the line before it. This recognizes a pair even when one of its records breaks the `ts` rule.
 
 ## 7. Bodies
 
@@ -419,7 +423,7 @@ Until `perch-views` exports the tier function, `perch-node` treats every author 
 
 | ID | Rule | Default |
 |---|---|---|
-| L1 | Held out-of-order records per session (5.3) | 256 records and 8 MiB |
+| L1 | Held out-of-order records (5.3), for the whole store | 4,096 records and 32 MiB; 256 per author |
 | L2 | Inbound messages per session | 100 per second, burst 200 |
 | L3 | Inbound bytes per session | 16 MiB per second, burst 32 MiB |
 | L4 | Inbound sessions | 256 total, 8 per IP address |
@@ -532,6 +536,32 @@ Browsers cannot accept inbound connections ([ARCHITECTURE D7](../ARCHITECTURE.md
 | Browsers cannot hold the full dataset | Partial replication: subscriptions by product key or author set, using the related sets of ARCHITECTURE 8.1. |
 | Bandwidth cost of JSON | WebSocket `permessage-deflate` ([RFC 7692](https://www.rfc-editor.org/rfc/rfc7692)) first; a binary encoding only if needed. |
 | Browser-only communities | Browser-to-browser sessions over WebRTC data channels. The message set does not change. |
+
+## 14. Tests and measurements
+
+`crates/perch-sync/tests/sim.rs` runs many peers in one process. Each peer has a `MemoryStore` and a `Hub`; connections are in-memory queues. Delivery is in order per connection, as over WebSocket, and in random order across connections, from a seeded generator. Every scenario ends by checking that all peers have identical heads, evidence pairs, and sets of missing bodies.
+
+| Test | Scenario |
+|---|---|
+| `topologies_converge` | Line, ring, star, and random graphs of 2, 5, and 12 peers; 60 records from 6 authors published at random peers while messages flow; 5% of `push` messages duplicated |
+| `fifty_nodes_random_graph` | 50 peers, random connected graph |
+| `late_joiners_catch_up` | Two empty peers join after 40 records, one through the other |
+| `partitions_heal` | A 10-peer ring is cut in two; both sides publish; the ring is restored |
+| `equivocation_yields_evidence_everywhere` | An author signs two records at one seq and submits them to two distant peers; 5 seeds |
+| `equivocation_with_branches_converges` | Two partitions each extend a different branch of one author for 5 records, then meet |
+| `body_stripping_peer_cannot_hide_content` | A peer strips every body it sends; honest peers that also reach an honest source end with every body |
+| `deterministic_for_a_seed` | Two runs with one seed produce identical traffic |
+| `cost_per_record_20_nodes` | Measures gossip cost (below) |
+
+Measured cost (`cargo test -p perch-sync --test sim cost_per_record -- --nocapture`): 20 peers, 27 connections (random graph), 500 records of 460 bytes each, published one at a time while messages flow.
+
+| Metric | Value |
+|---|---|
+| Messages per record | 35.0 |
+| Bytes per record | 17,087 |
+| Bytes per record per connection, relative to record size | 1.38 |
+
+The flooding bound of section 5.2 is 2 transfers per connection; the measured value is 1.38. The difference from 1.0 is records that two neighbors push to each other at the same time.
 
 ## Appendix: terms
 
