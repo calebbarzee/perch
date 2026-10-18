@@ -358,6 +358,16 @@ Found by the independent audit (2026-10-18). Admission tiers (ARCHITECTURE 9) ke
 - Mitigation in v1: product facts from unverified authors are labeled as such; search also matches the product key (GTIN).
 - Planned: a tier-2 rule for one product record per key referenced by tier-1 listings, chosen by a rule that is not grindable (for example the record cited by the most verified sellers).
 
+### R16. Products without a verified source are described by whoever posts most (T26, audit N2)
+
+Found by the independent audit (2026-10-18). ARCHITECTURE 7.6 and 7.8 rank and describe products in two groups.
+
+- Products with a visible product record by a verified author: only verified authors' text is displayed and matched by search. Free keys cannot change their name, their search matches, or their rank.
+- Products without one: the displayed name is the value backed by the most persons, and every author's text is matched. Free keys can pick the displayed name and add search terms ("keyword stuffing"). Such products always rank after every product with a verified source and carry a "No verified description" label.
+- A fully hidden product reappears, in the unverified group, when any key posts a new product record for the same key. The hidden text stays hidden; the new record is a separate claim that must be flagged on its own.
+- A node that removes a listing's first version reports its reviews as `listing_unavailable` on that node, permanently if the removal stands. Other nodes are unaffected.
+- Planned: per-category or per-brand verified makers (attest.domain on the brand's site), so more products gain a verified source.
+
 ## 8. Legal exposure
 
 This is an engineering summary, not legal advice.
