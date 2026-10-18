@@ -660,13 +660,15 @@ impl Serialize for Record {
 }
 
 impl<'de> Deserialize<'de> for Record {
-    /// Deserializes through [`serde_json::Value`] and [`Record::from_value`],
-    /// so the record is fully verified. Duplicate keys in the source text
-    /// are not detected on this path; use [`Record::from_json_str`] for
-    /// untrusted JSON text.
+    /// Captures the record's raw JSON text and parses it with
+    /// [`Record::from_json_str`], so every rule applies on this path too:
+    /// duplicate keys, number forms, size and depth limits, and the
+    /// signature. Works with `serde_json` deserializers (text or `Value`);
+    /// a `Value` has already lost duplicate keys, so pass text where the
+    /// input is untrusted.
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let v = Value::deserialize(d)?;
-        Record::from_value(v).map_err(serde::de::Error::custom)
+        let raw = Box::<serde_json::value::RawValue>::deserialize(d)?;
+        Record::from_json_str(raw.get()).map_err(serde::de::Error::custom)
     }
 }
 
@@ -710,6 +712,28 @@ mod tests {
     fn first(kind: &str, b: Value) -> Record {
         sign_record(&kp(), Unsigned { seq: 1, prev: None, ts: 1000, kind: kind.into(), replaces: None, body: body(b) })
             .unwrap()
+    }
+
+    #[test]
+    fn serde_deserialize_applies_strict_rules() {
+        let r = first("profile", json!({"name": "Ada", "role": "seller"}));
+        let wire = r.to_json_string();
+        // Text path: same result as from_json_str.
+        let back: Record = serde_json::from_str(&wire).unwrap();
+        assert_eq!(back.id(), r.id());
+        // Inside a container (as in an ingest array).
+        let arr: Vec<Record> = serde_json::from_str(&format!("[{wire}]")).unwrap();
+        assert_eq!(arr[0].id(), r.id());
+        // Value path still verifies.
+        let v: Record = serde_json::from_value(r.to_value()).unwrap();
+        assert_eq!(v.id(), r.id());
+        // A duplicate key is rejected on the serde path, as on the text path.
+        let dup = wire.replacen("{\"author\"", "{\"kind\":\"profile\",\"author\"", 1);
+        assert!(Record::from_json_str(&dup).is_err());
+        assert!(serde_json::from_str::<Record>(&dup).is_err());
+        assert!(serde_json::from_str::<Vec<Record>>(&format!("[{dup}]")).is_err());
+        // Number forms that the strict parser rejects.
+        assert!(serde_json::from_str::<Record>(&wire.replace("\"v\":1", "\"v\":1.0")).is_err());
     }
 
     #[test]
