@@ -438,12 +438,13 @@ Nodes never hold user secret keys. Clients sign records locally and submit them.
 All methods that return data return plain JSON-compatible objects using the shapes in 7.8.
 
 ```text
-PerchClient.create()                          -> PerchClient
+PerchClient.create({ sparse? })               -> PerchClient   (sparse: 5.5; a sparse client refuses publish)
 client.generateKey()                          -> author hex
 client.exportKey()                            -> backup JSON string { secret, head: { seq, id } | null }
 client.importKey(backupOrSecretHex)           -> author hex
 client.author()                               -> author hex | null
 client.publish(kind, body, { replaces?, ts? }) -> { id, record }
+client.publishStatus()                        -> { ready: bool, reason: string | null }
 client.issueReceipt(listingRootId, buyerAuthor, purchasedAt) -> Receipt (signed by the current key)
 client.verifyReceipt(receipt)                 -> { valid: bool, seller: author hex | null, error: string | null }
 client.ingest(recordsOrJsonl)                 -> { inserted, duplicate, fork, gap, rejected, errors: [] }
@@ -455,6 +456,7 @@ client.product(key)                           -> ProductView | null
 client.listing(id)                            -> ListingView | null
 client.authorView(id)                         -> AuthorView | null
 client.record(id)                             -> signed record | null
+client.authorLog(author)                      -> [signed record]
 client.verifyRecord(json)                     -> { valid, id, error }
 client.stats()                                -> Stats
 client.buildInfo()                            -> { version, wasm_sha256 }
@@ -472,7 +474,7 @@ client.onChange(callback)                     -> unsubscribe function
 perch-node serve --listen 127.0.0.1:7700 --data ./data [--peer ws://host/v1/sync]...
                  [--attestor <author hex>]... [--web ./web]
 perch-node keygen
-perch-node demo --out demo.jsonl     # writes a signed demo dataset
+perch-node demo --out demo.jsonl [--policy-out policy.json]   # signed demo dataset and a matching default policy
 ```
 
 ## 9. Limits and admission
@@ -506,7 +508,7 @@ These apply to the official web app and extension.
 - Text from records is inserted with `textContent` only, never as HTML. User text is isolated for bidirectional rendering (`dir="auto"` or `<bdi>`).
 - Images from unverified authors are not loaded automatically, because loading reveals the viewer's IP address to the image host.
 - A client stores its own latest head locally and never publishes at or below it. With an imported key, it publishes only after syncing that author's log from every configured node (at least 2 when available) and taking the highest head. One node hiding the user's last record therefore cannot make the user fork their own log. The extension never holds a key.
-- The app uses the default policy bundled in its release. It never adopts a node's `/v1/policy` or attestor list without the user's explicit action.
+- The app uses the default policy bundled in its release as the static file `web/default-policy.json`, so anyone can read it. It never adopts a node's `/v1/policy` or attestor list without the user's explicit action.
 - The app shows the active policy hash, the app version, and the SHA-256 of the running wasm module.
 - The app connects to several nodes when configured and shows head disagreements between them.
 - The extension looks up products by 4-hex hash prefix (`/v1/lookup/{prefix}`), never by the full product key. It embeds the same wasm client, verifies the returned records, and computes views locally. It queries at least 2 nodes when configured and shows disagreement.

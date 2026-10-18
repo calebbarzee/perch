@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' https: data: blob:; font-src 'self'; connect-src 'self' ws: wss: http: https:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Perch</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preload" href="fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="src/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="wordmark" href="#/search" aria-label="Perch, search">
+        <svg class="mark" width="28" height="28" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <path class="mark-branch" d="M3 25.5h26"/>
+          <path class="mark-bird" d="M10.5 24.5c0-6 3.5-10.5 9-10.5 2 0 3.3-2.8 5.5-2.8l2 1.3-2.7.8c.4 5.8-3.4 11.2-9.3 11.2z"/>
+          <circle class="mark-eye" cx="23.2" cy="13.6" r="0.9"/>
+        </svg>
+        <span>Perch</span>
+      </a>
+      <form class="topbar-search" role="search" id="topbar-search">
+        <label class="visually-hidden" for="topbar-q">Search products</label>
+        <input id="topbar-q" name="q" type="search" placeholder="Search products, brands, or GTIN" autocomplete="off" spellcheck="false">
+        <button type="submit" class="button">Search</button>
+      </form>
+      <nav class="topnav" aria-label="Main">
+        <ul>
+          <li><a href="#/search" data-nav="search">Search</a></li>
+          <li><a href="#/publish" data-nav="publish">Publish</a></li>
+          <li><a href="#/keys" data-nav="keys">Keys</a></li>
+          <li><a href="#/network" data-nav="network">Network <span class="nav-status" id="nav-net" aria-hidden="true"></span></a></li>
+          <li><a href="#/policy" data-nav="policy">Policy</a></li>
+          <li><a href="#/data" data-nav="data">Data</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  <div id="banner" class="banner-slot"></div>
+  <main id="main" tabindex="-1">
+    <p class="loading">Loading the Perch client.</p>
+    <noscript><p>Perch runs on your device and needs JavaScript and WebAssembly.</p></noscript>
+  </main>
+  <footer class="footer" id="footer"></footer>
+  <div id="live" class="visually-hidden" aria-live="polite"></div>
+</body>
+</html>
