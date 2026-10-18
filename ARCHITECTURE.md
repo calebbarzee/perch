@@ -1,6 +1,6 @@
 # Perch architecture
 
-Contract version: **2** (2026-10-18). Changes from version 1 are listed in section 12.
+Contract version: **3** (2026-10-18). Changes from earlier versions are listed in section 12.
 
 Perch is an open, peer-to-peer data platform about products, prices, sellers, and reviews. It does not host sales. It tells consumers what is known about a product and who said it.
 
@@ -107,7 +107,7 @@ Canonical JSON follows [RFC 8785 (JSON Canonicalization Scheme, JCS)](https://ww
 Input parsing rules:
 
 - Duplicate keys at any depth are invalid.
-- Nesting depth above 16 is invalid.
+- Nesting depth above 16 is invalid. The record object is depth 1; each nested object or array adds 1.
 - A record line above 131,072 bytes is rejected before parsing.
 
 Definitions:
@@ -117,7 +117,7 @@ Definitions:
 - `header_canonical = canonical_json(header)`, where header = the fields marked "header" in 4.1; at most 2,048 bytes.
 - `id = lowercase_hex(sha256(header_canonical))`
 - `sig = ed25519_sign(secret_key, "perch/record/v1\n" || header_canonical)`
-- Verification uses strict Ed25519 verification (dalek `verify_strict`): small-order keys and non-canonical encodings are rejected.
+- Signature verification is strict. Reject if the public key `A` or the point `R` is not a canonical encoding, if `A` or `R` has small order, or if `S ≥ L` (the group order). Accept only if `[S]B = R + [k]A` holds without cofactor multiplication, where `k = SHA-512(R || A || message) mod L`. This matches `verify_strict` in [ed25519-dalek](https://docs.rs/ed25519-dalek).
 
 The stored and relayed form of a record is `canonical_json(header + sig + body)`, with `body` omitted when absent. It is one line of the JSONL format. Implementations normalize any valid input to this form. They keep unknown body fields: the body is stored as received JSON, never re-encoded from a typed struct.
 
@@ -144,7 +144,7 @@ Unknown kinds pass the isolated and log levels. Views ignore them.
 
 ### 4.5 Kinds (v1)
 
-All text fields are UTF-8 strings. Lengths are in Unicode scalar values. `Id` means a record ID; references are resolved to root IDs (4.6). `Author` means a 64-hex public key. `Hex64` means 64 lowercase hex characters. `URL` means a string ≤ 2048 characters starting with `https://`. `ProductKey` is defined in 4.8. `Price` is `{ "amount": integer ≥ 0 in the currency's minor unit, "currency": ISO 4217 code }`. Optional fields are omitted when absent.
+All text fields are UTF-8 strings. Lengths are in Unicode scalar values. `Id` means a record ID; references are resolved to root IDs (4.6). `Author` means a 64-hex public key. `Hex64` means 64 lowercase hex characters. `URL` means a string ≤ 2048 characters that the [WHATWG URL parser](https://url.spec.whatwg.org/) accepts with scheme `https`, no username or password, and a domain host (not an IP address). Hosts are compared after IDNA ToASCII and displayed in that ASCII (punycode) form. `ProductKey` is defined in 4.8. `Price` is `{ "amount": integer ≥ 0 in the currency's minor unit, "currency": ISO 4217 code }`. Optional fields are omitted when absent.
 
 | Kind | Author | Body | Replaceable |
 |---|---|---|---|
@@ -164,6 +164,8 @@ All text fields are UTF-8 strings. Lengths are in Unicode scalar values. `Id` me
 
 Records with a non-replaceable kind cannot carry `replaces` and cannot be replaced. Records of `retract`, `retire`, `attest.revoke`, and `redact` cannot be targets of `retract`.
 
+**Control kinds** are `attest.identity`, `attest.domain`, `attest.revoke`, `retract`, and `retire`. Their bodies hold no free text, and their meaning changes views, so nodes must not remove their bodies (5.3).
+
 ### 4.6 References, versions, and root IDs
 
 - `replaces` must name a record in the same author's log with a lower `seq` and the same `kind`, of a replaceable kind. Otherwise the record is semantically invalid.
@@ -172,6 +174,7 @@ Records with a non-replaceable kind cannot carry `replaces` and cannot be replac
 - A replacement that changes a field marked "fixed" in 4.5 is semantically invalid.
 - Every reference field (`target`, `listing`, `receipt.listing`) is resolved to the root ID of the referenced record's chain. Flags, appeals, retractions, and reviews therefore apply to the whole chain, not to one version.
 - `retract` applies to the chain of its target's root and is valid only if the retracting author authored that chain.
+- A retraction is final. Replacements of a retracted chain are ignored, including ones with a higher seq than the `retract`.
 
 ### 4.7 Receipts
 
@@ -187,7 +190,7 @@ sig = ed25519_sign(seller_secret_key,
                    "perch/receipt/v1\n" || canonical_json({ listing, buyer, purchased_at, nonce }))
 ```
 
-The receipt is valid when `sig` verifies (strictly) under the author of the listing chain.
+The receipt is valid when `sig` verifies (strictly) under the author of the listing chain, and the listing's root record exists below the seller's fork seq and revoke cutoff. Later retraction, replacement, or hiding of the listing does not invalidate the receipt. A seller therefore cannot strip verified-purchase status by re-listing.
 
 ### 4.8 Product keys
 
@@ -218,17 +221,17 @@ A **fork** is proof that an author signed two different histories. Either of the
 Fork rules, chosen so every node reaches the same state regardless of arrival order:
 
 - The **fork seq** `n` of an author is the lowest seq at which evidence exists.
-- A store truncates the forked author's log to `seq = n − 1` and keeps exactly one **evidence pair**: the pair at the lowest fork seq with the lowest IDs (compared as hex strings). A store replaces its evidence pair when a lower one arrives.
-- Sync advertises a forked author's head as `n − 1` with a forked marker, and relays the evidence pair. Records with `seq ≥ n` are not relayed otherwise.
+- A store truncates the forked author's log to `seq = n − 1` and keeps exactly one **evidence pair**. Each pair is written as two records `(a, b)` sorted by `(seq, id)`. Pairs are ordered by `(fork seq, a.seq, a.id, b.seq, b.id)`, IDs compared as hex strings. A store keeps the lowest pair and replaces it when a lower one arrives.
+- Sync advertises a forked author's head as `n − 1` with a forked marker, and relays the evidence pair. Records with `seq ≥ n` are not relayed otherwise. The marker is a hint: a node changes state only after verifying an evidence pair.
 - Views ignore all of the author's records with `seq ≥ n` and mark the author forked.
 
 ### 5.3 Body removal (redaction)
 
-- A node may drop the body of any record (for example illegal content, personal data, or a court order). It keeps the header and signature, so the log stays verifiable.
-- The node operator should publish a `redact` record with the reason. Views show the reason.
+- A node may drop the body of any record except control kinds (4.5), for example for illegal content, personal data, or a court order. It keeps the header and signature, so the log stays verifiable.
+- The node operator should publish a `redact` record with the reason. Views show a `redact` notice only for records whose body is actually missing, and attribute the notice to its author.
 - A node keeps a local list of removed IDs and refuses bodies for them.
 - A node that holds a record without a body accepts the body later if a peer sends it and the hash matches, unless the ID is on its removal list.
-- Views treat a record without a body as unavailable: excluded from aggregates and shown as a notice.
+- Views treat a record without a body as unavailable: excluded from aggregates and shown as a notice. A control-kind record without a body has no effect until its body arrives.
 
 ### 5.4 Persistence
 
@@ -244,8 +247,9 @@ Detail: [`docs/sync-protocol.md`](docs/sync-protocol.md).
 - Summary exchange: peers exchange **heads** (`author → (seq, id, forked)`), in pages. Each side then requests the records it lacks with `want { author, from_seq }`.
 - Live gossip: after the initial exchange, newly accepted records are pushed to connected peers. Duplicates are dropped by ID.
 - Fork evidence pairs are relayed like records.
+- Body fetch: a peer can request missing bodies by record ID (`want_bodies`). A peer that strips bodies therefore cannot hide content from a node that has another source.
 - Peer discovery: a node starts from a configured list of peers and exchanges known peer addresses (capped and diverse).
-- Goal: **convergence**. Connected nodes end with the same log prefixes and the same evidence pairs, so they compute the same views.
+- Goal: **convergence**. Connected nodes end with the same log prefixes, the same bodies (except each node's own removal list), and the same evidence pairs, so they compute the same views.
 
 ## 7. Views
 
@@ -258,23 +262,25 @@ A view is a pure function `view(store, policy) -> result`. The same records and 
 ```json
 {
   "now": 1760000000000,
-  "trusted_attestors": [{ "author": "<author hex>", "not_after_seq": null }],
+  "trusted_attestors": [
+    { "author": "<author hex>", "kinds": ["attest.identity", "attest.revoke"], "not_after_seq": null }
+  ],
   "flag_threshold": 3,
   "flag_thresholds": { "review": 3 },
   "flags_require_verified": true,
   "seller_hidden_listing_limit": 3,
   "seller_min_distinct_flaggers": 9,
-  "seller_hidden_listing_permille": 100,
   "verified_purchase_requires_verified_buyer": true,
   "price_requires_domain_verified": true,
   "future_ts_tolerance_ms": 600000
 }
 ```
 
+- `trusted_attestors[].kinds`: the attestation kinds accepted from that attestor (`attest.identity`, `attest.domain`, `attest.revoke`).
 - `trusted_attestors[].not_after_seq`: if set, only that attestor's records with `seq ≤ not_after_seq` count. Used to cut off a compromised attestor.
 - `flag_thresholds` overrides `flag_threshold` per target kind.
-- The **policy hash** is `lowercase_hex(sha256(canonical_json(policy without "now")))`. Apps and APIs display it.
-- The official app ships a default policy. Forks and users may change it.
+- The **policy hash** is `lowercase_hex(sha256(canonical_json(normalized policy)))`. Normalization removes `now`, removes fields whose value is `null`, sorts `trusted_attestors` by `author`, and sorts each `kinds` list. Apps and APIs display the hash.
+- The official app ships a default policy inside its signed release. Forks and users may change it. The app never adopts a node's policy silently (section 10).
 
 ### 7.2 Time
 
@@ -283,10 +289,11 @@ A view is a pure function `view(store, policy) -> result`. The same records and 
 
 ### 7.3 Identity and verification
 
-- An attestation counts when: its author is a trusted attestor; it is within `not_after_seq`; it is below the attestor's fork seq; it is the latest version of its chain; it is not retracted; and `expires > now`.
+- An attestation counts when: its author is a trusted attestor for its kind; it is within `not_after_seq`; it is below the attestor's fork seq and revoke cutoff; it is the latest version of its chain; it is not retracted; and `expires > now`. Hidden status never affects counting (7.6).
 - An author is **verified** when at least one counting `attest.identity` names them as `subject`.
 - An author's **person key** is `(attestor, person)` from their counting attestation with the lowest `(attestor, person)` pair. Views count verified flags and reviews once per person key, so one person with many keys counts once per attestor.
-- `attest.revoke` from a trusted attestor: views ignore the subject's records with `seq > valid_through_seq` and mark the author revoked.
+- `attest.revoke` counts under the same conditions as an attestation (without `expires`), and only if the same attestor has issued an `attest.identity` or `attest.domain` for that subject. A counting revoke makes views ignore the subject's records with `seq > valid_through_seq` and mark the author revoked.
+- **Per-person status.** Restriction (7.6) is computed per person key and applies to every key with that person key. A person with any forked key is restricted on all keys. Revocation stays per key, because it reports a stolen key, not misbehavior. This prevents a restricted or forked seller from starting over with a new key.
 - `retire`: views ignore the author's records with a higher seq and mark the author retired.
 - Real-world identity is the v1 basis for sybil resistance. Anonymous buyers are a planned extension (see [`docs/identity.md`](docs/identity.md)).
 
@@ -305,13 +312,16 @@ A review is a **verified purchase** when all of these hold:
 5. the review's author is verified, if `verified_purchase_requires_verified_buyer` is true;
 6. the review's author is not the listing's seller.
 
+Receipt validity follows 4.7: retracting, replacing, or hiding the listing does not remove verified-purchase status.
+
 Only the latest review per (author, product) counts. Reviews by a product's sellers do not count in rating aggregates. Other proofs (for example [DKIM](https://www.rfc-editor.org/rfc/rfc6376)-signed receipt emails) are researched in [`docs/verified-purchase.md`](docs/verified-purchase.md). A browser extension cannot prove a purchase by itself, because users control the code it runs.
 
 ### 7.6 Moderation
 
-- A record chain is **hidden** when distinct, unretracted flags on its root reach the threshold for its kind. If `flags_require_verified` is true, only flags from verified authors count, once per person key. Flags by the target's author never count.
+- A record chain of kind `listing`, `review`, `product`, or `profile` is **hidden** when distinct, unretracted flags on its root reach the threshold for its kind. If `flags_require_verified` is true, only flags from verified authors count, once per person key. Flags by the target's author never count.
+- Hiding affects display only, never semantics. A hidden record still counts for every rule that is not display: a hidden flag still counts, a hidden profile's author is still verified, and a hidden listing still anchors receipts. Flags on other kinds are recorded but hide nothing in v1. This also prevents cycles of flags hiding flags.
 - An **appeal** is a public request by the target's author. It does not change status by itself. Status changes when flaggers retract their flags. Detail and alternatives: [`docs/moderation.md`](docs/moderation.md).
-- A seller is **restricted** when all three hold: hidden listings ≥ `seller_hidden_listing_limit`; distinct counted flaggers across those listings ≥ `seller_min_distinct_flaggers`; hidden listings × 1000 ≥ `seller_hidden_listing_permille` × total listings. Views mark all of a restricted seller's listings.
+- A seller is **restricted** when both hold, counted per person key across all of the person's keys (7.3): hidden listings ≥ `seller_hidden_listing_limit`; and distinct counted flaggers across those listings ≥ `seller_min_distinct_flaggers`. No ratio is used, because a seller could dilute it with dummy listings. Views mark all of a restricted seller's listings.
 - Forked, revoked, and retired authors per 7.3 and 5.2.
 - Hidden records remain in the data. The app shows that something is hidden and why.
 
@@ -365,6 +375,8 @@ Stats        { records, authors, products, listings, reviews, forks, invalid, re
 
 `mean` and `score` may be fractional numbers per 7.7. All other numbers are integers.
 
+Ranking inputs use only sybil-resistant signals. `SearchHit.rating_mean`, `SearchHit.rating_count`, and the rating part of `score` come from `verified_identity` reviews only. `RatingSummary.count`, `mean`, and `histogram` cover all counted reviews and are shown as secondary information. Creating keys therefore cannot change ranking.
+
 ## 8. Interfaces
 
 ### 8.1 HTTP API (official public API, served by `perch-node`)
@@ -396,7 +408,8 @@ All methods that return data return plain JSON-compatible objects using the shap
 ```text
 PerchClient.create()                          -> PerchClient
 client.generateKey()                          -> author hex
-client.importKey(secretHex) / exportKey()     -> secret hex (32-byte seed)
+client.exportKey()                            -> backup JSON string { secret, head: { seq, id } | null }
+client.importKey(backupOrSecretHex)           -> author hex
 client.author()                               -> author hex | null
 client.publish(kind, body, { replaces?, ts? }) -> { id, record }
 client.issueReceipt(listingRootId, buyerAuthor, purchasedAt) -> Receipt (signed by the current key)
@@ -418,6 +431,8 @@ client.onChange(callback)                     -> unsubscribe function
 ```
 
 `peers()[].behind` is the number of authors whose head at the peer is lower than locally; `ahead` is the reverse.
+
+`publish` refuses to write at or below the highest known own head (from local storage, the imported backup, and every connected node).
 
 ### 8.3 Node CLI
 
@@ -448,10 +463,11 @@ These apply to the official web app and extension.
 
 - Text from records is inserted with `textContent` only, never as HTML. User text is isolated for bidirectional rendering (`dir="auto"` or `<bdi>`).
 - Images from unverified authors are not loaded automatically, because loading reveals the viewer's IP address to the image host.
-- A client publishes with an imported key only after syncing that author's log from at least one node, so it cannot fork its own log by accident. The extension never holds a key.
+- A client stores its own latest head locally and never publishes at or below it. With an imported key, it publishes only after syncing that author's log from every configured node (at least 2 when available) and taking the highest head. One node hiding the user's last record therefore cannot make the user fork their own log. The extension never holds a key.
+- The app uses the default policy bundled in its release. It never adopts a node's `/v1/policy` or attestor list without the user's explicit action.
 - The app shows the active policy hash, the app version, and the SHA-256 of the running wasm module.
 - The app connects to several nodes when configured and shows head disagreements between them.
-- The extension looks up products by 4-hex hash prefix (`/v1/lookup/{prefix}`), never by the full product key.
+- The extension looks up products by 4-hex hash prefix (`/v1/lookup/{prefix}`), never by the full product key. Results computed by a node are labeled with that node's address, and link to the app for local verification.
 
 ## 11. Build and test
 
@@ -484,6 +500,13 @@ These apply to the official web app and extension.
 | D13 (v2) | Verified flags and reviews count once per attested person | One person with many keys cannot multiply influence. |
 | D14 (v2) | Domain attestations for seller URLs | Stops phishing listings from leading price rankings. |
 | D15 (v2) | Keys stay in wasm memory with explicit backup; non-extractable Web Crypto keys deferred | Web Crypto Ed25519 support is recent and would move signing out of the shared Rust code. Revisit in v2. |
+| D16 (v3) | Hiding is display-only and limited to listings, reviews, products, and profiles | Moderation cannot change verification or other rules, and flags cannot hide flags. |
+| D17 (v3) | Restriction is per person and has no ratio | New keys and dummy listings cannot escape it. |
+| D18 (v3) | Ranking uses identity-verified reviews only | Creating keys cannot change ranking. |
+
+### Changes in contract version 3
+
+From the second security review: Ed25519 rule stated as an equation (4.2); nesting depth defined (4.2); WHATWG URL rules (4.5); control kinds cannot be redacted (4.5, 5.3); retraction is final (4.6); receipt validity independent of listing status (4.7, 7.5); total order of evidence pairs and forked marker as hint (5.2); `want_bodies` and body convergence (6); per-kind attestor trust, no restriction ratio, policy hash normalization (7.1); revoke conditions and per-person status (7.3); display-only hiding for four kinds (7.6); ranking from verified reviews only (7.8); key backup with head and publish guard (8.2, 10); bundled policy (10); node-labeled extension results (10).
 
 ### Changes in contract version 2
 
