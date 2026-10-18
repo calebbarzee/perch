@@ -310,6 +310,10 @@ fn flag_appeal_retract_retire_redact() {
         ok("redact", json!({"target": H, "reason": x}));
     }
     assert!(matches!(field("redact", json!({"target": H, "reason": "spam"})).1, Problem::NotAllowed { .. }));
+    let Body::Redact(r) = ok("redact", json!({"target": H, "reason": "personal_data", "product": GTIN})) else { panic!() };
+    assert_eq!(r.product.as_ref().map(|k| k.as_str()), Some(GTIN));
+    assert_eq!(Body::Redact(r).product().map(|k| k.as_str()), Some(GTIN));
+    assert!(matches!(field("redact", json!({"target": H, "reason": "other", "product": "gtin:1"})).1, Problem::BadProductKey { .. }));
 }
 
 // ---------------------------------------------------------------- metadata and record-level

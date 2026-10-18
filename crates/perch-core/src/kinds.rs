@@ -607,6 +607,10 @@ pub struct Redact {
     /// ≤ 2000 characters.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// Product of the removed record, stated by the operator, so views can
+    /// show the notice on the product even when no version keeps a body.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product: Option<ProductKey>,
 }
 
 /// A parsed body. Serializes as the body object itself (untagged).
@@ -652,12 +656,13 @@ impl Body {
         })
     }
 
-    /// `product` field of a listing, observation, or review.
+    /// `product` field of a listing, observation, review, or redact.
     pub fn product(&self) -> Option<&ProductKey> {
         match self {
             Body::Listing(b) => Some(&b.product),
             Body::Observation(b) => Some(&b.product),
             Body::Review(b) => Some(&b.product),
+            Body::Redact(b) => b.product.as_ref(),
             _ => None,
         }
     }
@@ -829,6 +834,13 @@ impl<'a> Obj<'a> {
     fn product_key(&self, name: &str) -> R<ProductKey> {
         let s = self.raw_str(name)?;
         ProductKey::parse(s).map_err(|detail| SchemaError::new(self.p(name), Problem::BadProductKey { detail }))
+    }
+
+    fn opt_product_key(&self, name: &str) -> R<Option<ProductKey>> {
+        match self.opt_raw_str(name)? {
+            None => Ok(None),
+            Some(_) => self.product_key(name).map(Some),
+        }
     }
 
     fn obj(&self, name: &str) -> R<Obj<'a>> {
@@ -1029,6 +1041,7 @@ pub fn parse_body(kind: &str, body: &Map<String, Value>) -> Result<Body, SchemaE
             target: o.id("target")?,
             reason: o.en("reason", REDACT_REASONS, RedactReason::parse)?,
             note: o.opt_str("note", 0, 2000)?,
+            product: o.opt_product_key("product")?,
         }),
         _ => Body::Unknown(body.clone()),
     })

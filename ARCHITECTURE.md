@@ -160,7 +160,7 @@ All text fields are UTF-8 strings. Lengths are in Unicode scalar values. `Id` me
 | `appeal` | author of the target | `target` (Id), `note` (1–2000) | yes; `target` fixed |
 | `retract` | author of the target | `target` (Id). Withdraws the author's whole chain for that root ID. | no |
 | `retire` | anyone | `successor`? (Author). Ends the author's log. Informational only: no verification or reputation transfers to the successor. | no |
-| `redact` | node operator | `target` (Id), `reason` (`illegal`, `personal_data`, `court_order`, `other`), `note`? (≤2000). Announces that the author's node removed that record's body. | no |
+| `redact` | node operator | `target` (Id), `reason` (`illegal`, `personal_data`, `court_order`, `other`), `note`? (≤2000), `product`? (ProductKey of the removed record, so views can show the notice on the product page even when no version keeps a body; stated by the operator, not verified). Announces that the author's node removed that record's body. | no |
 
 Records with a non-replaceable kind cannot carry `replaces` and cannot be replaced. Records of `retract`, `retire`, `attest.revoke`, and `redact` cannot be targets of `retract`.
 
