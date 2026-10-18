@@ -104,6 +104,13 @@ fn check_sparse(size: Size, sample: usize) {
         let a = canonical_json(&product_view(&full, &policy, &key));
         let b = canonical_json(&product_view(&sparse, &policy, &key));
         assert_eq!(a, b, "sparse view differs for {key}");
+        // A light client can name the attestors behind every badge.
+        for t in &policy.trusted_attestors {
+            let full_name = author_view(&full, &policy, &t.author).and_then(|v| v.name);
+            let sparse_name = author_view(&sparse, &policy, &t.author).and_then(|v| v.name);
+            assert!(full_name.is_some(), "demo attestor has a profile name");
+            assert_eq!(full_name, sparse_name, "attestor name missing from related set of {key}");
+        }
     }
     println!("{size:?}: related-set sizes {sizes:?}");
 }

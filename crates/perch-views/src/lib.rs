@@ -106,6 +106,12 @@ pub fn chain_status<S: Store + ?Sized>(store: &S, policy: &Policy, id: &RecordId
 pub fn related_records<S: Store + ?Sized>(store: &S, key: &str, policy: &Policy) -> Vec<RecordId> {
     let v = Views::traced(store, policy);
     let _ = v.product(key);
+    // Names of the trusted attestors, so a light client can say who verified
+    // an author (ARCHITECTURE 8.1: profiles of every involved author,
+    // including attestors).
+    for t in &policy.trusted_attestors {
+        let _ = v.display_name(&t.author);
+    }
     v.take_trace()
 }
 
