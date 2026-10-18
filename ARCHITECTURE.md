@@ -368,6 +368,7 @@ AuthorView   { id, name|null, role|null, url|null, about|null,
                fork_seq|null, fork_evidence: [id, id]|null,
                retired: { seq, successor|null }|null,
                profile: Moderation|null,            // moderation of the profile chain
+               seller_reviews: { total, with_valid_receipt },   // counted reviews of products this author lists; receipts from this author
                record_count, hidden_listing_count }
 
 ListingView  { id (root id), latest (record id), seller (author id), seller_name|null,
@@ -403,7 +404,7 @@ ProductView  { key, moderation: Moderation,
                listings: [ListingView], reviews: [ReviewView], ratings: RatingSummary,
                price_range: { currency: { min, max, median, count, excluded_unverified_domain } } }
 
-SearchHit    { key, name, brand, category|null, score, why: [string],
+SearchHit    { key, name, brand, category|null, score, why: [string], moderation_status,
                rating_mean|null, rating_count,
                verified_purchase_count, verified_purchase_mean|null,
                min_price: { amount, currency }|null }
@@ -420,7 +421,7 @@ Currency     { code, minor_units }
 
 The canonical form of a view result is its RFC 8785 serialization (`perch_views::canonical_json`). The HTTP API returns view results in this form, so API output and wasm output can be compared byte for byte.
 
-`excluded_reason` values: `unavailable`, `retracted`, `seller`, `forked`, `revoked`, `superseded` (`hidden` is reserved and always 0, because hidden reviews still count). `RatingSummary.excluded` counts reviews per reason. Search sort orders are `relevance` (default), `price`, `rating_count`, and `rating_mean`; sorting happens in Rust with the 7.7 tie-break. `FlagView.excluded_reason` values: `forked`, `self`, `product_seller`, `unverified`, `duplicate_person`. Exact rules for every view: [`docs/views.md`](docs/views.md).
+`excluded_reason` values: `unavailable`, `retracted`, `seller`, `forked`, `revoked`, `superseded` (`hidden` is reserved and always 0, because hidden reviews still count). `RatingSummary.excluded` counts reviews per reason. Search returns hits whose product `moderation.status` is not `visible` after all visible hits, so hidden products are never silently dropped; the app collapses them behind a notice. Search sort orders are `relevance` (default), `price`, `rating_count`, and `rating_mean`; sorting happens in Rust with the 7.7 tie-break. `FlagView.excluded_reason` values: `forked`, `self`, `product_seller`, `unverified`, `duplicate_person`. Exact rules for every view: [`docs/views.md`](docs/views.md).
 
 `mean` and `score` may be fractional numbers per 7.7. All other numbers are integers.
 
