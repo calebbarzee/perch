@@ -15,7 +15,7 @@ members = [
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/perch-protocol/perch"
+repository = "https://github.com/calebbarzee/perch"
 rust-version = "1.85"
 
 [workspace.dependencies]
