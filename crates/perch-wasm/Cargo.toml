@@ -1,0 +1,11 @@
+[package]
+name = "perch-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[lib]
+crate-type = ["cdylib", "rlib"]

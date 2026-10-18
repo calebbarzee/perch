@@ -1,0 +1,6 @@
+/target
+/web/pkg
+/web/node_modules
+/tests/**/node_modules
+/data
+*.jsonl.tmp
