@@ -592,3 +592,15 @@ td.num, th.num { text-align: right; }
   .topbar, .footer, .banner-slot, .review-filter, .actions { display: none; }
   body { background: #fff; }
 }
+
+/* Author records and flags */
+.chain-list { display: grid; gap: 0; }
+.chain { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line); }
+.chain-kind { color: var(--ink-2); font-size: 0.875rem; min-width: 7rem; }
+.log-details > summary { cursor: pointer; }
+h2.inline { display: inline; font-size: 1.125rem; }
+.flag-list summary { cursor: pointer; color: var(--accent); font-size: 0.9375rem; }
+.flags li { padding: 0.375rem 0; border-top: 1px solid var(--line); }
+.flags li.not-counted { opacity: 0.8; }
+.flag-note { margin: 0.25rem 0 0; color: var(--ink-2); font-size: 0.875rem; }
+.ships { font-size: 0.8125rem; }

@@ -5,8 +5,8 @@ import { h, clear, announce } from './dom.js';
 import { route, parseHash } from './router.js';
 import { configuredNodes, settings } from './settings.js';
 import * as persist from './persist.js';
-import { defaultPolicy } from './default-policy.js';
-import { hex, notice } from './components.js';
+import { hex, notice, setNameLookup } from './components.js';
+import { setCurrencyTable } from './format.js';
 
 import search from './screens/search.js';
 import product from './screens/product.js';
@@ -31,6 +31,20 @@ route('/data', data);
 route('/data/:id', data);
 
 const POLICY_KEY = 'perch.policy.v1';
+
+// Used only if web/default-policy.json cannot be read.
+const FALLBACK_POLICY = Object.freeze({
+  now: null,
+  trusted_attestors: [],
+  flag_threshold: 3,
+  flag_thresholds: { review: 3 },
+  flags_require_verified: true,
+  seller_hidden_listing_limit: 3,
+  seller_min_distinct_flaggers: 9,
+  verified_purchase_requires_verified_buyer: true,
+  price_requires_domain_verified: true,
+  future_ts_tolerance_ms: 600000,
+});
 
 export const app = {
   client: null,
@@ -113,21 +127,29 @@ async function boot() {
   document.documentElement.dataset.client = app.mode;
   persist.useNamespace(app.mode);
   try {
+    setCurrencyTable(app.client.currencies());
+  } catch (e) {
+    app.bootErrors.push(`The currency table did not load (${e.message}). Prices show in minor units.`);
+  }
+  try {
     app.build = app.client.buildInfo();
   } catch {
     app.build = { version: null, wasm_sha256: null };
   }
 
+  // The bundled policy is a static file shipped with this release
+  // (ARCHITECTURE 10). The mock client brings its own, because its demo
+  // attestor key differs from the real demo dataset.
   if (app.mode === 'mock') {
     app.bundledPolicy = app.client.policy();
   } else {
-    app.bundledPolicy = defaultPolicy();
-    // The demo dataset's attestor, when the wasm build knows it.
     try {
-      const demo = app.client.demoPolicy?.();
-      if (demo) app.bundledPolicy = demo;
-    } catch {
-      // ignore
+      const res = await fetch(new URL('../default-policy.json', import.meta.url), { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      app.bundledPolicy = await res.json();
+    } catch (e) {
+      app.bootErrors.push(`The bundled policy file did not load (${e.message}). No attestors are trusted until you add them on the Policy screen.`);
+      app.bundledPolicy = { ...FALLBACK_POLICY };
     }
   }
   try {
@@ -171,6 +193,8 @@ async function boot() {
       app.bootErrors.push(`The stored key could not be loaded (${e.message}).`);
     }
   }
+
+  setNameLookup((id) => app.client.authorView(id)?.name ?? null);
 
   app.client.onChange((ev) => {
     const reason = ev?.reason ?? 'records';

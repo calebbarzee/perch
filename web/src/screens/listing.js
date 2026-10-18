@@ -24,7 +24,7 @@ export default {
       h('p', { class: 'crumbs' }, h('a', { href: routes.product(l.product) }, bdi(productName)), ' / listing'),
       h('h1', {}, l.title ? bdi(l.title) : ['Listing by ', bdi(l.seller_name || fmt.shortHex(l.seller))]),
     );
-    section.append(h('ul', { class: 'listings single' }, listingCard(l, policy)));
+    section.append(h('ul', { class: 'listings single' }, listingCard(l, policy, { client })));
 
     section.append(
       h('section', { class: 'block', 'aria-labelledby': 'h-ldetails' },
@@ -33,6 +33,8 @@ export default {
           ['Product', h('a', { href: routes.product(l.product) }, bdi(productName))],
           ['Seller', authorChip(l.seller, l.seller_name, { verified: l.seller_verified, status: l.seller_status })],
           ['Seller page', l.url ? urlLink(l.url) : null],
+          ['Ships to', l.ships_to?.length ? h('span', { text: l.ships_to.join(', ') }) : null],
+          ['Ships from', l.location ? h('span', { text: `${l.location.country}${l.location.region ? `, ${l.location.region}` : ''}` }) : null],
           ['Domain', l.domain ? h('span', {}, h('span', { class: 'host', text: l.domain.domain }), ', attested by ', authorChip(l.domain.attestor, null), ` until ${fmt.date(l.domain.expires)}`) : h('span', { text: 'Not verified for this URL.' })],
           ['Status', h('span', { text: { visible: 'Visible', hidden: 'Hidden by moderation', retracted: 'Withdrawn by the seller', unavailable: 'Text removed by a node' }[l.status] || l.status })],
           ['Flags', h('span', { text: l.flags.count ? `${l.flags.count} in total, ${l.flags.counted} counted (${fmt.reasonsText(l.flags.reasons)})` : 'None' })],

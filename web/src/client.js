@@ -14,11 +14,33 @@ function wantMock() {
   return params.get('mock') === '1';
 }
 
-async function loadWasm() {
-  const url = new URL('../pkg/perch_wasm.js', import.meta.url);
-  const mod = await import(url.href);
-  if (typeof mod.default === 'function') await mod.default();
+// Loads the wasm package. The loader fetches the module bytes itself,
+// hashes them, and instantiates exactly those bytes, so the SHA-256 shown
+// to the user (ARCHITECTURE 10) describes the code that runs.
+export async function loadWasmModule(pkgBase = new URL('../pkg/', import.meta.url)) {
+  const mod = await import(new URL('perch_wasm.js', pkgBase).href);
+  const res = await fetch(new URL('perch_wasm_bg.wasm', pkgBase), { cache: 'no-store' });
+  if (!res.ok) throw new Error(`perch_wasm_bg.wasm: HTTP ${res.status}`);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  const digest = await sha256Hex(bytes);
+  await mod.default({ module_or_path: bytes });
   if (!mod.PerchClient) throw new Error('web/pkg/perch_wasm.js does not export PerchClient');
+  if (typeof mod.setWasmSha256 === 'function') mod.setWasmSha256(digest);
+  return mod;
+}
+
+async function sha256Hex(bytes) {
+  // Web Crypto exists only in secure contexts (https, localhost, 127.0.0.1).
+  if (globalThis.crypto?.subtle) {
+    const d = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+    return Array.from(d, (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  const { sha256Hex: jsSha256 } = await import('./sha256.js');
+  return jsSha256(bytes);
+}
+
+async function loadWasm() {
+  const mod = await loadWasmModule();
   return mod.PerchClient;
 }
 

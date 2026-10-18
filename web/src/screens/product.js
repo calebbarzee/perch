@@ -31,11 +31,20 @@ export default {
       ),
     );
 
+    // Product records hidden by moderation: the facts stay visible, because
+    // other sellers' listings and reviews share the product key.
+    if (p.moderation && p.moderation.status !== 'visible') {
+      const firstSource = p.name?.sources?.[0]?.record;
+      const rootId = firstSource ? client.recordStatus?.(firstSource)?.root ?? firstSource : null;
+      const mod = moderationNotice(p.moderation, 'product', policy, client, rootId);
+      if (mod) section.append(mod);
+    }
+
     // Summary: rating and price side by side.
     section.append(h('div', { class: 'summary-grid' }, ratingPanel(p.ratings), pricePanel(p)));
 
     // Listings.
-    section.append(listingsSection(p, policy));
+    section.append(listingsSection(p, policy, client));
 
     // Price history.
     const currencies = [...new Set(p.listings.flatMap((l) => l.price_history.map((x) => x.currency)))].sort();
@@ -47,7 +56,7 @@ export default {
     }
 
     // Reviews.
-    section.append(reviewsSection(p, policy));
+    section.append(reviewsSection(p, policy, client));
 
     // Details: facts with sources.
     section.append(detailsSection(p));
@@ -151,19 +160,19 @@ function pricePanel(p) {
   return panel;
 }
 
-function listingsSection(p, policy) {
+function listingsSection(p, policy, client) {
   const sec = h('section', { class: 'block', 'aria-labelledby': 'h-listings' }, h('h2', { id: 'h-listings', text: `Where to buy (${p.listings.length})` }));
   if (!p.listings.length) {
     sec.append(h('p', { class: 'muted', text: 'No seller has listed this product.' }));
     return sec;
   }
   const list = h('ul', { class: 'listings' });
-  for (const l of p.listings) list.append(listingCard(l, policy));
+  for (const l of p.listings) list.append(listingCard(l, policy, { client }));
   sec.append(list);
   return sec;
 }
 
-export function listingCard(l, policy, { showProduct = false } = {}) {
+export function listingCard(l, policy, { showProduct = false, client = null } = {}) {
   const li = h('li', { class: ['listing', `status-${l.status}`], dataset: { listing: l.id, status: l.status } });
   const seller = authorChip(l.seller, l.seller_name, { verified: l.seller_verified, status: l.seller_status });
   const badges = h('p', { class: 'badges' },
@@ -173,17 +182,18 @@ export function listingCard(l, policy, { showProduct = false } = {}) {
     l.seller_restricted ? badge('bad', 'Seller restricted', 'ban') : null,
     l.flags.count ? badge('muted', `${fmt.plural(l.flags.count, 'flag')}`, 'flag') : null,
   );
-  const mod = moderationNotice(l, 'listing', policy);
+  const mod = moderationNotice(l, 'listing', policy, client, l.id);
   const head = h('div', { class: 'listing-head' },
     h('div', { class: 'listing-who' }, seller, l.title ? userText('p', l.title, { class: 'listing-title' }) : null),
     h('div', { class: 'listing-price' },
       h('p', { class: 'price', text: priceText(l.price) }),
       h('p', { class: 'muted' }, `${fmt.AVAILABILITY[l.availability] || l.availability || ''}, ${fmt.CONDITION[l.condition] || l.condition || ''}`),
+      shipsText(l) ? h('p', { class: 'muted ships', text: shipsText(l) }) : null,
     ),
   );
   li.append(head, badges);
   if (l.seller_restricted) {
-    li.append(notice('bad', 'Seller restricted', h('p', { text: `People flagged at least ${policy.seller_hidden_listing_limit} of this seller's listings until they were hidden.` })));
+    li.append(notice('bad', 'Seller restricted', h('p', {}, `Under your policy, ${policy.seller_hidden_listing_limit} or more of this seller's listings are hidden by moderation, or the seller signed two histories. `, h('a', { href: routes.author(l.seller), text: 'See the seller' }), '.')));
   }
   if (mod) li.append(mod);
   li.append(
@@ -198,7 +208,7 @@ export function listingCard(l, policy, { showProduct = false } = {}) {
   return li;
 }
 
-function reviewsSection(p, policy) {
+function reviewsSection(p, policy, client) {
   const sec = h('section', { class: 'block', 'aria-labelledby': 'h-reviews' },
     h('div', { class: 'block-head' },
       h('h2', { id: 'h-reviews', text: `Reviews (${p.reviews.length})` }),
@@ -235,12 +245,22 @@ function reviewsSection(p, policy) {
     ).length;
     filters.append(h('button', { type: 'button', class: 'chip', dataset: { filter: v }, 'aria-pressed': String(v === 'all'), on: { click: () => apply(v) } }, `${label} (${n})`));
   }
-  for (const r of p.reviews) list.append(reviewItem(r, policy));
+  for (const r of p.reviews) list.append(reviewItem(r, policy, client));
   sec.append(filters, list);
   return sec;
 }
 
-export function reviewItem(r, policy) {
+export function shipsText(l) {
+  const parts = [];
+  if (l.location) parts.push(`Ships from ${l.location.country}${l.location.region ? `, ${l.location.region}` : ''}`);
+  if (l.ships_to?.length) {
+    const list = l.ships_to.length > 8 ? `${l.ships_to.slice(0, 8).join(', ')} and ${l.ships_to.length - 8} more` : l.ships_to.join(', ');
+    parts.push(parts.length ? `to ${list}` : `Ships to ${list}`);
+  }
+  return parts.join(' ');
+}
+
+export function reviewItem(r, policy, client = null) {
   const li = h('li', {
     class: ['review', `status-${r.status}`, r.counted ? null : 'not-counted'],
     dataset: { review: r.id, status: r.status, counted: String(r.counted), purchase: r.purchase, identity: String(r.author_verified) },
@@ -259,7 +279,7 @@ export function reviewItem(r, policy) {
   if (purchaseText) {
     li.append(h('p', { class: 'badges' }, r.purchase === 'verified' ? badge('good', purchaseText, 'receipt') : badge('warn', purchaseText, 'receipt')));
   }
-  const mod = moderationNotice(r, 'review', policy);
+  const mod = moderationNotice(r, 'review', policy, client, r.id);
   if (mod) li.append(mod);
   if ((r.status === 'hidden' || r.status === 'retracted') && r.text != null) {
     const label = r.status === 'hidden' ? 'hidden' : 'withdrawn';

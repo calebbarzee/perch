@@ -1,0 +1,24 @@
+{
+  "now": null,
+  "trusted_attestors": [
+    {
+      "author": "e1cba3ac244650b31f503877cffb31e54c2becadf185a2b7f1204c7e840e0e5f",
+      "kinds": [
+        "attest.domain",
+        "attest.identity",
+        "attest.revoke"
+      ],
+      "not_after_seq": null
+    }
+  ],
+  "flag_threshold": 3,
+  "flag_thresholds": {
+    "review": 3
+  },
+  "flags_require_verified": true,
+  "seller_hidden_listing_limit": 3,
+  "seller_min_distinct_flaggers": 9,
+  "verified_purchase_requires_verified_buyer": true,
+  "price_requires_domain_verified": true,
+  "future_ts_tolerance_ms": 600000
+}

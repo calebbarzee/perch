@@ -69,9 +69,22 @@ export function recordLink(id, label) {
   return h('a', { href: routes.record(id), class: 'record-link' }, label ? label : hex(id));
 }
 
+// Looks up a display name when a view gives only a key. Set by the app.
+let nameLookup = null;
+export function setNameLookup(fn) {
+  nameLookup = fn;
+}
+
 // Author name with fingerprint and key prefix. The name is the author's own
 // claim; the key prefix is what identifies them.
 export function authorChip(id, name, { verified = false, status = 'ok', link = true } = {}) {
+  if (name == null && nameLookup) {
+    try {
+      name = nameLookup(id);
+    } catch {
+      name = null;
+    }
+  }
   const parts = [
     fingerprint(id, 16),
     name ? bdi(name, { class: 'author-name' }) : h('span', { class: 'author-name unnamed', text: 'No profile' }),
@@ -117,9 +130,54 @@ export function stars(rating) {
   return el;
 }
 
-// Moderation and availability notice for a listing or review (7.6, 5.3).
-export function moderationNotice(view, kind, policy) {
-  const what = kind === 'listing' ? 'listing' : 'review';
+const FLAG_EXCLUDED = {
+  own_record: 'by the author of the flagged record',
+  seller: 'by a seller of this product',
+  unverified: 'identity not verified',
+  same_person: 'same person as an earlier flag',
+  forked: "flagger's log is forked",
+  revoked: 'after a key revocation',
+};
+
+// Every flag on a record, with who flagged and whether it counts. Loaded
+// when the user opens the list.
+export function flagList(client, rootId) {
+  const details = h('details', { class: 'flag-list' }, h('summary', { text: 'Show who flagged' }));
+  details.addEventListener('toggle', () => {
+    if (!details.open || details.dataset.loaded) return;
+    details.dataset.loaded = '1';
+    let flags = [];
+    try {
+      flags = client.flags(rootId) || [];
+    } catch (e) {
+      details.append(h('p', { class: 'hint', text: `Flags could not be listed (${e.message}).` }));
+      return;
+    }
+    details.append(
+      h('ul', { class: 'plain flags' },
+        flags.map((f) =>
+          h('li', { class: f.counted ? 'counted' : 'not-counted' },
+            authorChip(f.author, f.author_name, { verified: f.author_verified }),
+            ' ',
+            h('strong', { text: fmt.FLAG_REASONS[f.reason] || f.reason }),
+            h('span', { class: 'muted', text: ` ${fmt.date(f.ts)}` }),
+            ' ',
+            recordLink(f.record, 'record'),
+            f.counted ? null : h('span', { class: 'hint', text: ` Not counted: ${FLAG_EXCLUDED[f.excluded_reason] || f.excluded_reason}.` }),
+            f.note ? userText('p', f.note, { class: 'flag-note' }) : null,
+          ),
+        ),
+      ),
+    );
+  }, { once: false });
+  return details;
+}
+
+// Moderation and availability notice for a listing, review, product, or
+// profile (7.6, 5.3). `view` has status, flags, appeal, and redaction.
+export function moderationNotice(view, kind, policy, client = null, rootId = null) {
+  const what = { listing: 'listing', review: 'review', product: 'product', profile: 'profile' }[kind] || 'record';
+  const owner = kind === 'listing' ? 'seller' : 'author';
   if (view.status === 'hidden') {
     const threshold = policy?.flag_thresholds?.[kind] ?? policy?.flag_threshold ?? null;
     const counted = view.flags.counted;
@@ -131,15 +189,16 @@ export function moderationNotice(view, kind, policy) {
     ];
     const reasons = fmt.reasonsText(view.flags.reasons);
     if (reasons) parts.push(h('p', {}, `Reasons: ${reasons}.`));
+    if (client && rootId && typeof client.flags === 'function') parts.push(flagList(client, rootId));
     if (view.appeal) {
       parts.push(
         h('div', { class: 'appeal' },
-          h('p', {}, `The ${kind === 'listing' ? 'seller' : 'author'} appealed on ${fmt.date(view.appeal.ts)}:`),
+          h('p', {}, `The ${owner} appealed on ${fmt.date(view.appeal.ts)}:`),
           userText('blockquote', view.appeal.note),
         ),
       );
     } else if (view.appealed) {
-      parts.push(h('p', { text: `The ${kind === 'listing' ? 'seller' : 'author'} appealed.` }));
+      parts.push(h('p', { text: `The ${owner} appealed.` }));
     }
     parts.push(h('p', { class: 'hint', text: 'Hidden records stay in the data. Moderation follows your policy on this device.' }));
     const n = notice('hidden', `Hidden by moderation`, ...parts);
@@ -162,7 +221,7 @@ export function moderationNotice(view, kind, policy) {
     return n;
   }
   if (view.status === 'retracted') {
-    const n = notice('muted', `Withdrawn by its ${kind === 'listing' ? 'seller' : 'author'}`, h('p', { text: `The ${what} remains in the data but no longer counts.` }));
+    const n = notice('muted', `Withdrawn by its ${owner}`, h('p', { text: `The ${what} remains in the data but no longer counts.` }));
     n.dataset.status = 'retracted';
     return n;
   }

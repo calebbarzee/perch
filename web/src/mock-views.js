@@ -31,7 +31,10 @@ function hostOf(url) {
 }
 
 export class MockStore {
-  constructor() {
+  // sparse: keep isolated-valid records without complete prefixes
+  // (ARCHITECTURE 5.5). Logs may then have holes.
+  constructor({ sparse = false } = {}) {
+    this.sparse = sparse;
     this.byId = new Map(); // id -> record (wire form)
     this.logs = new Map(); // author -> array indexed by seq-1 of ids
     this.evidence = new Map(); // author -> [a, b]
@@ -73,6 +76,7 @@ export class MockStore {
       return { outcome: 'duplicate', id };
     }
     const author = rec.author;
+    if (this.sparse) return this.insertSparse(rec, id);
     if (this.forkSeq.has(author) && rec.seq >= this.forkSeq.get(author)) {
       return { outcome: 'duplicate', id };
     }
@@ -109,6 +113,21 @@ export class MockStore {
     return { outcome: 'inserted', id };
   }
 
+  insertSparse(rec, id) {
+    const author = rec.author;
+    if (this.forkSeq.has(author) && rec.seq >= this.forkSeq.get(author)) return { outcome: 'duplicate', id };
+    const log = this.logs.get(author) || [];
+    const other = log[rec.seq - 1];
+    if (other && other !== id) {
+      this.recordFork(author, rec.seq, this.byId.get(other), rec, id);
+      return { outcome: 'fork', id };
+    }
+    log[rec.seq - 1] = id;
+    this.logs.set(author, log);
+    this.byId.set(id, rec);
+    return { outcome: 'inserted', id };
+  }
+
   recordFork(author, n, a, b, bId) {
     const prev = this.forkSeq.get(author);
     if (prev === undefined || n < prev) {
@@ -126,7 +145,7 @@ export class MockStore {
   // Records in log order (evidence pairs last), for export and views.
   all() {
     const out = [];
-    for (const log of this.logs.values()) for (const id of log) out.push(this.byId.get(id));
+    for (const log of this.logs.values()) for (const id of log) if (id) out.push(this.byId.get(id));
     for (const pair of this.evidence.values()) for (const r of pair) if (r) out.push(r);
     return out;
   }
@@ -145,7 +164,9 @@ export function computeState(store, policy) {
   const recs = new Map(); // id -> { id, r }
   const logEntries = [];
   for (const [author, log] of store.logs) {
-    log.forEach((id, i) => logEntries.push({ id, r: store.byId.get(id), author, seq: i + 1 }));
+    log.forEach((id, i) => {
+      if (id) logEntries.push({ id, r: store.byId.get(id), author, seq: i + 1 });
+    });
   }
   for (const e of logEntries) recs.set(e.id, e);
 
@@ -155,6 +176,7 @@ export function computeState(store, policy) {
   // Revokes and retire cut-offs.
   const revoked = new Map(); // subject -> { attestor, valid_through_seq }
   const retiredAt = new Map(); // author -> seq of retire
+  const retireInfo = new Map(); // author -> { seq, successor }
   const subjectsByAttestor = new Map();
   for (const e of logEntries) {
     if (!e.r.body) continue;
@@ -176,7 +198,10 @@ export function computeState(store, policy) {
         revoked.set(e.r.body.subject, { attestor: e.author, valid_through_seq: e.r.body.valid_through_seq });
       }
     }
-    if (e.r.kind === 'retire' && !retiredAt.has(e.author)) retiredAt.set(e.author, e.seq);
+    if (e.r.kind === 'retire' && !retiredAt.has(e.author)) {
+      retiredAt.set(e.author, e.seq);
+      retireInfo.set(e.author, { seq: e.seq, successor: e.r.body.successor ?? null });
+    }
   }
 
   const active = (e) => {
@@ -238,7 +263,7 @@ export function computeState(store, policy) {
     const b = e.r.body;
     if (!(b.expires > now)) continue;
     if (e.r.kind === 'attest.identity') {
-      const cand = { level: b.level, country: b.country ?? null, attestor: e.author, expires: b.expires, person: b.person };
+      const cand = { level: b.level, legal_name: b.legal_name ?? null, country: b.country ?? null, attestor: e.author, expires: b.expires, person: b.person };
       const prev = identity.get(b.subject);
       if (!prev || CMP(cand.attestor + cand.person, prev.attestor + prev.person) < 0) identity.set(b.subject, cand);
     } else if (e.r.kind === 'attest.domain') {
@@ -255,9 +280,13 @@ export function computeState(store, policy) {
 
   // Profiles.
   const profiles = new Map(); // author -> latest profile body
+  const profileChains = new Map(); // author -> { rt, e } of the latest profile chain
   for (const [rt] of chains) {
     const e = latestOf(rt);
-    if (!e || e.r.kind !== 'profile' || !e.r.body || retracted.has(rt)) continue;
+    if (!e || e.r.kind !== 'profile') continue;
+    const pc = profileChains.get(e.author);
+    if (!pc || pc.e.seq < e.seq) profileChains.set(e.author, { rt, e });
+    if (!e.r.body || retracted.has(rt)) continue;
     const prev = profiles.get(e.author);
     if (!prev || prev.seq < e.seq) profiles.set(e.author, { seq: e.seq, body: e.r.body, root: rt });
   }
@@ -305,6 +334,32 @@ export function computeState(store, policy) {
     }
     return { count, counted: persons.size, reasons, persons };
   };
+  const flagViews = (troot, targetAuthor, sellersOfProduct) => {
+    const m = flagsOn.get(troot) || new Map();
+    const seen = new Set();
+    const out = [];
+    const entries = [...m.entries()].sort((a, b) => a[1].r.ts - b[1].r.ts || CMP(a[1].id, b[1].id));
+    for (const [flagger, e] of entries) {
+      let reason = null;
+      if (flagger === targetAuthor) reason = 'own_record';
+      else if (sellersOfProduct && sellersOfProduct.has(flagger)) reason = 'seller';
+      else if (policy.flags_require_verified && !verified(flagger)) reason = 'unverified';
+      else if (seen.has(personKey(flagger))) reason = 'same_person';
+      if (!reason) seen.add(personKey(flagger));
+      out.push({
+        record: e.id,
+        author: flagger,
+        author_name: nameOf(flagger),
+        author_verified: verified(flagger),
+        reason: e.r.body.reason,
+        note: e.r.body.note ?? null,
+        counted: reason === null,
+        excluded_reason: reason,
+        ts: e.r.ts,
+      });
+    }
+    return out;
+  };
   const thresholdFor = (kind) => policy.flag_thresholds?.[kind] ?? policy.flag_threshold ?? 3;
 
   // Appeals.
@@ -317,6 +372,15 @@ export function computeState(store, policy) {
     appeals.set(root(target.id), { record: e.id, note: e.r.body.note, ts: e.r.ts });
   }
 
+  const moderationOf = (rt, e, kind) => {
+    const f = flagSummary(rt, e.author);
+    return {
+      status: statusOf(rt, e, kind),
+      flags: { count: f.count, counted: f.counted, reasons: f.reasons },
+      appeal: appeals.get(rt) ?? null,
+      redaction: redactionFor(e),
+    };
+  };
   const statusOf = (rt, e, kind) => {
     if (retracted.has(rt)) return 'retracted';
     if (!e.r.body) return 'unavailable';
@@ -382,6 +446,8 @@ export function computeState(store, policy) {
       price: b.price ? { ...b.price } : null,
       availability: b.availability ?? null,
       condition: b.condition ?? null,
+      ships_to: b.ships_to ? [...b.ships_to] : [],
+      location: b.location ? { country: b.location.country, region: b.location.region ?? null } : null,
       updated_ts: e.r.ts,
       status,
       flags: { count: f.count, counted: f.counted, reasons: f.reasons },
@@ -398,12 +464,14 @@ export function computeState(store, policy) {
   }
   // Restriction per person key.
   const restrictedPersons = new Set();
+  const restrictionOf = new Map(); // person key -> { hidden_listings, distinct_flaggers }
   for (const [sk, list] of listingsBySeller) {
     const hidden = list.filter((l) => l.status === 'hidden');
     const flaggers = new Set();
     for (const l of hidden) for (const p of l._flaggers) flaggers.add(p);
     if (hidden.length >= (policy.seller_hidden_listing_limit ?? 3) && flaggers.size >= (policy.seller_min_distinct_flaggers ?? 9)) {
       restrictedPersons.add(sk);
+      restrictionOf.set(sk, { hidden_listings: hidden.length, distinct_flaggers: flaggers.size });
     }
   }
   for (const author of store.forkSeq.keys()) if (identity.has(author) && !revoked.has(author)) restrictedPersons.add(personKey(author));
@@ -592,8 +660,26 @@ export function computeState(store, policy) {
       }
     }
     const firstBody = prods[0]?.e.r.body || {};
+    // A product key can group several product chains. The mock sums their
+    // flags and reports hidden only when every chain is hidden.
+    const mods = prods.map(({ e, rt }) => moderationOf(rt, e, 'product'));
+    const moderation = {
+      status: mods.length && mods.every((m) => m.status === 'hidden') ? 'hidden' : 'visible',
+      flags: mods.reduce(
+        (acc, m) => {
+          acc.count += m.flags.count;
+          acc.counted += m.flags.counted;
+          for (const [r, n] of Object.entries(m.flags.reasons)) acc.reasons[r] = (acc.reasons[r] || 0) + n;
+          return acc;
+        },
+        { count: 0, counted: 0, reasons: {} },
+      ),
+      appeal: mods.find((m) => m.appeal)?.appeal ?? null,
+      redaction: null,
+    };
     const view = {
       key: k,
+      moderation,
       name: fact('name'),
       brand: fact('brand'),
       category: fact('category'),
@@ -629,13 +715,17 @@ export function computeState(store, policy) {
       role: p?.role ?? null,
       url: p?.url ?? null,
       about: p?.about ?? null,
-      verified: id ? { level: id.level, country: id.country, attestor: id.attestor, expires: id.expires } : null,
+      verified: id ? { level: id.level, legal_name: id.legal_name, country: id.country, attestor: id.attestor, expires: id.expires } : null,
       domains: domains.get(a) || [],
       status: authorStatus(a),
       restricted: isRestricted(a),
+      restriction: restrictionOf.get(personKey(a)) ?? null,
       revoked: revoked.get(a) ?? null,
       fork_seq: store.forkSeq.get(a) ?? null,
-      record_count: (store.logs.get(a) || []).length,
+      fork_evidence: store.evidence.has(a) ? store.evidence.get(a).map((r) => store.idOf(r)).sort() : null,
+      retired: retireInfo.get(a) ?? null,
+      profile: profileChains.has(a) ? moderationOf(profileChains.get(a).rt, profileChains.get(a).e, 'profile') : null,
+      record_count: (store.logs.get(a) || []).filter(Boolean).length,
       hidden_listing_count: sellerListings.filter((l) => l.status === 'hidden').length,
     });
   }
@@ -653,7 +743,45 @@ export function computeState(store, policy) {
     redacted: redactedCount,
   };
 
-  return { productViews, listingViews, authorViews, stats, now };
+  // Chain summaries and flags, for authorRecords(), flags(), recordStatus().
+  const chainSummary = (rt) => {
+    const chain = chains.get(rt);
+    if (!chain) return null;
+    const e = latestOf(rt) || chain[chain.length - 1];
+    const kind = chain[0].r.kind;
+    let status = statusOf(rt, e, kind);
+    const b = e.r.body || {};
+    let product = b.product ?? null;
+    if (kind === 'product' && e.r.body) product = productKeyFor(e.r.body, rt);
+    return { root: rt, latest: e.id, kind, ts: e.r.ts, status, product, title: b.title ?? b.name ?? null, _seq: e.seq, _author: e.author };
+  };
+  const sellersOfProductOf = (troot) => {
+    const target = recs.get(troot);
+    if (!target || target.r.kind !== 'review' || !target.r.body) return null;
+    return sellersOf(target.r.body.product);
+  };
+  const flagsFor = (rootId) => {
+    const target = recs.get(rootId);
+    if (!target) return [];
+    const rt = root(rootId);
+    return flagViews(rt, target.author, sellersOfProductOf(rt));
+  };
+  const recordStatus = (id) => {
+    const e = recs.get(id);
+    if (!e) return null;
+    const rt = root(id);
+    const versions = (chains.get(rt) || []).map((x) => x.id);
+    let reason = null;
+    if (!e.r.body) reason = 'body removed';
+    else if (store.forkSeq.has(e.author) && e.seq >= store.forkSeq.get(e.author)) reason = 'after fork';
+    else if (revokedAfterCutoff(e)) reason = 'after key revocation';
+    else if (retiredAt.has(e.author) && e.seq > retiredAt.get(e.author)) reason = 'after retire';
+    else if (e.r.ts > now + tolerance) reason = 'dated in the future';
+    else if (e.r.replaces && rt === id) reason = 'replaces a record it may not replace';
+    return { semantic_valid: reason === null, reason, root: rt, versions };
+  };
+
+  return { productViews, listingViews, authorViews, stats, now, chains, chainSummary, flagsFor, recordStatus };
 }
 
 const STOP = new Set(['the', 'a', 'an', 'and', 'for', 'of', 'with']);

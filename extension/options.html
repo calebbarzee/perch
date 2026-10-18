@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Perch extension settings</title>
+  <link rel="stylesheet" href="options.css">
+  <script type="module" src="options.js"></script>
+</head>
+<body>
+  <main>
+    <h1>Perch extension settings</h1>
+    <p>On product pages, the extension reads the product number (GTIN) from the page. It asks the nodes below for records in a bucket of about 1 in 65,536 products. It never sends the full product number, the page address, or anything else.</p>
+    <p>The extension checks every signature and computes ratings and prices in your browser with the policy bundled in this extension. A node can withhold records but cannot change them. Use at least 2 independent nodes so the panel can show when they disagree.</p>
+    <form id="form" novalidate>
+      <div class="field">
+        <label for="nodes">Nodes</label>
+        <p class="hint" id="nodes-hint">One HTTP address per line, for example http://127.0.0.1:7700</p>
+        <textarea id="nodes" rows="4" spellcheck="false" aria-describedby="nodes-hint"></textarea>
+      </div>
+      <div class="field">
+        <label for="app">Web app address (optional)</label>
+        <p class="hint" id="app-hint">The panel links here. Empty: the first node's address, which serves the app.</p>
+        <input id="app" type="url" spellcheck="false" aria-describedby="app-hint">
+      </div>
+      <button type="submit">Save</button>
+      <p id="status" role="status"></p>
+    </form>
+  </main>
+</body>
+</html>

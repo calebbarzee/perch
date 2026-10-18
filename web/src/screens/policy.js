@@ -37,6 +37,9 @@ export default {
         h('p', { class: 'label', text: 'Active policy hash' }),
         h('code', { class: 'hex hex-full', id: 'policy-hash', text: hash }),
         h('p', { class: isBundled ? 'good-text' : 'warn-text', text: isBundled ? 'This is the policy bundled with this app release.' : 'You changed the policy. It differs from the one bundled with this release.' }),
+        app.mode === 'mock'
+          ? h('p', { class: 'hint', text: 'The mock client uses its own demo policy.' })
+          : h('p', { class: 'hint' }, 'The bundled policy is the file ', h('a', { href: 'default-policy.json', target: '_blank', rel: 'noopener' }, h('code', { text: 'default-policy.json' })), ' served with this app.'),
       ),
     );
 

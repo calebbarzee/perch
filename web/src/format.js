@@ -1,13 +1,36 @@
 // Formatting for display. Views return integers in minor currency units and
 // Unix milliseconds; these helpers turn them into text in the user's locale.
 
+// Minor units come from the client's ISO 4217 table (client.currencies()),
+// not from Intl, whose defaults differ for some codes (IQD, LBP, ALL, RSD,
+// IRR, YER, and others).
+const minorUnits = new Map();
 const moneyFormats = new Map();
+
+export function setCurrencyTable(list) {
+  minorUnits.clear();
+  moneyFormats.clear();
+  for (const c of list || []) minorUnits.set(c.code, c.minor_units);
+}
+
+export function knownCurrency(code) {
+  return minorUnits.has(code);
+}
+
+export function currencyCodes() {
+  return [...minorUnits.keys()].sort();
+}
+
+export function minorDigits(currency) {
+  return minorUnits.get(currency) ?? 2;
+}
 
 function moneyFormat(currency) {
   if (!moneyFormats.has(currency)) {
     let fmt = null;
+    const digits = minorDigits(currency);
     try {
-      fmt = new Intl.NumberFormat(undefined, { style: 'currency', currency });
+      fmt = new Intl.NumberFormat(undefined, { style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: digits });
     } catch {
       fmt = null;
     }
@@ -16,16 +39,15 @@ function moneyFormat(currency) {
   return moneyFormats.get(currency);
 }
 
-export function minorDigits(currency) {
-  const fmt = moneyFormat(currency);
-  return fmt ? fmt.resolvedOptions().maximumFractionDigits : 2;
-}
-
 export function money(amount, currency) {
   if (amount == null) return '';
+  const digits = minorDigits(currency);
   const fmt = moneyFormat(currency);
-  if (!fmt) return `${amount} ${currency} (minor units)`;
-  return fmt.format(amount / 10 ** minorDigits(currency));
+  if (!fmt || !minorUnits.has(currency)) {
+    // Unknown code: show the raw minor-unit amount, so nothing is guessed.
+    return `${amount.toLocaleString()} ${currency} (minor units)`;
+  }
+  return fmt.format(amount / 10 ** digits);
 }
 
 // "129.95" in USD -> 12995. Returns null when the text is not a valid amount.

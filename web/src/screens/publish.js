@@ -16,7 +16,7 @@ const KINDS = [
   ['retract', 'Withdraw a record'],
 ];
 
-const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'JPY', 'CAD', 'AUD'];
+const COMMON = ['EUR', 'USD', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'JPY', 'CAD', 'AUD'];
 
 export default {
   id: 'publish',
@@ -217,7 +217,12 @@ function reviewForm(ctx, { blocked }) {
 }
 
 function priceFields(prefix = '') {
-  const cur = h('select', { name: 'currency', id: `f-${prefix}currency` }, CURRENCIES.map((c) => h('option', { value: c, text: c })));
+  const all = fmt.currencyCodes();
+  const common = COMMON.filter((c) => fmt.knownCurrency(c));
+  const cur = h('select', { name: 'currency', id: `f-${prefix}currency` },
+    h('optgroup', { label: 'Common' }, common.map((c) => h('option', { value: c, text: c }))),
+    h('optgroup', { label: 'All ISO 4217 codes' }, all.filter((c) => !common.includes(c)).map((c) => h('option', { value: c, text: c }))),
+  );
   return [
     h('div', { class: 'row' },
       field({ id: `f-${prefix}amount`, label: 'Price', hint: 'For example 59.99', control: h('input', { name: 'amount', id: `f-${prefix}amount`, inputmode: 'decimal', required: true, autocomplete: 'off' }) }),

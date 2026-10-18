@@ -7,6 +7,7 @@ import { canonicalJson, normalizePolicy } from './canonical.js';
 import { sha256Hex } from './sha256.js';
 import { buildMockDataset } from './mock-data.js';
 import { MockStore, computeState, searchState } from './mock-views.js';
+import { CURRENCIES } from './mock-currencies.js';
 import {
   HEX64,
   KIND_RE,
@@ -49,7 +50,7 @@ export class PerchClient {
 
   constructor(options = {}) {
     this.sparse = Boolean(options.sparse);
-    this.store = new MockStore();
+    this.store = new MockStore({ sparse: this.sparse });
     this.version = 0;
     this.listeners = new Set();
     this.secret = null;
@@ -137,10 +138,19 @@ export class PerchClient {
     return null;
   }
 
-  // Not in the contract: lets the UI explain why publishing is paused.
   publishStatus() {
     const reason = this.publishBlocker();
-    return { ready: reason === null, reason };
+    const a = this.author();
+    const nodes = [...this.peerMap.values()].map((p) => {
+      let head = null;
+      if (a && p.state === 'live') {
+        for (const r of p.node.records.values()) {
+          if (r.author === a && (!head || r.seq > head.seq)) head = { seq: r.seq, id: this.store.idOf(r) };
+        }
+      }
+      return { url: p.url, head, checked: this.needsSync ? p.syncedSinceImport : p.state === 'live' };
+    });
+    return { ready: reason === null, reason, local_head: a ? this.store.head(a) : null, nodes };
   }
 
   publish(kind, body, opts = {}) {
@@ -295,10 +305,39 @@ export class PerchClient {
     return structuredClone(this.state().stats);
   }
 
-  // Extra helpers used by the Data and Author screens. Not part of the
-  // contract; the app checks for them before use.
+  authorRecords(author, { kinds, limit, from_seq } = {}) {
+    const st = this.state();
+    const out = [];
+    for (const rt of st.chains.keys()) {
+      const sum = st.chainSummary(rt);
+      if (!sum || sum._author !== author) continue;
+      if (kinds && !kinds.includes(sum.kind)) continue;
+      if (from_seq != null && sum._seq < from_seq) continue;
+      out.push(sum);
+    }
+    out.sort((a, b) => b._seq - a._seq || (a.root < b.root ? -1 : 1));
+    const list = out.slice(0, limit ?? out.length);
+    for (const x of list) {
+      delete x._seq;
+      delete x._author;
+    }
+    return list;
+  }
+
+  flags(rootId) {
+    return structuredClone(this.state().flagsFor(rootId));
+  }
+
+  recordStatus(id) {
+    return structuredClone(this.state().recordStatus(id));
+  }
+
+  currencies() {
+    return CURRENCIES.map((c) => ({ ...c }));
+  }
+
   authorLog(author) {
-    return (this.store.logs.get(author) || []).map((id) => structuredClone(this.store.byId.get(id)));
+    return (this.store.logs.get(author) || []).filter(Boolean).map((id) => structuredClone(this.store.byId.get(id)));
   }
 
   buildInfo() {
