@@ -274,7 +274,7 @@ A view is a pure function `view(store, policy) -> result`. The same records and 
     { "author": "<author hex>", "kinds": ["attest.identity", "attest.revoke"], "not_after_seq": null }
   ],
   "flag_threshold": 3,
-  "flag_thresholds": { "review": 3 },
+  "flag_thresholds": { "review": 5, "product": 5 },
   "flags_require_verified": true,
   "seller_hidden_listing_limit": 3,
   "seller_min_distinct_flaggers": 9,
@@ -288,6 +288,7 @@ A view is a pure function `view(store, policy) -> result`. The same records and 
 - `trusted_attestors[].not_after_seq`: if set, only that attestor's records with `seq ≤ not_after_seq` count. Used to cut off a compromised attestor.
 - `flag_thresholds` overrides `flag_threshold` per target kind.
 - The **policy hash** is `lowercase_hex(sha256(canonical_json(normalized policy)))`. Normalization removes `now`, removes fields whose value is `null`, sorts `trusted_attestors` by `author`, and sorts each `kinds` list. Apps and APIs display the hash.
+- The example values above are the v1 defaults; [`docs/moderation.md`](docs/moderation.md) gives the reasons.
 - The official app ships a default policy inside its signed release. Forks and users may change it. The app never adopts a node's policy silently (section 10).
 
 ### 7.2 Time
@@ -326,7 +327,7 @@ Only the latest review per (author, product) counts. Reviews by a product's sell
 
 ### 7.6 Moderation
 
-- A record chain of kind `listing`, `review`, `product`, or `profile` is **hidden** when distinct, unretracted flags on its root reach the threshold for its kind. If `flags_require_verified` is true, only flags from verified authors count, once per person key. Flags by the target's author never count.
+- A record chain of kind `listing`, `review`, `product`, or `profile` is **hidden** when distinct, unretracted flags on its root reach the threshold for its kind. If `flags_require_verified` is true, only flags from verified authors count, once per person key. Flags by the target's author never count. For reviews, flags by any seller of the reviewed product (author of a listing for that product) never count.
 - Hiding affects display only, never semantics. A hidden record still counts for every rule that is not display: a hidden flag still counts, a hidden profile's author is still verified, and a hidden listing still anchors receipts. Flags on other kinds are recorded but hide nothing in v1. This also prevents cycles of flags hiding flags.
 - An **appeal** is a public request by the target's author. It does not change status by itself. Status changes when flaggers retract their flags. Detail and alternatives: [`docs/moderation.md`](docs/moderation.md).
 - A seller is **restricted** when both hold, counted per person key across all of the person's keys (7.3): hidden listings ≥ `seller_hidden_listing_limit`; and distinct counted flaggers across those listings ≥ `seller_min_distinct_flaggers`. No ratio is used, because a seller could dilute it with dummy listings. Views mark all of a restricted seller's listings.
