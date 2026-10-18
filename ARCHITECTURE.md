@@ -144,12 +144,12 @@ Unknown kinds pass the isolated and log levels. Views ignore them.
 
 ### 4.5 Kinds (v1)
 
-All text fields are UTF-8 strings. Lengths are in Unicode scalar values. `Id` means a record ID; references are resolved to root IDs (4.6). `Author` means a 64-hex public key. `Hex64` means 64 lowercase hex characters. `URL` means a string ≤ 2048 characters that the [WHATWG URL parser](https://url.spec.whatwg.org/) accepts with scheme `https`, no username or password, and a domain host (not an IP address). Hosts are compared after IDNA ToASCII and displayed in that ASCII (punycode) form. `ProductKey` is defined in 4.8. `Price` is `{ "amount": integer ≥ 0 in the currency's minor unit, "currency": ISO 4217 code }`. Optional fields are omitted when absent.
+All text fields are UTF-8 strings. Lengths are in Unicode scalar values. `Id` means a record ID; references are resolved to root IDs (4.6). `Author` means a 64-hex public key. `Hex64` means 64 lowercase hex characters. `URL` means a string ≤ 2048 characters that the [WHATWG URL parser](https://url.spec.whatwg.org/) accepts with scheme `https`, no username or password, and a domain host (not an IP address). Hosts are compared after IDNA ToASCII and displayed in that ASCII (punycode) form. `ProductKey` is defined in 4.8. `Price` is `{ "amount": integer ≥ 0 in the currency's minor unit, "currency": ISO 4217 code }`. `perch-core` holds the ISO 4217 table of codes and minor units; a code not in the table is semantically invalid. Clients format prices with this table, not with `Intl` defaults, which differ for some currencies. Optional fields are omitted when absent.
 
 | Kind | Author | Body | Replaceable |
 |---|---|---|---|
 | `profile` | anyone | `name` (1–100), `role` (`seller`, `buyer`, `tester`, `crawler`, `attestor`, `node`, `other`), `url`? (URL), `about`? (≤2000) | yes |
-| `attest.identity` | identity attestor | `subject` (Author), `person` (Hex64: a stable pseudonym for the human or business, the same for every key the attestor verifies for them), `level` (`person`, `business`), `country`? ([ISO 3166-1](https://www.iso.org/iso-3166-country-codes.html) alpha-2), `expires` (Unix ms) | yes; `subject` and `person` fixed |
+| `attest.identity` | identity attestor | `subject` (Author), `person` (Hex64: a stable pseudonym for the human or business, the same for every key the attestor verifies for them), `level` (`person`, `business`), `legal_name`? (1–200; only when `level` is `business`, taken by the attestor from a company registry), `country`? ([ISO 3166-1](https://www.iso.org/iso-3166-country-codes.html) alpha-2), `expires` (Unix ms) | yes; `subject` and `person` fixed |
 | `attest.domain` | domain attestor | `subject` (Author), `domain` (lowercase ASCII hostname, ≤253), `expires` (Unix ms). Issued after the attestor checks either `https://<domain>/.well-known/perch.json` containing `{ "perch": 1, "authors": ["<subject hex>"] }`, or a DNS TXT record at `_perch.<domain>` with value `perch-author=<subject hex>`. | yes; `subject` and `domain` fixed |
 | `attest.revoke` | attestor | `subject` (Author), `valid_through_seq` (integer ≥ 0). Declares the subject's key compromised after that seq. | no |
 | `product` | anyone | `name` (1–300), `brand` (1–100), `gtin`? (8, 12, 13, or 14 digits with a valid check digit), `mpn`? (1–100), `category`? (≤200, lowercase, `/`-separated), `attributes`? (object, ≤64 entries, keys 1–64, values ≤500), `images`? (≤16 × `{ "url": URL, "sha256"?: Hex64 }`), `description`? (≤5000) | yes; `gtin` and `mpn` fixed; `brand` fixed when `mpn` is set |
@@ -353,18 +353,26 @@ Appeal       { record, note, ts }
 Redaction    { record|null, by|null, reason|null, note|null }   // record/by/reason null when no notice was published
 AuthorStatus "ok"|"forked"|"retired"|"revoked"
 
+Moderation   { status: "visible"|"hidden"|"retracted"|"unavailable",
+               flags: { count, counted, reasons: { reason: n } },
+               appeal: Appeal|null, redaction: Redaction|null }
+
 AuthorView   { id, name|null, role|null, url|null, about|null,
-               verified: { level, country|null, attestor, expires }|null,
+               verified: { level, legal_name|null, country|null, attestor, expires }|null,
                domains: [{ domain, attestor, expires }],
                status: AuthorStatus, restricted: bool,
-               revoked: { attestor, valid_through_seq }|null, fork_seq|null,
+               restriction: { hidden_listings, distinct_flaggers }|null,
+               revoked: { attestor, valid_through_seq }|null,
+               fork_seq|null, fork_evidence: [id, id]|null,
+               retired: { seq, successor|null }|null,
+               profile: Moderation|null,            // moderation of the profile chain
                record_count, hidden_listing_count }
 
 ListingView  { id (root id), latest (record id), seller (author id), seller_name|null,
                seller_verified: bool, seller_restricted: bool, seller_status: AuthorStatus,
                domain_verified: bool, domain: { domain, attestor, expires }|null,
                product, title|null, url, price: { amount, currency },
-               availability, condition, updated_ts,
+               availability, condition, ships_to: [string], location: { country, region|null }|null, updated_ts,
                status: "visible"|"hidden"|"retracted"|"unavailable",
                flags: { count, counted, reasons: { reason: n } },
                appealed: bool, appeal: Appeal|null, redaction: Redaction|null,
@@ -386,7 +394,7 @@ RatingSummary { count, mean|null, histogram: [n1, n2, n3, n4, n5],
                 verified_identity: { count, mean|null, histogram },
                 excluded: { hidden, unavailable, retracted, seller, forked, revoked, superseded } }
 
-ProductView  { key, name: Fact<string>, brand: Fact<string>, category: Fact<string>|null,
+ProductView  { key, moderation: Moderation, name: Fact<string>, brand: Fact<string>, category: Fact<string>|null,
                description: Fact<string>|null, gtin|null, mpn|null,
                attributes: { name: Fact<string> }, images: [{ url, sha256|null, author_verified: bool }],
                listings: [ListingView], reviews: [ReviewView], ratings: RatingSummary,
@@ -398,6 +406,13 @@ SearchHit    { key, name, brand, category|null, score, why: [string],
                min_price: { amount, currency }|null }
 
 Stats        { records, authors, products, listings, reviews, forks, invalid, redacted }
+
+ChainSummary { root, latest, kind, ts, status: "visible"|"hidden"|"retracted"|"unavailable"|"invalid",
+               product|null, title|null }
+FlagView     { record, author, author_name|null, author_verified: bool, reason, note|null, counted: bool,
+               excluded_reason: string|null, ts }
+RecordStatus { semantic_valid: bool, reason|null, root, versions: [id] }
+Currency     { code, minor_units }
 ```
 
 `excluded_reason` values: `hidden`, `unavailable`, `retracted`, `seller`, `forked`, `revoked`, `superseded`. `RatingSummary.excluded` counts reviews per reason. Search sort orders are `relevance` (default), `price`, `rating_count`, and `rating_mean`; sorting happens in Rust with the 7.7 tie-break.
@@ -444,7 +459,8 @@ client.exportKey()                            -> backup JSON string { secret, he
 client.importKey(backupOrSecretHex)           -> author hex
 client.author()                               -> author hex | null
 client.publish(kind, body, { replaces?, ts? }) -> { id, record }
-client.publishStatus()                        -> { ready: bool, reason: string | null }
+client.publishStatus()                        -> { ready: bool, reason: string | null, local_head: { seq, id } | null,
+                                                 nodes: [{ url, head: { seq, id } | null, checked: bool }] }
 client.issueReceipt(listingRootId, buyerAuthor, purchasedAt) -> Receipt (signed by the current key)
 client.verifyReceipt(receipt)                 -> { valid: bool, seller: author hex | null, error: string | null }
 client.ingest(recordsOrJsonl)                 -> { inserted, duplicate, fork, gap, rejected, errors: [] }
@@ -457,6 +473,10 @@ client.listing(id)                            -> ListingView | null
 client.authorView(id)                         -> AuthorView | null
 client.record(id)                             -> signed record | null
 client.authorLog(author)                      -> [signed record]
+client.authorRecords(author, { kinds?, limit?, from_seq? }) -> [ChainSummary]   (latest version of each chain)
+client.flags(rootId)                          -> [FlagView]
+client.recordStatus(id)                       -> RecordStatus
+client.currencies()                           -> [Currency]
 client.verifyRecord(json)                     -> { valid, id, error }
 client.stats()                                -> Stats
 client.buildInfo()                            -> { version, wasm_sha256 }
