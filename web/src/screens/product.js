@@ -2,8 +2,8 @@ import { h, bdi, userText } from '../dom.js';
 import * as fmt from '../format.js';
 import {
   routes, authorChip, badge, notice, stars, moderationNotice, factValue, productImage,
-  priceText, emptyState, definitionList, PURCHASE_TEXT, EXCLUDED_TEXT, icon, hex, recordLink, urlLink,
-  SENTENCE, lookupAuthor,
+  priceText, emptyState, definitionList, PURCHASE_TEXT, EXCLUDED_TEXT, PRICE_EXCLUDED_TEXT, icon, hex, recordLink, urlLink,
+  SENTENCE, lookupAuthor, restrictedBadge, restrictedLabel, flagSummary, computedDisclosure,
 } from '../components.js';
 import { announce } from '../dom.js';
 import { priceChart } from '../chart.js';
@@ -22,6 +22,7 @@ export default {
       );
     }
     const policy = client.policy();
+    const policyHash = client.policyHash();
     const section = h('article', { class: 'screen screen-product', dataset: { key: p.key } });
 
     // Header.
@@ -46,7 +47,7 @@ export default {
     const filter = reviewFilter(ctx, p);
 
     // Summary: rating and price side by side.
-    section.append(h('div', { class: 'summary-grid' }, ratingPanel(p.ratings, filter), pricePanel(p)));
+    section.append(h('div', { class: 'summary-grid' }, ratingPanel(p.ratings, filter, policy, policyHash), pricePanel(p, policy, policyHash)));
 
     // Listings.
     section.append(listingsSection(p, policy, client));
@@ -56,7 +57,7 @@ export default {
     if (currencies.length) {
       const charts = h('section', { class: 'block', 'aria-labelledby': 'h-history' }, h('h2', { id: 'h-history', text: 'Price history' }));
       const nowTs = policy.now ?? Date.now();
-      for (const c of currencies) charts.append(priceChart({ listings: p.listings.filter((l) => l.status !== 'unavailable'), currency: c, now: nowTs, title: currencies.length > 1 ? `Prices in ${c}` : `Prices in ${c}` }));
+      for (const c of currencies) charts.append(priceChart({ listings: p.listings.filter((l) => l.status !== 'unavailable'), currency: c, now: nowTs, title: `Prices in ${c}` }));
       section.append(charts);
     }
 
@@ -73,7 +74,7 @@ export default {
 // Rating histogram (docs/ux.md 8.2 item 9, T6). Each row is a button that
 // sets the star filter of the review list. With 1 to 5 reviews, counts are
 // shown as text without bars; with 0, no histogram.
-function histogram(hist, label, filter) {
+function histogram(hist, label, filter, source = 'identity') {
   const total = hist.reduce((a, b) => a + b, 0);
   if (!total) return null;
   const bars = total > 5;
@@ -89,7 +90,9 @@ function histogram(hist, label, filter) {
               type: 'button',
               class: 'link-button',
               'aria-label': `${star} star${star === 1 ? '' : 's'}: ${n}. Show these reviews.`,
-              on: { click: () => filter?.setStars(star, { focus: true }) },
+              // The histogram counts identity-verified people, so the
+              // list shows the same set (m3).
+              on: { click: () => filter?.set(source, star, { focus: true }) },
             }, `${star} star${star === 1 ? '' : 's'}`),
           ),
           bars ? h('td', { class: 'bar-cell', 'aria-hidden': 'true' }, h('span', { class: 'bar', dataset: { w: String(Math.round((n / max) * 100)) } })) : null,
@@ -105,7 +108,7 @@ function sizeBars(root) {
   for (const b of root.querySelectorAll('.bar[data-w]')) b.style.width = `${b.dataset.w}%`;
 }
 
-function ratingPanel(r, filter) {
+function ratingPanel(r, filter, policy, policyHash) {
   const vi = r.verified_identity;
   const vp = r.verified_purchase;
   const panel = h('section', { class: 'panel rating-panel', 'aria-labelledby': 'h-rating' },
@@ -139,21 +142,28 @@ function ratingPanel(r, filter) {
     h('p', { class: 'hint', text: 'All counted reviews include reviewers whose identity is not verified.' }),
   );
   const ex = Object.entries(r.excluded || {}).filter(([, n]) => n > 0);
+  const exText = ex.map(([k, n]) => `${n} ${EXCLUDED_TEXT[k] || k}`);
   if (ex.length) {
-    panel.append(
-      h('p', { class: 'hint excluded-summary' },
-        `Not counted: ${ex.map(([k, n]) => `${n} ${EXCLUDED_TEXT[k] || k}`).join('; ')}.`,
-      ),
-    );
+    panel.append(h('p', { class: 'hint excluded-summary' }, `Not counted: ${exText.join('; ')}.`));
   }
   panel.append(
     h('p', { class: 'hint', text: 'Hidden reviews still count in ratings. Hiding collapses their text only.' }),
-    h('p', { class: 'hint', text: 'The headline counts each identity-verified person once, so new keys cannot change it.' }),
+    computedDisclosure({
+      rule: 'The headline is the mean of the latest counted review of each identity-verified person, so new keys cannot change it. A review counts unless it is withdrawn, removed by a node, written by a seller of this product, replaced by a newer review from the same person, or signed by a key with a conflicting history or after a revocation. Verified purchases also need a receipt signed by the listing\'s seller.',
+      exclusions: exText,
+      policyFields: [
+        ['trusted_attestors', `${(policy.trusted_attestors || []).length} attestors`],
+        ['verified_purchase_requires_verified_buyer', policy.verified_purchase_requires_verified_buyer],
+        ['flag_thresholds.review', policy.flag_thresholds?.review ?? policy.flag_threshold],
+      ],
+      policy,
+      policyHash,
+    }),
   );
   return panel;
 }
 
-function pricePanel(p) {
+function pricePanel(p, policy, policyHash) {
   const panel = h('section', { class: 'panel price-panel', 'aria-labelledby': 'h-price' }, h('h2', { id: 'h-price', text: 'Price' }));
   const entries = Object.entries(p.price_range).sort((a, b) => b[1].count - a[1].count || (a[0] < b[0] ? -1 : 1));
   if (!entries.length) {
@@ -177,56 +187,129 @@ function pricePanel(p) {
     }
     panel.append(row);
   }
-  const other = p.listings.filter((l) => l.status !== 'visible' || (l.availability !== 'in_stock' && l.availability !== 'preorder')).length;
-  if (other) panel.append(h('p', { class: 'hint', text: `${fmt.plural(other, 'listing')} not counted: hidden, withdrawn, or not for sale.` }));
+  const left = p.listings.filter((l) => !l.feeds_prices && l.price_excluded_reason !== 'domain_unverified');
+  if (left.length) {
+    const reasons = [...new Set(left.map((l) => PRICE_EXCLUDED_TEXT[l.price_excluded_reason] || l.price_excluded_reason))];
+    panel.append(h('p', { class: 'hint', text: `${fmt.plural(left.length, 'listing')} not counted: ${reasons.join(', ')}.` }));
+  }
+  const counts = {};
+  for (const l of p.listings) if (!l.feeds_prices) counts[l.price_excluded_reason] = (counts[l.price_excluded_reason] || 0) + 1;
+  panel.append(computedDisclosure({
+    rule: 'The range runs from the lowest to the highest current price of listings in the price summary: visible, in stock or on preorder, from a seller who is not restricted, on a shop domain an attestor in your policy verified. The median is the middle of those prices.',
+    exclusions: Object.entries(counts).map(([k, n]) => `${n} ${PRICE_EXCLUDED_TEXT[k] || k}`),
+    policyFields: [
+      ['price_requires_domain_verified', policy.price_requires_domain_verified],
+      ['flag_threshold', policy.flag_threshold],
+      ['seller_hidden_listing_limit', policy.seller_hidden_listing_limit],
+      ['seller_min_distinct_flaggers', policy.seller_min_distinct_flaggers],
+    ],
+    policy,
+    policyHash,
+  }));
   return panel;
 }
 
+// Listings in two parts (B1): those in the price summary first, then the
+// rest under one heading per reason. Perch does not sell, so the heading is
+// "Listings", not "Where to buy".
+const GROUP_ORDER = ['domain_unverified', 'availability', 'seller_restricted', 'hidden', 'unavailable', 'retracted'];
+
 function listingsSection(p, policy, client) {
-  const sec = h('section', { class: 'block', 'aria-labelledby': 'h-listings' }, h('h2', { id: 'h-listings', text: `Where to buy (${p.listings.length})` }));
-  if (!p.listings.length) {
+  const n = p.listings.length;
+  const sec = h('section', { class: 'block', 'aria-labelledby': 'h-listings' }, h('h2', { id: 'h-listings', text: `Listings (${n})` }));
+  if (!n) {
     sec.append(h('p', { class: 'muted', text: 'No seller has listed this product.' }));
     return sec;
   }
-  const list = h('ul', { class: 'listings' });
-  for (const l of p.listings) list.append(listingCard(l, policy, { client }));
-  sec.append(list);
+  const feeding = p.listings.filter((l) => l.feeds_prices);
+  const others = p.listings.filter((l) => !l.feeds_prices);
+  sec.append(h('p', { class: 'muted listings-count', text: `${fmt.plural(n, 'listing')}: ${feeding.length} in the price summary, ${others.length} not.` }));
+
+  sec.append(h('h3', { id: 'h-listings-feeding', text: `In the price summary (${feeding.length})` }));
+  if (feeding.length) {
+    sec.append(h('ul', { class: 'listings', dataset: { group: 'feeds' } }, feeding.map((l) => listingCard(l, policy, { client }))));
+  } else {
+    sec.append(h('p', { class: 'muted', text: 'No listing is in the price summary.' }));
+  }
+
+  const wide = typeof matchMedia === 'function' ? matchMedia('(min-width: 600px)').matches : true;
+  const reasons = [...new Set(others.map((l) => l.price_excluded_reason))].sort((a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b));
+  for (const reason of reasons) {
+    const group = others.filter((l) => l.price_excluded_reason === reason);
+    sec.append(
+      h('details', { class: 'listing-group', open: wide, dataset: { group: reason } },
+        h('summary', {}, h('h3', { class: 'inline', text: `Not in the price summary: ${PRICE_EXCLUDED_TEXT[reason] || reason} (${group.length})` })),
+        h('ul', { class: 'listings' }, group.map((l) => listingCard(l, policy, { client }))),
+      ),
+    );
+  }
   return sec;
 }
 
+// One listing (docs/ux.md 8.2 item 7). Hidden listings put the moderation
+// notice first and keep title, price, and shop link behind "Show listing"
+// (M1). Withdrawn listings are one line (m2).
 export function listingCard(l, policy, { showProduct = false, client = null } = {}) {
-  const li = h('li', { class: ['listing', `status-${l.status}`], dataset: { listing: l.id, status: l.status } });
+  const li = h('li', { class: ['listing', `status-${l.status}`], dataset: { listing: l.id, status: l.status, feeds: String(Boolean(l.feeds_prices)) } });
   const seller = authorChip(l.seller, l.seller_name, { verified: l.seller_verified, status: l.seller_status });
+  const details = h('a', { href: routes.listing(l.id), text: 'Listing details' });
+  if (l.status === 'retracted') {
+    li.append(h('p', { class: 'listing-line' }, seller, ' ', h('span', { text: `Withdrawn by the seller on ${fmt.date(l.updated_ts)}.` }), ' ', details, ' ', recordLink(l.latest, 'Record')));
+    return li;
+  }
   const badges = h('p', { class: 'badges' },
     l.domain_verified && l.domain
       ? badge('good', `Shop domain verified: ${l.domain.domain}`, 'globe', SENTENCE.domain(l.domain))
       : badge('warn', 'Domain not verified', 'globe', SENTENCE.domainNot(fmt.host(l.url))),
-    l.seller_restricted ? badge('bad', 'Restricted seller', 'ban', SENTENCE.restricted(lookupAuthor(l.seller), policy)) : null,
-    l.flags.count ? badge('muted', `${fmt.plural(l.flags.count, 'flag')}`, 'flag') : null,
+    l.seller_restricted ? restrictedBadge(lookupAuthor(l.seller), policy, { seller: true }) : null,
   );
-  const mod = moderationNotice(l, 'listing', policy, client, l.id);
   const head = h('div', { class: 'listing-head' },
-    h('div', { class: 'listing-who' }, seller, l.title ? userText('p', l.title, { class: 'listing-title' }) : null),
+    h('div', { class: 'listing-who' }, l.status === 'hidden' ? null : seller, l.title ? userText('p', l.title, { class: 'listing-title' }) : null),
     h('div', { class: 'listing-price' },
       h('p', { class: 'price', text: priceText(l.price) }),
       h('p', { class: 'muted' }, `${fmt.AVAILABILITY[l.availability] || l.availability || ''}, ${fmt.CONDITION[l.condition] || l.condition || ''}`),
       shipsText(l) ? h('p', { class: 'muted ships', text: shipsText(l) }) : null,
     ),
   );
+  const links = h('p', { class: 'listing-links' },
+    l.url && l.status !== 'unavailable' ? urlLink(l.url, 'Seller page') : null,
+    ' ',
+    details,
+    showProduct ? [' ', h('a', { href: routes.product(l.product), text: 'Product' })] : null,
+    h('span', { class: 'muted', text: ` Updated ${fmt.date(l.updated_ts)}` }),
+  );
+  const mod = moderationNotice(l, 'listing', policy, client, l.id);
+
+  if (l.status === 'hidden') {
+    const body = h('div', { class: 'listing-hidden-body', hidden: true }, head, badges, links);
+    const toggle = h('button', {
+      type: 'button',
+      class: 'button small',
+      'aria-expanded': 'false',
+      on: {
+        click: () => {
+          body.hidden = !body.hidden;
+          toggle.setAttribute('aria-expanded', String(!body.hidden));
+          toggle.textContent = body.hidden ? 'Show listing' : 'Hide listing';
+        },
+      },
+    }, 'Show listing');
+    li.append(mod, h('p', { class: 'listing-who' }, seller, ' ', h('span', { class: 'muted', text: 'Listing hidden by moderation.' })), toggle, body);
+    return li;
+  }
+
   li.append(head, badges);
   if (l.seller_restricted) {
-    li.append(notice('bad', 'Restricted seller', h('p', {}, SENTENCE.restricted(lookupAuthor(l.seller), policy), ' ', h('a', { href: routes.author(l.seller), text: 'See the seller' }), '.')));
+    const view = lookupAuthor(l.seller);
+    li.append(notice('bad', restrictedLabel(view, { seller: true }), h('p', {}, SENTENCE.restricted(view, policy), ' ', h('a', { href: routes.author(l.seller), text: 'See the seller' }), '.')));
   }
   if (mod) li.append(mod);
-  li.append(
-    h('p', { class: 'listing-links' },
-      l.url && l.status !== 'unavailable' ? urlLink(l.url, 'Seller page') : null,
-      ' ',
-      h('a', { href: routes.listing(l.id), text: 'Listing details' }),
-      showProduct ? [' ', h('a', { href: routes.product(l.product), text: 'Product' })] : null,
-      h('span', { class: 'muted', text: ` Updated ${fmt.date(l.updated_ts)}` }),
-    ),
-  );
+  if (!l.feeds_prices && l.price_excluded_reason && l.status === 'visible') {
+    li.append(h('p', { class: 'hint price-excluded', text: `Not in the price summary: ${PRICE_EXCLUDED_TEXT[l.price_excluded_reason] || l.price_excluded_reason}.` }));
+  }
+  const fs = flagSummary(l, 'listing', client, l.id);
+  if (fs) li.append(fs);
+  li.append(links);
   return li;
 }
 
@@ -354,7 +437,8 @@ export function reviewItem(r, policy, client = null) {
     ),
   );
   if (purchaseText) {
-    li.append(h('p', { class: 'badges' }, r.purchase === 'verified' ? badge('good', purchaseText, 'receipt') : badge('warn', purchaseText, 'receipt')));
+    const tone = r.purchase === 'verified' ? 'good' : r.purchase === 'none' ? 'muted' : 'warn';
+    li.append(h('p', { class: 'badges' }, badge(tone, purchaseText, 'receipt', SENTENCE.purchase[r.purchase] || null)));
   }
   const mod = moderationNotice(r, 'review', policy, client, r.id);
   if (mod) li.append(mod);
@@ -382,9 +466,12 @@ export function reviewItem(r, policy, client = null) {
   if (!r.counted && r.excluded_reason && r.status === 'visible') {
     li.append(h('p', { class: 'hint excluded' }, `Not counted in the rating: ${EXCLUDED_TEXT[r.excluded_reason] || r.excluded_reason}.`));
   }
+  if (r.status !== 'hidden') {
+    const fs = flagSummary(r, 'review', client, r.id);
+    if (fs) li.append(fs);
+  }
   li.append(
     h('p', { class: 'review-foot' },
-      r.flags.count ? h('span', { class: 'muted', text: `${fmt.plural(r.flags.count, 'flag')} (${fmt.reasonsText(r.flags.reasons)}). ` }) : null,
       recordLink(r.latest, 'Record'),
       ' ',
       h('a', { href: routes.publish('flag', { target: r.id }), class: 'quiet-link', text: 'Flag' }),
@@ -399,7 +486,7 @@ function detailsSection(p) {
     ['Name', factValue(p.name)],
     ['Brand', factValue(p.brand)],
     ['Category', p.category ? factValue(p.category, { render: (v) => h('span', { text: fmt.categoryText(v) }) }) : null],
-    ['GTIN', p.gtin ? h('code', { text: p.gtin }) : null],
+    ['GTIN', p.gtin ? h('code', { text: fmt.printedGtin(p.gtin) }) : null],
     ['MPN', p.mpn ? bdi(p.mpn) : null],
     ['Product key', h('code', { class: 'hex', text: p.key })],
   ];
@@ -416,7 +503,7 @@ function detailsSection(p) {
   }
   const ex = Object.entries(p.excluded_sources || {}).filter(([, n]) => n > 0);
   if (ex.length) {
-    const label = { hidden: 'hidden by moderation', retracted: 'withdrawn', unavailable: 'text removed', forked: 'author log forked', revoked: 'after a key revocation' };
+    const label = { hidden: 'hidden by moderation', retracted: 'withdrawn', unavailable: 'removed by a node', forked: "author's key has a conflicting history", revoked: 'after a key revocation' };
     sec.append(h('p', { class: 'hint', text: `Product records not used as sources: ${ex.map(([k, n]) => `${n} ${label[k] || k}`).join('; ')}.` }));
   }
   sec.append(h('p', { class: 'hint' }, 'Facts come from product records. When authors disagree, the value backed by the most identity-verified people is shown first; ties go to more people, then alphabetical order. ', h('a', { href: '#/data', text: 'Inspect records' }), '.'));

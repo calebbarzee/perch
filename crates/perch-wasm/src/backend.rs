@@ -14,6 +14,21 @@ use serde::Serialize;
 use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 
+/// Strict JSON parse of untrusted text (perch_core::json): no duplicate keys,
+/// integer numbers only within ±(2^53 − 1), no lone surrogates, depth ≤ 17
+/// (a record inside an array). Never parse untrusted text with serde.
+pub fn parse_strict(text: &str) -> Result<Value, String> {
+    perch_core::json::parse(text, perch_core::limits::MAX_DEPTH + 1).map_err(|e| e.to_string())
+}
+
+/// One record offered to `ingest()`: its text, or an element of a JSON array
+/// that was already parsed strictly.
+#[derive(Clone, Debug)]
+pub enum RecordInput {
+    Text(String),
+    Value(Value),
+}
+
 /// Result of offering one record to the store, in `ingest()` terms (8.2).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Ingested {
@@ -147,7 +162,7 @@ impl Backend {
     /// chain named in the receipt, which must be in the local store.
     pub fn verify_receipt(&self, receipt_json: &str) -> Value {
         let fail = |seller: Option<String>, e: String| json!({ "valid": false, "seller": seller, "error": e });
-        let v: Value = match serde_json::from_str(receipt_json) {
+        let v: Value = match parse_strict(receipt_json) {
             Ok(v) => v,
             Err(_) => return fail(None, "The receipt is not valid JSON.".into()),
         };
@@ -182,33 +197,46 @@ impl Backend {
         self.insert_many(&[line.to_string()]).pop().unwrap_or(Ingested::Duplicate)
     }
 
+    /// Record text lines; see [`Backend::insert_inputs`].
+    pub fn insert_many(&mut self, lines: &[String]) -> Vec<Ingested> {
+        let inputs: Vec<RecordInput> = lines.iter().cloned().map(RecordInput::Text).collect();
+        self.insert_inputs(&inputs)
+    }
+
     /// Verifies and stores records, then gossips the accepted ones to every
     /// session (local publish and ingest go through the hub, sync-protocol 5.2).
-    pub fn insert_many(&mut self, lines: &[String]) -> Vec<Ingested> {
-        let mut results: Vec<Option<Ingested>> = Vec::with_capacity(lines.len());
+    /// Text goes through `Record::from_json_str` (size limit, strict JSON).
+    /// A parsed array element must fit the same per-record size limit in its
+    /// compact form, then goes through `Record::from_value`.
+    pub fn insert_inputs(&mut self, inputs: &[RecordInput]) -> Vec<Ingested> {
+        let mut results: Vec<Option<Ingested>> = Vec::with_capacity(inputs.len());
         let mut records = Vec::new();
         let mut slots = Vec::new();
-        for line in lines {
-            match Record::from_json_str(line) {
+        for input in inputs {
+            let parsed = match input {
+                RecordInput::Text(line) => Record::from_json_str(line).map_err(|e| (header_id(line), e.to_string())),
+                RecordInput::Value(v) => record_from_value(v),
+            };
+            match parsed {
                 Ok(r) => {
                     slots.push(results.len());
                     results.push(None);
                     records.push(r);
                 }
-                Err(e) => results.push(Some(Ingested::Rejected { id: header_id(line), error: e.to_string() })),
+                Err((id, error)) => results.push(Some(Ingested::Rejected { id, error })),
             }
         }
         if !records.is_empty() {
+            let ids: Vec<String> = records.iter().map(|r| r.id().to_hex()).collect();
             let (outcomes, outbox) = self.hub.on_local(&mut self.store, records);
             self.queue(outbox);
-            for (slot, o) in slots.into_iter().zip(outcomes) {
-                let line = &lines[slot];
+            for ((slot, o), id) in slots.into_iter().zip(outcomes).zip(ids) {
                 results[slot] = Some(match o {
                     Insert::Inserted | Insert::BodyFilled => Ingested::Inserted,
                     Insert::Duplicate => Ingested::Duplicate,
                     Insert::Fork { .. } => Ingested::Fork,
                     Insert::Gap | Insert::AboveFork => Ingested::Gap,
-                    Insert::Rejected(r) => Ingested::Rejected { id: header_id(line), error: r.to_string() },
+                    Insert::Rejected(r) => Ingested::Rejected { id: Some(id), error: r.to_string() },
                 });
             }
         }
@@ -361,7 +389,7 @@ impl Backend {
         if !text.contains(author.as_str()) || !text.contains("\"heads\"") {
             return;
         }
-        let Ok(v) = serde_json::from_str::<Value>(text) else { return };
+        let Ok(v) = parse_strict(text) else { return };
         if v.get("type").and_then(Value::as_str) != Some("heads") {
             return;
         }
@@ -443,9 +471,25 @@ fn parse_record_id(s: &str) -> Result<RecordId, String> {
     RecordId::from_hex(s).map_err(|_| format!("\"{s}\" is not a record ID (64 lowercase hex characters)."))
 }
 
+/// A strictly parsed array element as a record (`ingest('[...]')`).
+fn record_from_value(v: &Value) -> Result<Record, (Option<String>, String)> {
+    let len = v.to_string().len();
+    let limit = perch_core::limits::MAX_LINE_BYTES;
+    if len > limit {
+        return Err((header_id_of(v), format!("record is {len} bytes; the limit is {limit}")));
+    }
+    Record::from_value(v.clone()).map_err(|e| (header_id_of(v), e.to_string()))
+}
+
 /// ID of a record whose header parses even if the record is invalid.
 fn header_id(line: &str) -> Option<String> {
-    let v: Value = serde_json::from_str(line).ok()?;
+    if line.len() > perch_core::limits::MAX_LINE_BYTES {
+        return None;
+    }
+    header_id_of(&parse_strict(line).ok()?)
+}
+
+fn header_id_of(v: &Value) -> Option<String> {
     let m = v.as_object()?;
     let mut h = Map::new();
     for k in ["v", "author", "seq", "prev", "ts", "kind", "replaces", "body_hash"] {

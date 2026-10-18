@@ -1,6 +1,6 @@
 import { h, bdi, userText } from '../dom.js';
 import * as fmt from '../format.js';
-import { emptyState, definitionList, authorChip, notice, badge, recordLink, urlLink, hex, routes, moderationNotice, identityBadge, SENTENCE, receiptShare } from '../components.js';
+import { emptyState, definitionList, authorChip, notice, badge, recordLink, urlLink, hex, routes, moderationNotice, identityBadge, SENTENCE, receiptShare, restrictedBadge, restrictedLabel, computedDisclosure } from '../components.js';
 import { fingerprint } from '../fingerprint.js';
 
 export default {
@@ -28,7 +28,8 @@ export default {
     const badges = h('p', { class: 'badges' });
     badges.append(identityBadge(a.verified));
     for (const d of a.domains || []) badges.append(badge('good', `Shop domain verified: ${d.domain}`, 'globe', SENTENCE.domain(d)));
-    if (a.restricted) badges.append(badge('bad', 'Restricted seller', 'ban', SENTENCE.restricted(a, ctx.client.policy())));
+    const policy = ctx.client.policy();
+    if (a.restricted) badges.append(restrictedBadge(a, policy));
     section.append(badges);
     if (ctx.client.author() === a.id) section.append(h('p', {}, 'This is your key. ', h('a', { href: '#/keys', text: 'Go to Keys' }), '.'));
 
@@ -51,15 +52,27 @@ export default {
         ),
       );
     }
+    // Restriction (M7): the reason says which rule applies (views.md 6).
     if (a.restricted) {
       const r = a.restriction;
+      const forked = !r || r.reason === 'forked_key';
       section.append(
-        notice('bad', 'Seller restricted',
-          h('p', { text: r
-            ? `${fmt.plural(r.hidden_listings, 'listing')} by this person are hidden, flagged by ${fmt.plural(r.distinct_flaggers, 'distinct person', 'distinct people')}. All their listings are marked.`
-            : a.status === 'forked'
-              ? 'This person signed two histories with this key. Every key of this person is restricted, and all their listings are marked.'
-              : 'Another key of this person signed two histories. Every key of this person is restricted, and all their listings are marked.' }),
+        notice('bad', restrictedLabel(a),
+          forked
+            ? h('p', { text: a.status === 'forked'
+                ? 'Restricted: this person has a key with a conflicting history. This key signed two histories. Every key of this person is restricted, and their listings are left out of price figures.'
+                : 'Restricted: this person has a key with a conflicting history. Another key of this person signed two histories. Every key of this person is restricted, and their listings are left out of price figures.' })
+            : h('p', { text: `${fmt.plural(r.hidden_listings, 'listing')} by this person ${r.hidden_listings === 1 ? 'is' : 'are'} hidden, flagged by ${fmt.plural(r.distinct_flaggers, 'distinct person', 'distinct people')}. All their listings are marked and left out of price figures.` }),
+          computedDisclosure({
+            rule: forked
+              ? 'A person is restricted when any of their identity-verified keys signs two different records at the same position.'
+              : 'A seller is restricted when at least the limit of their listings are hidden and the flags on those listings come from at least the minimum number of distinct people.',
+            policyFields: forked
+              ? [['trusted_attestors', `${(policy.trusted_attestors || []).length} attestors`]]
+              : [['seller_hidden_listing_limit', policy.seller_hidden_listing_limit], ['seller_min_distinct_flaggers', policy.seller_min_distinct_flaggers], ['flags_require_verified', policy.flags_require_verified]],
+            policy,
+            policyHash: ctx.client.policyHash(),
+          }),
         ),
       );
     }
@@ -76,7 +89,7 @@ export default {
         ['Identity', a.verified
           ? h('span', {}, SENTENCE.identity(a.verified), ' Attestor: ', authorChip(a.verified.attestor, null))
           : h('span', { text: SENTENCE.notVerified })],
-        ['Shop domains', (a.domains || []).length ? h('ul', { class: 'plain' }, a.domains.map((d) => h('li', {}, SENTENCE.domain(d), ' Attestor: ', authorChip(d.attestor, null)))) : null],
+        ['Shop domains', (a.domains || []).length ? h('ul', { class: 'plain' }, a.domains.map((d) => h('li', {}, SENTENCE.domain(d), ' Attestor: ', authorChip(d.attestor, null)))) : null, 'None verified'],
         ['Receipts', receiptShare(a) ?? undefined],
         ['Records', h('span', { text: fmt.number(a.record_count) })],
         ['Hidden listings', h('span', { text: fmt.number(a.hidden_listing_count) })],

@@ -85,10 +85,12 @@ export function seriesFor(listings, currency) {
   return out.slice(0, SLOTS);
 }
 
-// Listings that feed price figures come first (docs/views.md 8.3).
-const feeds = (l) => l.status === 'visible' && (l.availability === 'in_stock' || l.availability === 'preorder');
+// Listings that feed price figures (ListingView.feeds_prices, views.md 8.3).
+const feeds = (l) => Boolean(l.feeds_prices);
 
-export function priceChart({ listings, currency, now, title }) {
+// `pick`: the listings are the user's choice (one listing's own page), so
+// they are shown even when they are not in the price summary.
+export function priceChart({ listings, currency, now, title, pick = false }) {
   const candidates = listings.filter((l) => l.price_history.some((p) => p.currency === currency));
   const root = h('figure', { class: 'chart', dataset: { currency } });
   root.append(h('figcaption', { class: 'chart-title' }, title || `Price history in ${currency}`));
@@ -96,7 +98,10 @@ export function priceChart({ listings, currency, now, title }) {
     root.append(h('p', { class: 'muted', text: 'No price history in this currency.' }));
     return root;
   }
-  let chosen = [...candidates.filter(feeds), ...candidates.filter((l) => !feeds(l))].slice(0, SLOTS);
+  // The default shows only listings in the price summary (docs/ux.md 8.2
+  // items 7 and 8). Others, such as unverified shops or hidden listings,
+  // appear only when the user picks them.
+  let chosen = (pick ? candidates : candidates.filter(feeds)).slice(0, SLOTS);
   const body = h('div', { class: 'chart-body' });
   const status = h('p', { class: 'chart-choice', role: 'status' });
 
@@ -142,7 +147,7 @@ function chartBody(chosen, allListings, currency, now) {
   const out = [];
   const series = seriesFor(chosen, currency);
   if (!series.length) {
-    out.push(h('p', { class: 'muted', text: 'No listings chosen.' }));
+    out.push(h('p', { class: 'muted', text: allListings.some(feeds) ? 'No listings chosen.' : 'No listing in this currency is in the price summary. Choose listings to compare their prices.' }));
     out.push(priceTable(allListings, currency));
     return out;
   }
@@ -342,7 +347,7 @@ function priceTable(listings, currency) {
     .flatMap((l) => l.price_history.filter((p) => p.currency === currency).map((p) => ({ l, p })))
     .sort((a, b) => b.p.ts - a.p.ts || (a.p.record < b.p.record ? -1 : 1));
   return h('details', { class: 'chart-table' },
-    h('summary', {}, `Show all ${rows.length} prices as a table`),
+    h('summary', {}, rows.length === 1 ? 'Show the price as a table' : `Show all ${rows.length} prices as a table`),
     h('div', { class: 'table-scroll' },
       h('table', {},
         h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Date stated' }), h('th', { scope: 'col', text: 'Seller' }), h('th', { scope: 'col', class: 'num', text: 'Price' }), h('th', { scope: 'col', text: 'Source' }), h('th', { scope: 'col', text: 'Record' }))),

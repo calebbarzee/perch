@@ -149,9 +149,29 @@ fn imported_key_waits_for_every_node_then_sees_the_highest_head() {
 }
 
 #[test]
-fn json_array_input() {
-    let lines = split_records(r#"[{"a":1}]"#).unwrap();
-    assert_eq!(lines.len(), 1);
+fn json_array_input_is_parsed_strictly() {
+    let mut c = Client::new(false);
+    c.generate_key([13; 32]);
+    let (_, rec) = publish(&mut c, "profile", json!({ "name": "Ada", "role": "buyer" }));
+    let mut other = Client::new(false);
+    let r = other.ingest(&split_records(&format!("[{rec}]")).unwrap());
+    assert_eq!(r.inserted, 1, "{:?}", r.errors);
+
+    // The same record with a duplicate key, as perch-node sees it: refused.
+    let text = rec.to_string();
+    let dup = text.replacen("{\"author\":", "{\"v\":1,\"author\":", 1);
+    assert_ne!(dup, text);
+    let e = split_records(&format!("[{dup}]")).err().expect("duplicate key accepted");
+    assert!(e.contains("duplicate"), "{e}");
+    assert_eq!(Client::new(false).ingest_lines(&[dup]).rejected, 1);
+
+    // An element above the per-record size limit is rejected before parsing
+    // as a record.
+    let mut big = rec.clone();
+    big["body"]["name"] = json!("x".repeat(perch_core::limits::MAX_LINE_BYTES));
+    let r = Client::new(false).ingest(&split_records(&format!("[{big},{rec}]")).unwrap());
+    assert_eq!((r.rejected, r.inserted), (1, 1), "{:?}", r.errors);
+    assert!(r.errors[0]["error"].as_str().unwrap().contains("limit"), "{:?}", r.errors);
 }
 
 #[test]
@@ -163,7 +183,7 @@ fn currencies_come_from_core() {
 }
 
 #[test]
-fn fake_head_from_a_node_cannot_block_publishing_forever() {
+fn unproven_head_claim_blocks_until_the_user_stops_using_the_node() {
     let mut c = Client::new(false);
     c.guard.add_node("ws://evil.example/v1/sync");
     c.generate_key([12; 32]);
@@ -176,11 +196,21 @@ fn fake_head_from_a_node_cannot_block_publishing_forever() {
     // The claim never raises the proven head.
     let backup: Value = serde_json::from_str(&c.export_key().unwrap()).unwrap();
     assert_eq!(backup["head"]["seq"], 1);
-    // Without proof the claim is ignored after the timeout, and named.
-    let s = c.publish_status(T + CLAIM_TIMEOUT_MS);
-    assert!(s.ready, "{s:?}");
-    assert!(s.reason.as_deref().unwrap().contains("cannot prove"));
-    let p = c.publish("profile", &json!({ "name": "B", "role": "buyer" }).to_string(), None, Some(T), T + CLAIM_TIMEOUT_MS).unwrap();
+    // After the timeout the client still refuses to publish, names the node,
+    // and asks the user to retry or stop using it.
+    let later = T + 100 * CLAIM_TIMEOUT_MS;
+    let s = c.publish_status(later);
+    assert!(!s.ready, "{s:?}");
+    assert!(s.reason.as_deref().unwrap().contains("Retry, or stop using this node"));
+    let body = json!({ "name": "B", "role": "buyer" }).to_string();
+    let e = c.publish("profile", &body, None, Some(T), later).unwrap_err();
+    assert!(e.contains("evil.example"), "{e}");
+    // Retry keeps it blocked.
+    c.guard.retry("ws://evil.example/v1/sync", later);
+    assert!(c.publish("profile", &body, None, Some(T), later + 1).is_err());
+    // Stopping use of the node is the only way to unblock.
+    c.guard.remove_node("ws://evil.example/v1/sync");
+    let p = c.publish("profile", &body, None, Some(T), later + 2).unwrap();
     let r: Value = serde_json::from_str(&p.wire).unwrap();
     assert_eq!(r["seq"], 2);
 }

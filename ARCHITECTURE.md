@@ -485,6 +485,7 @@ client.authorRecords(author, { kinds?, limit?, from_seq? }) -> [ChainSummary]   
 client.flags(rootId)                          -> [FlagView]
 client.recordStatus(id)                       -> RecordStatus
 client.currencies()                           -> [Currency]
+client.retryNode(url)                         -> gives a node with an unproven head claim another 60 s (section 10); "stop using this node" is disconnect(url) plus removing it from settings
 client.verifyRecord(json)                     -> { valid, id, error }
 client.stats()                                -> Stats
 client.buildInfo()                            -> { version, wasm_sha256 }

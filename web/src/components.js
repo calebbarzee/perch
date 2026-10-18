@@ -100,8 +100,8 @@ export function displayName(id) {
 }
 
 // One sentence per badge (docs/ux.md 6.2). Badges show a short label; the
-// sentence is the badge's tooltip and accessible text, and appears in full
-// on the Author screen.
+// badge is a button that shows the sentence, so touch and keyboard users can
+// read it. The sentence is also the badge's accessible description.
 export const SENTENCE = {
   identity: (v) =>
     v.level === 'business'
@@ -117,43 +117,88 @@ export const SENTENCE = {
   retired: (a) => a?.retired
     ? `The owner ended this key at record #${a.retired.seq}. Later records are ignored.${a.retired.successor ? ` Successor: ${fmt.shortHex(a.retired.successor)}… Verification does not transfer.` : ''}`
     : 'The owner ended this key. Later records are ignored.',
-  restricted: (a, policy) => a?.restriction
-    ? `${a.restriction.hidden_listings} of this seller's listings are hidden, flagged by ${a.restriction.distinct_flaggers} verified people. Policy limits: ${policy?.seller_hidden_listing_limit ?? '?'} listings and ${policy?.seller_min_distinct_flaggers ?? '?'} people.`
-    : 'This person has a key with a conflicting history.',
+  restricted: (a, policy) => {
+    const r = a?.restriction;
+    if (!r || r.reason === 'forked_key') return 'Restricted: this person has a key with a conflicting history. Their listings are left out of price figures.';
+    return `${fmt.plural(r.hidden_listings, "of this seller's listings is", "of this seller's listings are")} hidden, flagged by ${fmt.plural(r.distinct_flaggers, 'verified person', 'verified people')}. Your policy restricts a seller at ${fmt.plural(policy?.seller_hidden_listing_limit ?? 0, 'hidden listing')} flagged by ${fmt.plural(policy?.seller_min_distinct_flaggers ?? 0, 'person', 'people')}.`;
+  },
+  purchase: {
+    verified: "The reviewer cites a receipt signed by the listing's seller, and both identities are verified under your policy.",
+    none: 'The review cites no receipt. It counts in the rating but not as a verified purchase.',
+    receipt_invalid: "The cited receipt is not signed by the seller of the named listing, so it is not accepted.",
+    wrong_product: 'The cited receipt names a listing of another product.',
+    seller_unverified: "The receipt is valid, but the seller's identity is not verified under your policy.",
+    buyer_unverified: "The receipt is valid, but the reviewer's identity is not verified under your policy.",
+    self: 'The seller of the listing wrote this review.',
+  },
 };
 
-// A badge: icon + short label. With a sentence, the sentence is the tooltip
-// and, unless `quiet`, also read by screen readers after the label.
-export function badge(tone, label, iconName, sentence = null, { quiet = false } = {}) {
-  return h('span', { class: `badge badge-${tone}`, title: sentence || null },
-    iconName ? icon(iconName) : null,
-    label,
-    sentence && !quiet ? h('span', { class: 'visually-hidden', text: `: ${sentence}` }) : null,
-  );
+// "Restricted seller" for people with listings, "Restricted" otherwise.
+export function restrictedLabel(view, { seller = false } = {}) {
+  const isSeller = seller || view?.role === 'seller' || (view?.hidden_listing_count ?? 0) > 0 || (view?.restriction?.hidden_listings ?? 0) > 0;
+  return isSeller ? 'Restricted seller' : 'Restricted';
 }
 
-export function identityBadge(verified, opts = {}) {
-  if (!verified) return badge('muted', 'Identity not verified', 'shield', SENTENCE.notVerified, opts);
+// A badge: icon + short label. With a sentence, the badge is a disclosure
+// button: pressing it shows the sentence below, and the sentence is the
+// button's accessible description.
+let badgeSeq = 0;
+export function badge(tone, label, iconName, sentence = null) {
+  if (!sentence) {
+    return h('span', { class: `badge badge-${tone}` }, iconName ? icon(iconName) : null, label);
+  }
+  const id = `badge-s-${++badgeSeq}`;
+  const text = h('span', { class: 'badge-sentence', id, hidden: true, text: sentence });
+  const button = h('button', {
+    type: 'button',
+    class: `badge badge-${tone} badge-button`,
+    'aria-expanded': 'false',
+    'aria-describedby': id,
+    on: {
+      click: (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        text.hidden = !text.hidden;
+        button.setAttribute('aria-expanded', String(!text.hidden));
+      },
+    },
+  }, iconName ? icon(iconName) : null, label);
+  return h('span', { class: 'badge-wrap' }, button, text);
+}
+
+export function identityBadge(verified) {
+  if (!verified) return badge('muted', 'Identity not verified', 'shield', SENTENCE.notVerified);
   const label = verified.level === 'business' ? 'Business verified' : 'Identity verified';
-  return badge('verified', label, 'shield', SENTENCE.identity(verified), opts);
+  return badge('verified', label, 'shield', verified.attestor ? SENTENCE.identity(verified) : null);
 }
 
-export function statusBadge(status, view = null, opts = {}) {
+export function statusBadge(status, view = null) {
   switch (status) {
     case 'forked':
-      return badge('bad', 'Conflicting history', 'fork', SENTENCE.forked(view), opts);
+      return badge('bad', 'Conflicting history', 'fork', SENTENCE.forked(view));
     case 'revoked':
-      return badge('bad', 'Key revoked', 'key', SENTENCE.revoked(view), opts);
+      return badge('bad', 'Key revoked', 'key', SENTENCE.revoked(view));
     case 'retired':
-      return badge('muted', 'Retired', 'clock', SENTENCE.retired(view), opts);
+      return badge('muted', 'Retired', 'clock', SENTENCE.retired(view));
     default:
       return null;
   }
 }
 
+export function restrictedBadge(view, policy, { seller = false } = {}) {
+  return badge('bad', restrictedLabel(view, { seller }), 'ban', SENTENCE.restricted(view, policy));
+}
+
+// The active policy, for badge sentences in chips. Set by the app.
+let activePolicy = null;
+export function setActivePolicy(p) {
+  activePolicy = p;
+}
+
 // Author chip (docs/ux.md 6.1): fingerprint, name as the author states it,
 // verification, status, short key. The key identifies the author; the name
-// is a claim. Data comes from the AuthorView when the lookup is set.
+// is a claim. Data comes from the AuthorView when the lookup is set. The
+// link covers fingerprint, name, and key; badges are buttons beside it.
 export function authorChip(id, name, { verified = false, status = 'ok', link = true } = {}) {
   const view = lookupAuthor(id);
   if (name == null) name = view?.name ?? null;
@@ -165,19 +210,17 @@ export function authorChip(id, name, { verified = false, status = 'ok', link = t
   const legal = v?.level === 'business' && v.legal_name && v.legal_name !== name
     ? h('span', { class: 'legal-name' }, ' (', bdi(v.legal_name), v.country ? `, ${v.country}` : '', ')')
     : null;
-  const parts = [
-    fingerprint(id, 16),
-    nameEl,
-    legal,
-    v && v.attestor ? identityBadge(v, { quiet: true }) : v ? badge('verified', 'Identity verified', 'shield') : identityBadge(null, { quiet: true }),
-    st && st !== 'ok' ? statusBadge(st, view, { quiet: true }) : null,
-    view?.restricted ? badge('bad', 'Restricted seller', 'ban', null) : null,
-    hex(id, { n: 8, cls: 'author-key' }),
-  ];
-  const label = `${name || 'Unnamed author'}, ${v ? (v.level === 'business' ? 'business verified' : 'identity verified') : 'identity not verified'}${st && st !== 'ok' ? `, ${st === 'forked' ? 'conflicting history' : st}` : ''}, key ${fmt.shortHex(id)}`;
-  return link
-    ? h('a', { href: routes.author(id), class: 'author-chip', 'aria-label': label }, parts)
-    : h('span', { class: 'author-chip' }, parts);
+  const who = [fingerprint(id, 16), nameEl, legal, hex(id, { n: 8, cls: 'author-key' })];
+  const label = `${name || 'Unnamed author'}, key ${fmt.shortHex(id)}`;
+  const main = link
+    ? h('a', { href: routes.author(id), class: 'author-link', 'aria-label': label }, who)
+    : h('span', { class: 'author-link' }, who);
+  return h('span', { class: 'author-chip' },
+    main,
+    identityBadge(v && v.attestor ? v : v ? { level: v.level } : null),
+    st && st !== 'ok' ? statusBadge(st, view) : null,
+    view?.restricted ? restrictedBadge(view, activePolicy) : null,
+  );
 }
 
 // Notice block: tone = info | good | warn | bad | muted.
@@ -191,9 +234,13 @@ export function notice(tone, title, ...body) {
   );
 }
 
+// Filled and outline stars differ in shape, not only color, and the number
+// is shown as text (WCAG 1.4.1).
 export function stars(rating) {
-  const el = h('span', { class: 'stars', role: 'img', 'aria-label': `${rating} of 5 stars` });
-  for (let i = 1; i <= 5; i++) el.append(h('span', { class: i <= rating ? 'star on' : 'star', 'aria-hidden': 'true', text: '★' }));
+  const el = h('span', { class: 'stars' });
+  const glyphs = h('span', { class: 'star-glyphs', 'aria-hidden': 'true' });
+  for (let i = 1; i <= 5; i++) glyphs.append(h('span', { class: i <= rating ? 'star on' : 'star', text: i <= rating ? '★' : '☆' }));
+  el.append(glyphs, h('span', { class: 'star-text', text: `${rating} of 5` }));
   return el;
 }
 
@@ -202,7 +249,7 @@ const FLAG_EXCLUDED = {
   product_seller: 'by a seller of this product',
   unverified: 'identity not verified',
   duplicate_person: 'same person as an earlier flag',
-  forked: "flagger's log is forked",
+  forked: "flagger's key has a conflicting history",
   retracted: 'withdrawn by the flagger',
   unavailable: 'flag text removed by a node',
   superseded: 'an older version of the same flag',
@@ -211,7 +258,7 @@ const FLAG_EXCLUDED = {
 // Every flag on a record, with who flagged and whether it counts. Loaded
 // when the user opens the list.
 export function flagList(client, rootId) {
-  const details = h('details', { class: 'flag-list' }, h('summary', { text: 'Show who flagged' }));
+  const details = h('details', { class: 'flag-list' }, h('summary', { text: 'Show flags' }));
   details.addEventListener('toggle', () => {
     if (!details.open || details.dataset.loaded) return;
     details.dataset.loaded = '1';
@@ -259,16 +306,8 @@ export function moderationNotice(view, kind, policy, client = null, rootId = nul
     const reasons = fmt.reasonsText(view.flags.reasons);
     if (reasons) parts.push(h('p', {}, `Reasons: ${reasons}.`));
     if (client && rootId && typeof client.flags === 'function') parts.push(flagList(client, rootId));
-    if (view.appeal) {
-      parts.push(
-        h('div', { class: 'appeal' },
-          h('p', {}, `The ${owner} appealed on ${fmt.date(view.appeal.ts)}:`),
-          userText('blockquote', view.appeal.note),
-        ),
-      );
-    } else if (view.appealed) {
-      parts.push(h('p', { text: `The ${owner} appealed.` }));
-    }
+    const ap = appealBlock(view, owner);
+    if (ap) parts.push(ap);
     parts.push(h('p', { class: 'hint', text: kind === 'review'
       ? 'Hidden reviews stay in the data and still count in the rating. Only the text is collapsed. Moderation follows your policy on this device.'
       : kind === 'listing'
@@ -299,6 +338,55 @@ export function moderationNotice(view, kind, policy, client = null, rootId = nul
     return n;
   }
   return null;
+}
+
+// The appeal of a flagged record, with its date and text (moderation.md 5.1).
+export function appealBlock(view, owner) {
+  if (view.appeal) {
+    return h('div', { class: 'appeal', dataset: { testid: 'appeal' } },
+      h('p', {}, `The ${owner} appealed on ${fmt.date(view.appeal.ts)}:`),
+      userText('blockquote', view.appeal.note),
+    );
+  }
+  if (view.appealed) return h('p', { class: 'appeal', dataset: { testid: 'appeal' }, text: `The ${owner} appealed.` });
+  return null;
+}
+
+// Flags and appeal on a record that is not hidden (docs/ux.md 6.5, 8.3
+// item 6): the counts, a "Show flags" list, and the appeal.
+export function flagSummary(view, kind, client, rootId) {
+  const f = view.flags || { count: 0, counted: 0, reasons: {} };
+  if (!f.count && !view.appeal && !view.appealed) return null;
+  const owner = kind === 'listing' ? 'seller' : 'author';
+  const reasons = fmt.reasonsText(f.reasons);
+  return h('div', { class: 'flag-summary', dataset: { testid: 'flag-summary' } },
+    f.count
+      ? h('p', {}, icon('flag'), ` ${fmt.plural(f.count, 'flag')}, ${fmt.number(f.counted)} counted under your policy${reasons ? `. Reasons: ${reasons}` : ''}.`)
+      : null,
+    f.count && client && rootId && typeof client.flags === 'function' ? flagList(client, rootId) : null,
+    appealBlock(view, owner),
+  );
+}
+
+// "How this was computed" (docs/ux.md 6.4, T2): the rule, what was left
+// out, the policy fields used with their values, the policy hash, and the
+// time used.
+export function computedDisclosure({ rule, exclusions = [], policyFields = [], policy, policyHash }) {
+  const now = policy?.now;
+  return h('details', { class: 'computed', dataset: { testid: 'computed' } },
+    h('summary', { text: 'How this was computed' }),
+    rule ? h('p', { text: rule }) : null,
+    exclusions.length ? h('p', { text: `Left out: ${exclusions.join('; ')}.` }) : null,
+    policyFields.length
+      ? h('dl', { class: 'facts compact' },
+          policyFields.map(([k, v]) => h('div', { class: 'fact-row' }, h('dt', {}, h('code', { text: k })), h('dd', { text: typeof v === 'boolean' ? (v ? 'true' : 'false') : String(v ?? 'not set') }))),
+        )
+      : null,
+    h('p', { class: 'hint' },
+      'Policy ', h('a', { href: '#/policy' }, hex(policyHash || '', { n: 16 })),
+      `. Time used: ${now != null ? `${fmt.dateTime(now)} (pinned)` : 'the current time on this device'}.`,
+    ),
+  );
 }
 
 // A fact with its sources and conflicting values (Fact<T> in 7.8).
@@ -411,19 +499,21 @@ export function urlLink(url, label) {
   return externalLink(url, label);
 }
 
+// Rows of [label, value, absent text]. A null value shows the absent text,
+// "Not stated" by default (T5: "None" would read as "ships nowhere").
 export function definitionList(rows) {
   const dl = h('dl', { class: 'facts' });
-  for (const [k, v] of rows) {
+  for (const [k, v, absent = 'Not stated'] of rows) {
     if (v === undefined) continue;
-    dl.append(h('div', { class: 'fact-row' }, h('dt', { text: k }), h('dd', {}, v ?? h('span', { class: 'muted', text: 'None' }))));
+    dl.append(h('div', { class: 'fact-row' }, h('dt', { text: k }), h('dd', {}, v ?? h('span', { class: 'muted', text: absent }))));
   }
   return dl;
 }
 
 export const PURCHASE_TEXT = {
   verified: 'Verified purchase',
-  none: null,
-  receipt_invalid: "Receipt does not verify under the listing's seller",
+  none: 'No receipt',
+  receipt_invalid: "Receipt not accepted: not signed by the listing's seller",
   wrong_product: 'Receipt is for a different product',
   seller_unverified: "Receipt from a seller whose identity is not verified",
   buyer_unverified: "Receipt valid, but the reviewer's identity is not verified",
@@ -432,13 +522,52 @@ export const PURCHASE_TEXT = {
 
 export const EXCLUDED_TEXT = {
   hidden: 'hidden by moderation',
-  unavailable: 'text removed',
+  unavailable: 'content removed by a node',
   retracted: 'withdrawn by its author',
   seller: 'written by a seller of this product',
-  forked: "author's log is forked",
+  forked: "author's key has a conflicting history",
   revoked: 'written after the key was reported stolen',
-  superseded: 'an older review by the same author',
+  superseded: 'the same person has a newer review of this product',
 };
+
+// Why a listing is not in the price summary (ListingView.price_excluded_reason).
+export const PRICE_EXCLUDED_TEXT = {
+  domain_unverified: 'shop domain not verified',
+  availability: 'not in stock',
+  seller_restricted: 'seller is restricted',
+  hidden: 'hidden by moderation',
+  retracted: 'withdrawn by the seller',
+  unavailable: 'content removed by a node',
+};
+
+// Why views ignore a record (RecordStatus.reason and ignored; docs/ux.md 12.3).
+const IGNORED_TEXT = {
+  'replaces:not_found': 'It replaces a record that is not on this device.',
+  'replaces:author': 'It replaces a record by another author.',
+  'replaces:seq': 'It replaces a record that is not older.',
+  'replaces:kind': 'It replaces a record of another kind.',
+  'replaces:not_replaceable': 'This kind of record cannot be replaced.',
+  'retract:author': "It withdraws another author's record.",
+  'retract:seq': 'It withdraws a record that is not older.',
+  'retract:target_kind': 'This kind of record cannot be withdrawn.',
+  'appeal:author': 'It appeals a record by another author.',
+  'ref:listing_kind': 'It refers to a listing that is not a listing.',
+  unavailable: 'Its content was removed by a node.',
+  unknown_kind: 'This version of Perch does not know this kind of record.',
+  future: 'Its stated time is in the future.',
+  forked: "It is at or after the author's conflicting history.",
+  revoked: 'It was signed after the key was reported stolen.',
+  retired: 'It was signed after the author retired the key.',
+  retracted: 'It is a new version of a withdrawn record.',
+  not_after_seq: "Your policy ignores this attestor's records after a set number.",
+};
+
+export function ignoredText(code) {
+  if (!code) return null;
+  if (code.startsWith('schema:')) return `The ${code.slice(7)} field breaks the format rules.`;
+  if (code.startsWith('fixed:')) return `It changes ${code.slice(6)}, which cannot change after publishing.`;
+  return IGNORED_TEXT[code] || code;
+}
 
 // Receipt share of a seller (docs/ux.md 8.3 item 7, threat-model R8).
 export function receiptShare(authorView) {

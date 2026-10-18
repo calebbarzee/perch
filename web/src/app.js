@@ -3,10 +3,11 @@
 import { loadClient, APP_VERSION } from './client.js';
 import { h, clear, announce } from './dom.js';
 import { route, parseHash } from './router.js';
-import { configuredNodes, settings, setConfig, appConfig } from './settings.js';
+import { activeNodes, sessionNodes, keepSessionNodes, discardSessionNodes, settings, setConfig, appConfig } from './settings.js';
 import * as persist from './persist.js';
-import { hex, notice, setAuthorLookup, clearAuthorCache } from './components.js';
+import { hex, notice, setAuthorLookup, clearAuthorCache, setActivePolicy } from './components.js';
 import { setCurrencyTable } from './format.js';
+import * as fmt from './format.js';
 
 import search from './screens/search.js';
 import product from './screens/product.js';
@@ -15,7 +16,7 @@ import author from './screens/author.js';
 import publish from './screens/publish.js';
 import keys from './screens/keys.js';
 import network from './screens/network.js';
-import policy from './screens/policy.js';
+import policy, { policyNumberProblem, diffPolicies, hashOf } from './screens/policy.js';
 import data from './screens/data.js';
 import notFound from './screens/not-found.js';
 
@@ -57,18 +58,26 @@ export const app = {
   bootErrors: [],
 };
 
-// Policy: the bundled default unless the user saved their own.
+// Policy: the bundled default unless the user saved their own. A saved
+// policy that does not parse or validate is not used (and not deleted): the
+// app falls back to the bundled policy and says so.
 function loadPolicy() {
+  let raw = null;
   try {
-    const raw = localStorage.getItem(`${POLICY_KEY}.${app.mode}`);
-    if (raw) return JSON.parse(raw);
+    raw = localStorage.getItem(`${POLICY_KEY}.${app.mode}`);
   } catch {
-    // ignore
+    // Storage blocked: use the bundled policy.
   }
-  return structuredClone(app.bundledPolicy);
+  if (!raw) return structuredClone(app.bundledPolicy);
+  const parsed = JSON.parse(raw);
+  const problem = policyNumberProblem(parsed);
+  if (problem) throw new Error(problem);
+  return parsed;
 }
 
 export function savePolicy(policy) {
+  const problem = policyNumberProblem(policy);
+  if (problem) throw new Error(problem);
   app.client.setPolicy(policy);
   try {
     localStorage.setItem(`${POLICY_KEY}.${app.mode}`, JSON.stringify(policy));
@@ -184,14 +193,19 @@ async function boot() {
   try {
     app.client.setPolicy(loadPolicy());
   } catch (e) {
-    app.bootErrors.push(`Saved policy rejected (${e.message}); using the bundled policy.`);
+    app.bootErrors.push(`Your saved policy is invalid (${e.message}). This page uses the bundled policy. Applying a policy on the Policy screen replaces the saved one.`);
     app.client.setPolicy(structuredClone(app.bundledPolicy));
   }
   const pinned = settings().pinnedNow;
   if (pinned != null) {
-    const p = app.client.policy();
-    p.now = pinned;
-    app.client.setPolicy(p);
+    try {
+      if (!Number.isSafeInteger(pinned) || pinned < 0) throw new Error(`${pinned} is not a time`);
+      const p = app.client.policy();
+      p.now = pinned;
+      app.client.setPolicy(p);
+    } catch (e) {
+      app.bootErrors.push(`The pinned time is invalid (${e.message}). Views use the current time.`);
+    }
   }
 
   // Restore records, then the key.
@@ -234,14 +248,25 @@ async function boot() {
     persist.flushRecords(() => app.client.exportJsonl());
   });
 
-  for (const url of configuredNodes()) {
+  for (const url of activeNodes()) {
     // Failures show on the Network screen; the client keeps retrying.
     app.client.connect(url).catch(() => {});
   }
 
+  window.addEventListener('perch-internal-error', (ev) => {
+    const msg = ev.detail?.error?.message || 'Internal error.';
+    if (app.bootErrors.includes(msg)) return;
+    app.bootErrors.push(msg);
+    renderBanner();
+  });
+
   renderBanner();
   renderFooter();
   wireTopbar();
+  // The "nodes disagree" banner appears after 30 s of disagreement.
+  setInterval(renderStatusBanners, 5000);
+  window.addEventListener('online', renderStatusBanners);
+  window.addEventListener('offline', renderStatusBanners);
   window.addEventListener('hashchange', () => show({ navigation: true }));
   await show({ navigation: false });
   document.documentElement.dataset.ready = 'true';
@@ -261,7 +286,128 @@ function renderBanner() {
       ),
     );
   }
+  const extra = sessionNodes();
+  if (extra.length) slot.append(sessionNodesBanner(extra));
   for (const msg of app.bootErrors) slot.append(h('div', { class: 'banner banner-warn', role: 'alert' }, h('p', { text: msg })));
+  slot.append(h('div', { id: 'status-banners' }));
+  statusSignature = null;
+  renderStatusBanners();
+}
+
+// Global states (docs/ux.md 7): offline, first sync, one node, nodes
+// disagree, policy differs. Each is a role="status" region that never takes
+// focus and has "Hide for this session".
+const hiddenBanners = new Set();
+const disagreeSince = new Map(); // peer url -> first time behind/ahead seen
+let statusSignature = null;
+
+function statusBanners() {
+  const out = [];
+  let peers = [];
+  let records = 0;
+  try {
+    peers = app.client.peers();
+    records = app.client.stats().records;
+  } catch {
+    return out;
+  }
+  const live = peers.filter((p) => p.state === 'live');
+  const syncing = peers.filter((p) => p.state === 'syncing' || p.state === 'connecting');
+  const now = Date.now();
+  for (const p of peers) {
+    if (p.state === 'live' && (p.behind || p.ahead)) {
+      if (!disagreeSince.has(p.url)) disagreeSince.set(p.url, now);
+    } else {
+      disagreeSince.delete(p.url);
+    }
+  }
+  const offline = (typeof navigator !== 'undefined' && navigator.onLine === false) || (peers.length > 0 && !live.length && !syncing.length);
+  if (offline) {
+    out.push(['offline', `Offline. Showing the ${fmt.plural(records, 'record')} stored on this device. Records you publish are saved here and sent when a node connects.`, '#/network', 'Network']);
+  } else if (syncing.length && !live.length) {
+    out.push(['sync', `Still receiving records from ${fmt.plural(syncing.length, 'node')}. Numbers may change.`, null, null]);
+  }
+  if (live.length === 1) {
+    out.push(['one-node', 'Connected to 1 node. Perch cannot check whether it is leaving records out. Add another node.', '#/network', 'Network']);
+  }
+  const lasting = live.filter((p) => disagreeSince.has(p.url) && now - disagreeSince.get(p.url) > 30000);
+  if (lasting.length) {
+    const p = lasting[0];
+    const host = hostOf(p.url);
+    const detail = p.behind ? `Node ${host} lacks records for ${fmt.plural(p.behind, 'author')}.` : `Node ${host} has newer records for ${fmt.plural(p.ahead, 'author')}.`;
+    out.push(['disagree', `Connected nodes hold different data. ${detail}`, '#/network', 'Network']);
+  }
+  try {
+    if (app.client.policyHash() !== hashOf(app.bundledPolicy)) {
+      const n = diffPolicies(app.client.policy(), app.bundledPolicy).length;
+      out.push(['policy', `Your policy differs from the default in ${fmt.plural(n, 'setting')}. Numbers may differ from what others see.`, '#/policy', 'Policy']);
+    }
+  } catch {
+    // no policy yet
+  }
+  return out.filter(([id]) => !hiddenBanners.has(id));
+}
+
+function renderStatusBanners() {
+  const slot = document.getElementById('status-banners');
+  if (!slot) return;
+  const list = statusBanners();
+  const sig = JSON.stringify(list);
+  if (sig === statusSignature) return;
+  statusSignature = sig;
+  slot.replaceChildren(
+    ...list.map(([id, text, href, label]) =>
+      h('div', { class: 'banner banner-status', role: 'status', dataset: { banner: id } },
+        h('p', {}, text, href ? [' ', h('a', { href, text: label })] : null),
+        h('button', {
+          type: 'button',
+          class: 'link-button banner-hide',
+          on: {
+            click: () => {
+              hiddenBanners.add(id);
+              renderStatusBanners();
+            },
+          },
+        }, 'Hide for this session'),
+      ),
+    ),
+  );
+}
+
+function hostOf(url) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
+// Nodes added by the page address (?nodes=) are used for this session only
+// until the user keeps them (ARCHITECTURE 10).
+function sessionNodesBanner(extra) {
+  const done = (message) => {
+    renderBanner();
+    announce(message);
+    show({ navigation: false, refresh: true });
+  };
+  return h('div', { class: 'banner banner-warn', id: 'session-nodes-banner', role: 'region', 'aria-label': 'Nodes from the page address' },
+    h('p', {},
+      h('strong', { text: `This link added ${extra.length === 1 ? 'a node' : `${extra.length} nodes`} for this session: ` }),
+      ...extra.flatMap((u, i) => [i ? ', ' : '', h('code', { text: u })]),
+      '. Your saved nodes are still used. A node you do not know can hide records or send you old data.',
+    ),
+    h('p', { class: 'actions' },
+      h('button', { type: 'button', class: 'button', id: 'session-nodes-keep', on: { click: () => {
+        keepSessionNodes();
+        done('Nodes saved.');
+      } } }, 'Keep these nodes'),
+      ' ',
+      h('button', { type: 'button', class: 'button', id: 'session-nodes-discard', on: { click: async () => {
+        for (const u of discardSessionNodes()) await app.client.disconnect(u);
+        done('Nodes discarded.');
+      } } }, 'Discard'),
+    ),
+  );
 }
 
 export function renderFooter() {
@@ -278,29 +424,34 @@ export function renderFooter() {
     h('dl', { class: 'build-info' },
       h('div', {}, h('dt', { text: 'App' }), h('dd', { text: `Perch ${APP_VERSION}${app.mode === 'mock' ? ' (mock client)' : ''}` })),
       h('div', {}, h('dt', { text: 'Wasm SHA-256' }), h('dd', {}, wasm ? [hex(wasm, { n: 16 }), ' ', checksumNote(true)] : h('span', { text: app.mode === 'mock' ? 'none (mock client)' : 'unknown' }))),
-      h('div', {}, h('dt', { text: 'Policy hash' }), h('dd', {}, h('a', { href: '#/policy' }, hex(policyHash, { n: 16 })))),
+      h('div', {}, h('dt', { text: 'Policy' }), h('dd', {}, h('a', { href: '#/policy' }, hex(policyHash, { n: 16 }), policyHash && app.bundledPolicy ? (policyHash === hashOf(app.bundledPolicy) ? ' (default)' : ' (custom)') : ''))),
     ),
     h('p', { class: 'footer-note' }, 'Views are computed on this device from signed records. ', h('a', { href: '#/data', text: 'Inspect the data' }), '.'),
   );
   updateNavStatus();
 }
 
-// "matches/does not match the checksum file", with links (docs/ux.md T8, 8.7).
+// The wasm hash compared with pkg/SHA256SUMS (docs/ux.md T8, 8.7). That
+// file comes from the same server as the app, so a match is not independent
+// proof (M4): it is shown in neutral color. Only a mismatch is colored. A
+// configured release page gives the independent comparison.
 export function checksumNote(short = false) {
   const c = app.checksum;
   if (!c || c.state === 'none') return null;
   const cfg = appConfig();
   const fileLink = h('a', { href: c.url, target: '_blank', rel: 'noopener', text: 'SHA256SUMS' });
-  const release = cfg.release_page_url ? h('a', { href: cfg.release_page_url, target: '_blank', rel: 'noopener noreferrer', text: 'release page' }) : null;
+  const release = cfg.release_page_url ? h('a', { href: cfg.release_page_url, target: '_blank', rel: 'noopener noreferrer', dataset: { release: 'link' }, text: 'Compare with the release page' }) : null;
   const parts = [];
-  if (c.state === 'match') parts.push(h('span', { class: 'good-text', dataset: { checksum: 'match' } }, 'matches ', fileLink));
+  if (c.state === 'match') parts.push(h('span', { class: 'neutral-text', dataset: { checksum: 'match' } }, 'matches ', fileLink, ' from the same server, not independent proof.'));
   else if (c.state === 'mismatch') parts.push(h('span', { class: 'bad-text', dataset: { checksum: 'mismatch' } }, 'does not match ', fileLink, '. This app is not the build it claims to be.'));
-  else parts.push(h('span', { class: 'warn-text', dataset: { checksum: 'missing' } }, 'no checksum file found'));
-  if (release) parts.push(short ? [' (compare with the ', release, ')'] : [' Compare with the checksums on the ', release, '. If they differ, this app is not the published release.']);
-  else if (!short) parts.push(' The checksum file comes from the same server as the app. Compare the hash with one published by the release authors.');
+  else parts.push(h('span', { class: 'neutral-text', dataset: { checksum: 'missing' } }, 'no checksum file found.'));
+  if (release) parts.push(' ', release, short ? '' : '. If the hashes differ, this app is not the published release.');
+  else if (!short) parts.push(' Compare the hash with one published by the release authors.');
   return h('span', { class: 'checksum-note' }, ...parts);
 }
 
+// Nav status as text (M3): "No nodes", "Offline", "1 node" (warning),
+// "Nodes disagree", or "3 nodes". The Menu button shows the same text.
 function updateNavStatus() {
   const el = document.getElementById('nav-net');
   if (!el) return;
@@ -311,15 +462,22 @@ function updateNavStatus() {
   } catch {
     peers = [];
   }
-  const live = peers.filter((p) => p.state === 'live').length;
-  el.textContent = peers.length ? `${live}/${peers.length}` : '0';
-  el.dataset.state = !peers.length ? 'none' : live === peers.length ? 'ok' : live ? 'partial' : 'down';
-  if (menuDot) {
-    menuDot.textContent = el.textContent;
-    menuDot.dataset.state = el.dataset.state;
-  }
+  const live = peers.filter((p) => p.state === 'live');
+  let text;
+  let state;
+  if (!peers.length) [text, state] = ['No nodes', 'down'];
+  else if (!live.length) [text, state] = ['Offline', 'down'];
+  else if (live.some((p) => p.behind || p.ahead)) [text, state] = ['Nodes disagree', 'partial'];
+  else if (live.length === 1) [text, state] = ['1 node', 'partial'];
+  else [text, state] = [`${live.length} nodes`, 'ok'];
+  el.textContent = text;
+  el.dataset.state = state;
+  // The Menu button shows a status dot; the text is in the menu (M3).
+  if (menuDot) menuDot.dataset.state = state;
+  const menuText = document.getElementById('nav-net-menu-text');
+  if (menuText) menuText.textContent = `, network: ${text}`;
   const link = el.closest('a');
-  if (link) link.setAttribute('aria-label', `Network, ${live} of ${peers.length} nodes connected`);
+  if (link) link.setAttribute('aria-label', `Network: ${text}, ${live.length} of ${peers.length} configured nodes connected`);
 }
 
 function wireTopbar() {
@@ -394,6 +552,11 @@ async function show({ navigation, refresh = false }) {
 
   if (current) current.ctx.dispose();
   clearAuthorCache();
+  try {
+    setActivePolicy(app.client.policy());
+  } catch {
+    setActivePolicy(null);
+  }
   const ctx = makeCtx(parsed);
   let node;
   try {
@@ -413,7 +576,7 @@ async function show({ navigation, refresh = false }) {
     else a.removeAttribute('aria-current');
   }
   const q = document.getElementById('topbar-q');
-  if (q && screen.id === 'search') q.value = parsed.params.q || '';
+  if (q && !refresh) q.value = screen.id === 'search' ? parsed.params.q || '' : '';
 
   if (refresh) {
     window.scrollTo(0, scroll);
@@ -447,6 +610,7 @@ function scheduleLiveUpdate() {
   liveTimer = setTimeout(() => {
     liveTimer = null;
     renderFooter();
+    renderStatusBanners();
     if (!current || !current.screen.live) return;
     // Do not re-render while the user is typing in this screen.
     const active = document.activeElement;

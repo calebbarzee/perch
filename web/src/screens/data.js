@@ -1,6 +1,6 @@
-import { h, field, announce, downloadText, userText } from '../dom.js';
+import { h, field, announce, downloadText, userText, copyText } from '../dom.js';
 import * as fmt from '../format.js';
-import { notice, hex, authorChip, recordLink, routes, definitionList } from '../components.js';
+import { notice, hex, authorChip, recordLink, routes, definitionList, ignoredText } from '../components.js';
 import { APP_VERSION } from '../client.js';
 
 export default {
@@ -21,15 +21,15 @@ function overview(ctx) {
   section.append(
     h('dl', { class: 'stat-row', id: 'stats' },
       [
-        ['Records', stats.records],
-        ['Authors', stats.authors],
-        ['Products', stats.products],
-        ['Listings', stats.listings],
-        ['Reviews', stats.reviews],
-        ['Forked authors', stats.forks],
-        ['Rejected', stats.invalid],
-        ['Text removed', stats.redacted],
-      ].map(([k, v]) => h('div', { class: 'stat', dataset: { stat: k.toLowerCase() } }, h('dt', { text: k }), h('dd', { text: fmt.number(v) }))),
+        ['records', 'Records', stats.records],
+        ['authors', 'Authors', stats.authors],
+        ['products', 'Products', stats.products],
+        ['listings', 'Listings', stats.listings],
+        ['reviews', 'Reviews', stats.reviews],
+        ['forks', 'Keys with a conflicting history', stats.forks],
+        ['invalid', 'Invalid (stored, ignored by views)', stats.invalid],
+        ['redacted', 'Content removed by a node', stats.redacted],
+      ].map(([key, k, v]) => h('div', { class: 'stat', dataset: { stat: key } }, h('dt', { text: k }), h('dd', { text: fmt.number(v) }))),
     ),
   );
 
@@ -168,13 +168,16 @@ function recordScreen(ctx) {
       ['Author', authorChip(rec.author, authorView?.name ?? null, { verified: Boolean(authorView?.verified), status: authorView?.status })],
       ['Position in log', h('span', { text: `${rec.seq}` })],
       ['Previous record', rec.prev ? recordLink(rec.prev) : h('span', { text: 'None (first record)' })],
-      ['Replaces', rec.replaces ? recordLink(rec.replaces) : null],
+      ['Replaces', rec.replaces ? recordLink(rec.replaces) : null, 'No earlier version'],
       ['Kind', h('code', { text: rec.kind })],
       ['Claimed time', h('span', { text: `${fmt.dateTime(rec.ts)} (${rec.ts})` })],
       ['Body hash', h('code', { class: 'hex hex-full', text: rec.body_hash })],
       ['Signature', h('code', { class: 'hex hex-full sig', text: rec.sig })],
-      ['Body', 'body' in rec ? null : h('span', { text: 'Removed by a node. The header and signature remain.' })],
-    ].filter(([, v]) => v !== null || true)),
+      ['Body', 'body' in rec
+        ? h('span', { text: check.valid ? 'Present (hash matches)' : 'Present' })
+        : h('span', { text: 'Removed by a node. The header and signature remain.' })],
+      ['Status in views', statusInViews(client, id)],
+    ]),
   );
   const related = relatedLinks(client, rec);
   if (related.length) section.append(h('p', { class: 'related' }, ...related));
@@ -185,7 +188,62 @@ function recordScreen(ctx) {
       h('p', {}, h('button', { type: 'button', class: 'button small', on: { click: () => downloadText(`${id}.json`, JSON.stringify(rec) + '\n') } }, 'Download record')),
     ),
   );
+  section.append(verifyYourself(id));
   return section;
+}
+
+// RecordStatus as text (docs/ux.md 8.9.2 item 3).
+function statusInViews(client, id) {
+  let st = null;
+  try {
+    st = typeof client.recordStatus === 'function' ? client.recordStatus(id) : null;
+  } catch {
+    st = null;
+  }
+  if (!st) return h('span', { class: 'muted', text: 'Unknown' });
+  const parts = [];
+  if (!st.semantic_valid) parts.push(h('p', { class: 'warn-text', dataset: { testid: 'status-ignored' } }, 'Ignored: ', ignoredText(st.reason) || 'it breaks the format rules.'));
+  else if (st.ignored) parts.push(h('p', { class: 'warn-text', dataset: { testid: 'status-ignored' } }, 'Ignored: ', ignoredText(st.ignored)));
+  else parts.push(h('p', { dataset: { testid: 'status-used' }, text: 'Used by views.' }));
+  const versions = st.versions || [];
+  if (versions.length > 1) {
+    const pos = versions.indexOf(id);
+    const latest = versions[versions.length - 1];
+    parts.push(h('p', {},
+      `Version ${pos + 1} of ${versions.length}. `,
+      st.root !== id ? ['First version: ', recordLink(st.root), '. '] : null,
+      latest !== id ? h('span', { dataset: { testid: 'replaced-by' } }, 'Replaced by ', recordLink(versions[pos + 1] ?? latest), latest !== versions[pos + 1] ? ['; latest: ', recordLink(latest)] : null, '.') : 'This is the latest version.',
+    ));
+  }
+  return h('div', { class: 'record-status' }, parts);
+}
+
+const VERIFY_COMMANDS = (file) => `# ${file} holds one record line exactly as exported.
+jq -jcS 'del(.sig, .body)' ${file} > header.json   # canonical header
+sha256sum header.json                                   # equals the record ID
+jq -jcS '.body' ${file} | sha256sum                 # equals body_hash (see note)
+{ printf 'perch/record/v1\n'; cat header.json; } > signed.bin
+{ printf '302a300506032b6570032100'; jq -r .author ${file}; } | tr -d '\n' \
+  | perl -pe 's/(..)/chr hex $1/ge' > author.der
+jq -jr .sig ${file} | perl -pe 's/(..)/chr hex $1/ge' > sig.bin
+openssl pkeyutl -verify -pubin -keyform DER -inkey author.der -rawin \
+  -in signed.bin -sigfile sig.bin                       # "Signature Verified Successfully"`;
+
+// "Verify it yourself" (docs/ux.md 8.9.2 item 6).
+function verifyYourself(id) {
+  const file = `${id}.json`;
+  const text = VERIFY_COMMANDS(file);
+  return h('details', { class: 'block verify-yourself', dataset: { testid: 'verify-yourself' } },
+    h('summary', {}, h('h2', { class: 'inline', text: 'Verify it yourself' })),
+    h('p', { text: `Download the record, then run these commands with jq and OpenSSL. They do not use Perch code.` }),
+    h('pre', { class: 'json', tabindex: '0', role: 'region', 'aria-label': 'Verification commands', text }),
+    h('p', {}, h('button', { type: 'button', class: 'button small', on: { click: () => copyText(text) } }, 'Copy commands')),
+    h('ul', { class: 'hint' },
+      h('li', { text: 'Tested with jq 1.7 and OpenSSL 3.0.13 on a signed test record.' }),
+      h('li', { text: 'Header keys are ASCII, so jq -S key order equals RFC 8785 order. For bodies, jq can differ from RFC 8785: it escapes U+007F, and it orders keys by code point, which differs from UTF-16 order for characters above U+FFFF. Use an RFC 8785 library for such bodies.' }),
+      h('li', { text: 'The app uses strict Ed25519 verification. A record the app accepts also passes OpenSSL. OpenSSL may accept rare signatures that the app rejects.' }),
+    ),
+  );
 }
 
 function relatedLinks(client, rec) {

@@ -1,9 +1,10 @@
 import { h, bdi, field, announce, copyText, downloadText, userText } from '../dom.js';
 import * as fmt from '../format.js';
-import { notice, routes, authorChip, recordLink, hex, priceText } from '../components.js';
+import { notice, routes, authorChip, recordLink, hex, priceText, definitionList } from '../components.js';
 import { backupConfirmed, publishBlocker } from './keys.js';
 import { persistKey } from '../app.js';
 import { canonicalJson } from '../canonical.js';
+import { claimActions, hostOf } from '../nodes.js';
 
 const KINDS = [
   ['review', 'Review'],
@@ -41,8 +42,17 @@ export default {
 
     // The gate (docs/ux.md 8.5.1) shows above the form; the form stays
     // editable, and the submit button stays enabled.
-    const g = gateNotice(client);
+    const g = gateNotice(client, { onAction: () => ctx.refresh() });
     if (g && kind !== 'receipt') section.append(g);
+    // A node's claim turns unproven after 60 s without any client event, so
+    // the screen checks the gate while it is shown.
+    if (g) {
+      const before = publishBlocker(client);
+      const timer = setInterval(() => {
+        if (publishBlocker(client) !== before) ctx.refresh();
+      }, 2000);
+      ctx.signal.addEventListener('abort', () => clearInterval(timer));
+    }
 
     const forms = { review: reviewForm, listing: listingForm, receipt: receiptTool, product: productForm, profile: profileForm, flag: flagForm, appeal: appealForm, retract: retractForm };
     section.append(forms[kind](ctx, {}));
@@ -50,8 +60,9 @@ export default {
   },
 };
 
-// The first unmet publish condition as a notice, or null.
-export function gateNotice(client, { summary = false } = {}) {
+// The first unmet publish condition as a notice, or null. A node whose head
+// claim is unproven gets "Retry" and "Stop using this node" (ARCHITECTURE 10).
+export function gateNotice(client, { summary = false, onAction = null } = {}) {
   const title = summary ? 'Not published yet' : 'Publishing is paused';
   if (!client.author()) {
     return notice('warn', title, h('p', {}, 'You need a key to publish. Your key signs everything you publish. ', h('a', { href: '#/keys', text: 'Create or import a key' }), '.'));
@@ -61,20 +72,23 @@ export function gateNotice(client, { summary = false } = {}) {
   }
   const st = typeof client.publishStatus === 'function' ? client.publishStatus() : { ready: !publishBlocker(client), reason: publishBlocker(client), nodes: [] };
   if (!st.ready) {
+    const local = st.local_head;
+    const above = (head) => head && (!local || head.seq > local.seq || (head.seq === local.seq && head.id !== local.id));
     const lines = (st.nodes || []).map((n) => {
-      let host = n.url;
-      try {
-        host = new URL(n.url).host;
-      } catch {
-        // keep the raw URL
-      }
-      const state = n.unproven ? 'claims records it cannot prove (ignored)' : n.checked ? `done${n.head ? `, record #${n.head.seq}` : ', no records of yours'}` : 'waiting';
-      return h('li', {}, h('span', { class: 'host', text: host }), `: ${state}`);
+      let state;
+      if (n.unproven) state = `claims record #${n.head.seq} of your log but did not send it`;
+      else if (above(n.head)) state = `claims record #${n.head.seq}; waiting for the records`;
+      else if (!n.checked) state = 'waiting';
+      else state = `done${n.head ? `, record #${n.head.seq}` : ', no records of yours'}`;
+      return h('li', { dataset: { url: n.url, unproven: n.unproven ? 'true' : null } },
+        h('span', { class: 'host', text: hostOf(n.url) }), `: ${state}`,
+        n.unproven ? claimActions(client, n.url, onAction) : null,
+      );
     });
     return notice('warn', title,
       h('p', { text: 'Checking your latest record on each node, so you do not publish over it.' }),
       lines.length ? h('ul', { class: 'plain node-lines' }, lines) : null,
-      st.reason ? h('p', { text: st.reason }) : null,
+      st.reason ? h('p', { class: 'gate-reason', text: st.reason }) : null,
       h('p', {}, h('a', { href: '#/network', text: 'Network' })),
     );
   }
@@ -82,8 +96,8 @@ export function gateNotice(client, { summary = false } = {}) {
 }
 
 // Shows the gate in the form's status area and moves focus to it.
-function showGate(status, client) {
-  const g = gateNotice(client, { summary: true });
+function showGate(status, client, onAction) {
+  const g = gateNotice(client, { summary: true, onAction });
   if (!g) return false;
   g.setAttribute('tabindex', '-1');
   g.setAttribute('role', 'alert');
@@ -92,45 +106,45 @@ function showGate(status, client) {
   return true;
 }
 
-// Shared submit flow: build body, show preview, publish, report.
-function publishForm(ctx, { id, kind, fields, build, submitLabel = 'Sign and publish', replaces, afterPublish }) {
+// Shared submit flow (docs/ux.md 8.5.2): "Review" checks every field and
+// lists all problems at once (M9), then shows what becomes public before
+// anything is signed (M10). "Sign and publish" signs and sends it.
+function publishForm(ctx, { id, kind, fields, build, submitLabel = 'Review', signLabel = 'Sign and publish', replaces, afterPublish }) {
   const { client } = ctx;
   const status = h('div', { class: 'form-status', role: 'status', 'aria-live': 'polite' });
   const preview = h('details', { class: 'record-preview' }, h('summary', { text: 'Preview the record body' }), h('pre', { class: 'json' }));
-  const form = h('form', { class: 'publish-form panel', id, novalidate: true }, ...fields, preview,
-    h('p', { class: 'actions' }, h('button', { type: 'submit', class: 'button primary', text: submitLabel })),
-    status,
-  );
+  const actions = h('p', { class: 'actions' }, h('button', { type: 'submit', class: 'button primary', text: submitLabel }));
+  const review = h('div', { class: 'review-step' });
+  const form = h('form', { class: 'publish-form panel', id, novalidate: true }, ...fields, preview, actions, review, status);
   const updatePreview = () => {
-    try {
-      const body = build(form);
-      preview.querySelector('pre').textContent = JSON.stringify(body, null, 2);
-    } catch (e) {
-      preview.querySelector('pre').textContent = e.message;
-    }
+    const { value, errors } = collectErrors(() => build(form));
+    preview.querySelector('pre').textContent = errors.length ? errors[0].message : JSON.stringify(value, null, 2);
   };
-  form.addEventListener('input', updatePreview);
+  const closeReview = () => {
+    review.replaceChildren();
+    actions.hidden = false;
+  };
+  form.addEventListener('input', () => {
+    updatePreview();
+    updateCounters(form);
+    if (review.firstChild) closeReview();
+  });
   form.addEventListener('change', updatePreview);
-  requestAnimationFrame(updatePreview);
-  form.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    if (showGate(status, client)) return;
-    let body;
-    try {
-      body = build(form, { strict: true });
-    } catch (e) {
-      status.replaceChildren(notice('bad', 'Check the form', h('p', { text: e.message })));
-      const bad = e.field && form.elements[e.field];
-      bad?.focus?.();
+  requestAnimationFrame(() => {
+    updatePreview();
+    updateCounters(form);
+  });
+
+  const sign = async (body, opts) => {
+    if (showGate(status, client, () => ctx.refresh())) {
+      closeReview();
       return;
     }
     try {
-      const opts = {};
-      const rep = typeof replaces === 'function' ? replaces(form) : replaces;
-      if (rep) opts.replaces = rep;
       const res = client.publish(kind, body, opts);
       await persistKey();
       announce('Published.');
+      closeReview();
       const live = client.peers().filter((p) => p.state === 'live').length;
       status.replaceChildren(
         notice('good', 'Published',
@@ -142,17 +156,182 @@ function publishForm(ctx, { id, kind, fields, build, submitLabel = 'Sign and pub
       );
       // Clear the fields, so a second press does not publish the same record again.
       form.reset();
+      updateCounters(form);
     } catch (e) {
+      closeReview();
       status.replaceChildren(notice('bad', 'Not published', h('p', { text: e.message || String(e) })));
     }
+  };
+
+  form.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    clearErrors(form);
+    status.replaceChildren();
+    if (showGate(status, client, () => ctx.refresh())) return;
+    const { value: body, errors } = collectErrors(() => {
+      lengthErrors(form);
+      return build(form, { strict: true });
+    });
+    if (errors.length) {
+      showErrors(form, errors);
+      return;
+    }
+    const opts = {};
+    const rep = typeof replaces === 'function' ? replaces(form) : replaces;
+    if (rep) opts.replaces = rep;
+    actions.hidden = true;
+    const headingId = `${id}-review-title`;
+    review.replaceChildren(
+      h('section', { class: 'notice notice-info review-panel', 'aria-labelledby': headingId },
+        h('div', { class: 'notice-body' },
+          h('h2', { id: headingId, tabindex: '-1', text: 'This will be public' }),
+          h('p', { text: 'Anyone can read and copy this record. You can replace or withdraw it later, but this version stays in the data.' }),
+          definitionList([
+            ['Kind', h('code', { text: kind })],
+            ['Signed by', authorChip(client.author(), client.authorView(client.author())?.name ?? null)],
+            ['Stated time', h('span', { text: `${fmt.dateTime(Date.now())} (when you sign)` })],
+            rep ? ['Replaces', recordLink(rep)] : ['Replaces', null, 'Nothing: a new record'],
+            ...Object.entries(body).map(([k, v]) => [k, typeof v === 'object' ? h('pre', { class: 'json small', text: JSON.stringify(v, null, 2) }) : userText('span', String(v))]),
+          ]),
+          h('p', { class: 'actions' },
+            h('button', {
+              type: 'button',
+              class: 'button',
+              id: `${id}-edit`,
+              on: {
+                click: () => {
+                  closeReview();
+                  form.querySelector('input, textarea, select')?.focus();
+                },
+              },
+            }, 'Edit'),
+            ' ',
+            h('button', { type: 'button', class: 'button primary', id: `${id}-sign`, on: { click: () => sign(body, opts) } }, signLabel),
+          ),
+        ),
+      ),
+    );
+    document.getElementById(headingId)?.focus();
   });
   return form;
 }
 
+// While collecting, fail() records the problem instead of throwing, so a
+// form reports every problem at once.
+let errorSink = null;
+
+function collectErrors(fn) {
+  const errors = [];
+  errorSink = errors;
+  let value = null;
+  try {
+    value = fn();
+  } catch (e) {
+    if (!errors.some((x) => x.message === e.message)) errors.push({ message: e.message || String(e), field: e.field });
+  } finally {
+    errorSink = null;
+  }
+  return { value, errors };
+}
+
 function fail(message, fieldName) {
+  if (errorSink) {
+    errorSink.push({ message, field: fieldName });
+    return;
+  }
   const e = new Error(message);
   e.field = fieldName;
   throw e;
+}
+
+function fieldElement(form, name) {
+  if (!name) return null;
+  const el = form.elements[name];
+  if (!el) return null;
+  return typeof RadioNodeList !== 'undefined' && el instanceof RadioNodeList ? el[0] : el;
+}
+
+// Error summary at the top of the form, linked to the fields, and each
+// message above its input with aria-invalid and aria-describedby (M9).
+function showErrors(form, errors) {
+  const items = errors.map((e) => {
+    const el = fieldElement(form, e.field);
+    if (el) {
+      const errId = `${el.id || el.name}-error`;
+      if (!document.getElementById(errId)) {
+        const msg = h('p', { class: 'field-error', id: errId, text: e.message });
+        const group = el.type === 'radio' ? el.closest('fieldset') : null;
+        if (group) group.querySelector('legend').after(msg);
+        else el.before(msg);
+      }
+      const targets = el.type === 'radio' ? [...form.elements[e.field]] : [el];
+      for (const t of targets) {
+        t.setAttribute('aria-invalid', 'true');
+        t.setAttribute('aria-describedby', [errId, t.getAttribute('aria-describedby')].filter(Boolean).join(' '));
+      }
+    }
+    return h('li', {}, el
+      ? h('a', {
+        href: '#',
+        on: {
+          click: (ev) => {
+            ev.preventDefault();
+            el.focus();
+          },
+        },
+      }, e.message)
+      : e.message);
+  });
+  const summary = h('div', { class: 'error-summary', role: 'alert', tabindex: '-1' },
+    h('h2', { text: errors.length === 1 ? 'There is a problem' : `There are ${errors.length} problems` }),
+    h('ul', {}, items),
+  );
+  form.prepend(summary);
+  summary.focus();
+}
+
+function clearErrors(form) {
+  form.querySelector('.error-summary')?.remove();
+  for (const msg of form.querySelectorAll('.field-error')) {
+    for (const el of form.querySelectorAll(`[aria-describedby~="${msg.id}"]`)) {
+      const rest = el.getAttribute('aria-describedby').split(/\s+/).filter((x) => x !== msg.id);
+      if (rest.length) el.setAttribute('aria-describedby', rest.join(' '));
+      else el.removeAttribute('aria-describedby');
+    }
+    msg.remove();
+  }
+  for (const el of form.querySelectorAll('[aria-invalid]')) el.removeAttribute('aria-invalid');
+}
+
+// Text limits count Unicode scalar values, as the record format does
+// (ARCHITECTURE 4.5), and never cut pasted text (m11).
+const scalarLength = (s) => [...s].length;
+
+function updateCounters(form) {
+  for (const el of form.querySelectorAll('[data-max]')) {
+    const max = Number(el.dataset.max);
+    let counter = document.getElementById(`${el.id}-count`);
+    if (!counter) {
+      counter = h('p', { class: 'hint char-count', id: `${el.id}-count` });
+      el.after(counter);
+    }
+    const n = scalarLength(el.value);
+    counter.textContent = `${fmt.number(n)} of ${fmt.number(max)} characters`;
+    counter.classList.toggle('bad-text', n > max);
+  }
+}
+
+function lengthErrors(form) {
+  for (const el of form.querySelectorAll('[data-max]')) {
+    const max = Number(el.dataset.max);
+    const n = scalarLength(el.value.trim());
+    if (n > max) fail(`${labelOf(el)} is ${fmt.number(n)} characters. The limit is ${fmt.number(max)}.`, el.name);
+  }
+}
+
+function labelOf(el) {
+  const l = el.id ? document.querySelector(`label[for="${CSS.escape(el.id)}"]`) : null;
+  return (l?.textContent || el.name).replace(/\s*\(optional\)$/, '');
 }
 
 function text(form, name) {
@@ -233,8 +412,8 @@ function reviewForm(ctx, { blocked }) {
     fields: [
       productPicker(ctx, 'product', params.product),
       rating,
-      field({ id: 'f-title', label: 'Title (optional)', control: h('input', { name: 'title', id: 'f-title', maxlength: 200, dir: 'auto' }) }),
-      field({ id: 'f-text', label: 'Review', hint: 'What you observed. Up to 10,000 characters.', control: h('textarea', { name: 'text', id: 'f-text', rows: 6, maxlength: 10000, required: true, dir: 'auto' }) }),
+      field({ id: 'f-title', label: 'Title (optional)', control: h('input', { name: 'title', id: 'f-title', 'data-max': 200, dir: 'auto' }) }),
+      field({ id: 'f-text', label: 'Review', hint: 'What you observed. Up to 10,000 characters.', control: h('textarea', { name: 'text', id: 'f-text', rows: 6, 'data-max': 10000, required: true, dir: 'auto' }) }),
       field({ id: 'f-receipt', label: 'Receipt from the seller (optional)', hint: 'Paste the receipt JSON the seller gave you. It is checked here before you publish.', control: receiptInput }),
       receiptStatus,
     ],
@@ -242,7 +421,7 @@ function reviewForm(ctx, { blocked }) {
       const body = { product: text(form, 'product') };
       const r = form.querySelector('input[name=rating]:checked');
       if (strict && !body.product) fail('Choose a product.', 'product');
-      if (strict && !r) fail('Choose a rating from 1 to 5.');
+      if (strict && !r) fail('Choose a rating from 1 to 5.', 'rating');
       body.rating = r ? Number(r.value) : 0;
       body.text = text(form, 'text');
       if (strict && !body.text) fail('Write the review text.', 'text');
@@ -256,12 +435,12 @@ function reviewForm(ctx, { blocked }) {
         } catch {
           fail('The receipt is not valid JSON.', 'receipt');
         }
-        if (strict) {
+        if (strict && rc !== undefined) {
           const v = client.verifyReceipt(rc);
           if (!v.valid) fail(`The receipt does not verify: ${v.error}`, 'receipt');
         }
         body.receipt = rc;
-        body.listing = rc.listing;
+        body.listing = rc?.listing;
       }
       return body;
     },
@@ -299,7 +478,7 @@ function listingForm(ctx, { blocked }) {
       prev ? notice('info', 'Updating your listing', h('p', {}, 'This publishes a new version of ', recordLink(params.replaces), '. The product cannot change.')) : null,
       productPicker(ctx, 'product', prevBody.product || params.product),
       field({ id: 'f-url', label: 'Product page URL', hint: 'https only. Prices count in ranges only when an attestor verified your domain.', control: h('input', { name: 'url', id: 'f-url', type: 'url', value: prevBody.url || '', required: true, spellcheck: 'false' }) }),
-      field({ id: 'f-ltitle', label: 'Title (optional)', control: h('input', { name: 'title', id: 'f-ltitle', maxlength: 300, dir: 'auto', value: prevBody.title || '' }) }),
+      field({ id: 'f-ltitle', label: 'Title (optional)', control: h('input', { name: 'title', id: 'f-ltitle', 'data-max': 300, dir: 'auto', value: prevBody.title || '' }) }),
       ...priceFields(),
       h('div', { class: 'row' }, field({ id: 'f-availability', label: 'Availability', control: avail }), field({ id: 'f-condition', label: 'Condition', control: cond })),
       field({ id: 'f-ships', label: 'Ships to (optional)', hint: 'Two-letter country codes separated by commas, for example DE, AT, NL', control: h('input', { name: 'ships_to', id: 'f-ships', value: (prevBody.ships_to || []).join(', '), spellcheck: 'false' }) }),
@@ -404,14 +583,14 @@ function productForm(ctx, { blocked }) {
     blocked,
     fields: [
       notice('info', 'Before you add a product', h('p', { text: 'Search first. Records with the same GTIN, or the same brand and MPN, describe the same product and merge automatically.' })),
-      field({ id: 'f-pname', label: 'Name', control: h('input', { name: 'name', id: 'f-pname', maxlength: 300, required: true, dir: 'auto' }) }),
-      field({ id: 'f-brand', label: 'Brand', control: h('input', { name: 'brand', id: 'f-brand', maxlength: 100, required: true, dir: 'auto' }) }),
+      field({ id: 'f-pname', label: 'Name', control: h('input', { name: 'name', id: 'f-pname', 'data-max': 300, required: true, dir: 'auto' }) }),
+      field({ id: 'f-brand', label: 'Brand', control: h('input', { name: 'brand', id: 'f-brand', 'data-max': 100, required: true, dir: 'auto' }) }),
       h('div', { class: 'row' },
         field({ id: 'f-gtin', label: 'GTIN (optional)', hint: 'The barcode number: 8, 12, 13, or 14 digits', control: h('input', { name: 'gtin', id: 'f-gtin', inputmode: 'numeric', autocomplete: 'off' }) }),
-        field({ id: 'f-mpn', label: 'MPN (optional)', hint: 'Manufacturer part number', control: h('input', { name: 'mpn', id: 'f-mpn', maxlength: 100 }) }),
+        field({ id: 'f-mpn', label: 'MPN (optional)', hint: 'Manufacturer part number', control: h('input', { name: 'mpn', id: 'f-mpn', 'data-max': 100 }) }),
       ),
-      field({ id: 'f-cat', label: 'Category (optional)', hint: 'Lowercase, separated by /, for example appliances/kitchen', control: h('input', { name: 'category', id: 'f-cat', maxlength: 200 }) }),
-      field({ id: 'f-desc', label: 'Description (optional)', control: h('textarea', { name: 'description', id: 'f-desc', rows: 4, maxlength: 5000, dir: 'auto' }) }),
+      field({ id: 'f-cat', label: 'Category (optional)', hint: 'Lowercase, separated by /, for example appliances/kitchen', control: h('input', { name: 'category', id: 'f-cat', 'data-max': 200 }) }),
+      field({ id: 'f-desc', label: 'Description (optional)', control: h('textarea', { name: 'description', id: 'f-desc', rows: 4, 'data-max': 5000, dir: 'auto' }) }),
     ],
     build(form, { strict } = {}) {
       const body = { name: text(form, 'name'), brand: text(form, 'brand') };
@@ -451,10 +630,10 @@ function profileForm(ctx, { blocked }) {
     kind: 'profile',
     blocked,
     fields: [
-      field({ id: 'f-name', label: 'Display name', hint: 'Anyone can choose any name. People recognize you by your key.', control: h('input', { name: 'name', id: 'f-name', maxlength: 100, required: true, dir: 'auto', value: me?.name || '' }) }),
+      field({ id: 'f-name', label: 'Display name', hint: 'Anyone can choose any name. People recognize you by your key.', control: h('input', { name: 'name', id: 'f-name', 'data-max': 100, required: true, dir: 'auto', value: me?.name || '' }) }),
       field({ id: 'f-role', label: 'Role', control: role }),
       field({ id: 'f-purl', label: 'Website (optional)', control: h('input', { name: 'url', id: 'f-purl', type: 'url', value: me?.url || '', spellcheck: 'false' }) }),
-      field({ id: 'f-about', label: 'About (optional)', control: h('textarea', { name: 'about', id: 'f-about', rows: 3, maxlength: 2000, dir: 'auto', text: me?.about || '' }) }),
+      field({ id: 'f-about', label: 'About (optional)', control: h('textarea', { name: 'about', id: 'f-about', rows: 3, 'data-max': 2000, dir: 'auto', text: me?.about || '' }) }),
     ],
     build(form, { strict } = {}) {
       const body = { name: text(form, 'name'), role: form.elements.role.value };
@@ -494,7 +673,7 @@ function flagForm(ctx, { blocked }) {
       h('p', { text: 'A flag is a public, signed report. Listings, reviews, products, and profiles are hidden when enough identity-verified people flag them. You can withdraw your flag later.' }),
       targetField(ctx, ctx.params.target),
       field({ id: 'f-reason', label: 'Reason', control: reason }),
-      field({ id: 'f-note', label: 'Note (optional)', hint: 'What you observed. Public.', control: h('textarea', { name: 'note', id: 'f-note', rows: 3, maxlength: 2000, dir: 'auto' }) }),
+      field({ id: 'f-note', label: 'Note (optional)', hint: 'What you observed. Public.', control: h('textarea', { name: 'note', id: 'f-note', rows: 3, 'data-max': 2000, dir: 'auto' }) }),
     ],
     build(form, { strict } = {}) {
       const body = { target: text(form, 'target'), reason: form.elements.reason.value };
@@ -514,7 +693,7 @@ function appealForm(ctx, { blocked }) {
     fields: [
       h('p', { text: 'An appeal is a public statement attached to your own flagged record. It does not change the status by itself; flaggers may read it and withdraw their flags.' }),
       targetField(ctx, ctx.params.target, 'Your record ID'),
-      field({ id: 'f-anote', label: 'Statement', control: h('textarea', { name: 'note', id: 'f-anote', rows: 4, maxlength: 2000, required: true, dir: 'auto' }) }),
+      field({ id: 'f-anote', label: 'Statement', control: h('textarea', { name: 'note', id: 'f-anote', rows: 4, 'data-max': 2000, required: true, dir: 'auto' }) }),
     ],
     build(form, { strict } = {}) {
       const body = { target: text(form, 'target'), note: text(form, 'note') };
@@ -530,7 +709,8 @@ function retractForm(ctx, { blocked }) {
     id: 'form-retract',
     kind: 'retract',
     blocked,
-    submitLabel: 'Sign and withdraw',
+    submitLabel: 'Review withdrawal',
+    signLabel: 'Sign and withdraw',
     fields: [
       notice('warn', 'Withdrawal is final', h('p', { text: 'Withdrawing a review, listing, flag, or other record removes it from views. The record and the withdrawal stay in the data. You cannot undo it.' })),
       targetField(ctx, ctx.params.target, 'Your record ID'),

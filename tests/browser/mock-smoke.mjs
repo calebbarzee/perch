@@ -27,8 +27,18 @@ const { server, url } = await startStaticServer(webDir);
 const browser = await chromium.launch();
 const errors = [];
 
-async function newPage(colorScheme = 'light') {
+// Saved nodes are set through settings, as a user would save them; the
+// ?nodes= parameter only adds nodes for one session (ARCHITECTURE 10).
+async function newPage(colorScheme = 'light', { nodes = ['ws://mock-a/v1/sync', 'ws://mock-b/v1/sync'], claimTimeoutMs = null } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 }, colorScheme });
+  await ctx.addInitScript(({ nodes, claimTimeoutMs }) => {
+    if (claimTimeoutMs != null) globalThis.PERCH_MOCK_CLAIM_TIMEOUT_MS = claimTimeoutMs;
+    try {
+      if (!localStorage.getItem('perch.settings.v1')) localStorage.setItem('perch.settings.v1', JSON.stringify({ nodes }));
+    } catch {
+      // about:blank has no storage
+    }
+  }, { nodes, claimTimeoutMs });
   const page = await ctx.newPage();
   page.on('console', (m) => {
     if (m.type() === 'error' || m.type() === 'warning') errors.push(`${m.type()}: ${m.text()}`);
@@ -50,7 +60,7 @@ async function go(page, hash) {
 
 try {
   const { ctx, page } = await newPage();
-  await page.goto(`${url}/?mock=1&nodes=ws://mock-a/v1/sync,ws://mock-b/v1/sync`);
+  await page.goto(`${url}/?mock=1`);
   await waitReady(page);
   check('empty query asks for a query instead of searching', (await page.locator('.hit').count()) === 0 && (await page.locator('.empty-title').count()) === 1);
   await go(page, '#/search?q=kitchen');
@@ -66,8 +76,23 @@ try {
   await page.waitForSelector('.screen-product');
   await page.waitForSelector('.chart-svg');
   check('product page: headline rating', (await page.locator('[data-testid=rating-verified] .big').textContent()) === '4.33');
-  check('product page: listings', (await page.locator('.listing').count()) === 2);
-  check('product page: price chart drawn', (await page.locator('.chart-svg .series .line').count()) >= 2);
+  check('product page: listings', (await page.locator('.listing').count()) === 3);
+  check('product page: price chart drawn', (await page.locator('.chart-svg .series .line').count()) >= 1);
+  // B1: listings in the price summary come first; the cheaper listing on an
+  // unverified shop domain is grouped below and left out of the default chart.
+  {
+    const first = page.locator('.listing').first();
+    const firstGroup = await first.evaluate((li) => li.closest('[data-group]')?.dataset.group);
+    const firstSeller = await first.locator('.author-name').first().textContent();
+    const unverified = page.locator('[data-group=domain_unverified] .listing');
+    const groupTitle = await page.locator('[data-group=domain_unverified] summary').textContent();
+    check('B1: price-summary listings lead the list', firstGroup === 'feeds' && firstSeller === 'Brightline Electronics', `${firstGroup} ${firstSeller}`);
+    check('B1: unverified-domain listings grouped under their own heading', (await unverified.count()) === 2 && groupTitle.startsWith('Not in the price summary: shop domain not verified'), groupTitle);
+    check('B1: heading says Listings, not Where to buy', (await page.locator('#h-listings').textContent()).startsWith('Listings ('));
+    const chosen = await page.locator('.chart-chooser input:checked').count();
+    const chosenLabel = await page.locator('.chart-chooser li:has(input:checked) label').first().textContent();
+    check('B1: default chart shows only price-summary listings', chosen === 1 && chosenLabel.startsWith('Brightline'), `${chosen} ${chosenLabel}`);
+  }
   check('product page: reviews', (await page.locator('.review').count()) >= 8);
   await page.screenshot({ path: path.join(shots, 'mock-product.png'), fullPage: true });
 
@@ -83,6 +108,15 @@ try {
   const hidden = page.locator('.listing[data-status=hidden]');
   check('hidden listing has a labeled notice', (await hidden.count()) === 1 && (await hidden.locator('[data-status=hidden] .notice-title').textContent()) === 'Hidden by moderation');
   check('appeal text shown', (await hidden.locator('.appeal blockquote').count()) === 1);
+  // M1: the notice comes first; title, price, and shop link are collapsed.
+  {
+    const firstIsNotice = await hidden.evaluate((li) => li.firstElementChild?.dataset.status === 'hidden');
+    const body = hidden.locator('.listing-hidden-body');
+    check('M1: hidden listing starts with the moderation notice', firstIsNotice);
+    check('M1: title, price, and shop link collapsed', !(await body.isVisible()) && !(await hidden.locator('a.external').first().isVisible()));
+    await hidden.getByRole('button', { name: 'Show listing' }).click();
+    check('M1: Show listing reveals them', (await body.isVisible()) && (await body.textContent()).includes('ORIGINAL'));
+  }
   await page.screenshot({ path: path.join(shots, 'mock-hidden.png'), fullPage: true });
 
   // Listing screen.
@@ -92,9 +126,29 @@ try {
   check('listing screen renders', (await page.locator('.screen-listing h1').count()) === 1);
 
   // Author screen (seller).
-  await page.locator('.screen-listing .author-chip').first().click();
+  await page.locator('.screen-listing .author-chip .author-link').first().click();
   await page.waitForSelector('.screen-author');
   check('author screen renders with restricted badge', (await page.locator('.screen-author .badge-bad').count()) >= 1);
+
+  // M5: flags and appeal on a visible listing.
+  await go(page, `#/product/${encodeURIComponent('gtin:08712345000172')}`);
+  await page.waitForSelector('.screen-product');
+  {
+    const cedar = page.locator('.listing[data-status=visible]:has(.flag-summary)');
+    const summary = cedar.locator('[data-testid=flag-summary]');
+    check('M5: visible flagged listing shows the flag count', (await cedar.count()) === 1 && (await summary.textContent()).includes('1 flag'));
+    check('M5: the appeal note is shown', ((await summary.locator('[data-testid=appeal] blockquote').textContent()) || '').includes('box design changed'));
+    await summary.locator('.flag-list summary').click();
+    await page.waitForSelector('.flag-summary .flags li');
+    check('M5: Show flags lists the flag', ((await summary.locator('.flags li').first().textContent()) || '').includes('The photo shows a different model.'));
+  }
+
+  // M6: a badge shows its sentence on press.
+  {
+    const b = page.locator('button.badge').first();
+    await b.click();
+    check('M6: badge is a disclosure with a visible sentence', (await b.getAttribute('aria-expanded')) === 'true' && (await page.locator('.badge-sentence:not([hidden])').count()) >= 1);
+  }
 
   // Redacted review.
   await go(page, '#/search?q=backpack');
@@ -117,8 +171,21 @@ try {
   await page.locator('.rating-option').nth(3).click();
   await page.fill('#f-text', 'Test review from the smoke test.');
   await page.locator('#form-review button[type=submit]').click();
+  // M10: a review step shows what becomes public before signing.
+  await page.waitForSelector('#form-review-sign');
+  check('M10: review step before signing', (await page.locator('#form-review .review-panel h2').textContent()) === 'This will be public' && (await page.locator('#form-review .notice-good').count()) === 0);
+  await page.locator('#form-review-sign').click();
   await page.waitForSelector('#form-review .notice-good');
   check('review published', true);
+
+  // M9: every problem at once, tied to the fields.
+  await go(page, '#/publish?kind=listing');
+  await page.waitForSelector('#form-listing');
+  await page.locator('#form-listing button[type=submit]').click();
+  await page.waitForSelector('#form-listing .error-summary');
+  const nErr = await page.locator('#form-listing .error-summary li').count();
+  const nInvalid = await page.locator('#form-listing [aria-invalid=true]').count();
+  check('M9: all form errors listed and marked', nErr >= 3 && nInvalid >= 3, `${nErr} errors, ${nInvalid} fields`);
 
   // Receipt tool (no listings for this key).
   await go(page, '#/publish?kind=receipt');
@@ -179,9 +246,11 @@ try {
   await go(page, `#/product/${encodeURIComponent('gtin:04006381333931')}`);
   await page.waitForSelector('.histogram button');
   await page.locator('.histogram button').first().click();
-  const shownStars = await page.locator('.review:not([hidden]) .stars').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
-  check('histogram button filters reviews by stars', shownStars.length > 0 && shownStars.every((l) => l.startsWith('5 ')), shownStars.join('; '));
+  const shownStars = await page.locator('.review:not([hidden]) .star-text').evaluateAll((els) => els.map((e) => e.textContent));
+  check('histogram button filters reviews by stars', shownStars.length > 0 && shownStars.every((l) => l === '5 of 5'), shownStars.join('; '));
   check('star filter stored in the URL', (await page.evaluate(() => location.hash)).includes('stars=5'));
+  check('m3: identity histogram also filters to identity-verified people', (await page.evaluate(() => location.hash)).includes('reviews=identity'));
+  check('M12: stars show the number as text', /^[1-5] of 5$/.test(await page.locator('.review .star-text').first().textContent()));
   // C4: buttons are never disabled; the gate shows on press.
   await go(page, '#/publish?kind=receipt');
   check('Sign receipt is enabled', await page.locator('#form-receipt button[type=submit]').isEnabled());
@@ -201,10 +270,13 @@ try {
   await ctx.close();
 
   // Dark mode and narrow screen.
-  const dark = await newPage('dark');
+  const dark = await newPage('dark', { nodes: ['ws://mock-a/v1/sync'] });
   await dark.page.setViewportSize({ width: 375, height: 800 });
-  await dark.page.goto(`${url}/?mock=1&nodes=ws://mock-a/v1/sync#/product/${encodeURIComponent('gtin:04006381333931')}`);
+  await dark.page.goto(`${url}/?mock=1#/product/${encodeURIComponent('gtin:04006381333931')}`);
   await waitReady(dark.page);
+  await dark.page.waitForSelector('[data-banner=one-node]');
+  check('M3: one-node banner shown', (await dark.page.locator('[data-banner=one-node]').textContent()).includes('Connected to 1 node'));
+  check('M3: nav status is text', (await dark.page.locator('#nav-net').textContent()) === '1 node');
   await dark.page.waitForSelector('.chart-svg');
   const overflow = await dark.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check('no horizontal scroll at 375 px', overflow <= 0, `overflow ${overflow}px`);
@@ -220,6 +292,90 @@ try {
   check('no horizontal scroll at 360 px', overflow360 <= 0, `overflow ${overflow360}px`);
   await dark.page.screenshot({ path: path.join(shots, 'mock-product-dark-narrow.png'), fullPage: true });
   await dark.ctx.close();
+
+  // Audit #13: ?nodes= adds nodes for this session only, with a banner.
+  {
+    const s = await newPage('light', { nodes: ['ws://mock-a/v1/sync'] });
+    await s.page.goto(`${url}/?mock=1&nodes=ws://mock-x/v1/sync#/network`);
+    await waitReady(s.page);
+    await s.page.waitForSelector('#peers-table');
+    const banner = s.page.locator('#session-nodes-banner');
+    check('?nodes= shows a session banner', (await banner.isVisible()) && (await banner.textContent()).includes('ws://mock-x/v1/sync'));
+    check('?nodes= keeps the saved nodes', (await s.page.locator('#peers-table tbody tr').count()) === 2 && (await s.page.locator('#peers-table .session-badge').count()) === 1);
+    await s.page.locator('#session-nodes-discard').press('Enter');
+    await s.page.waitForFunction(() => !document.getElementById('session-nodes-banner'));
+    await s.page.waitForTimeout(500);
+    check('Discard drops the session node', (await s.page.locator('#peers-table tbody tr').count()) === 1 && !(await s.page.evaluate(() => location.search.includes('nodes='))));
+    await s.page.goto(`${url}/?mock=1&nodes=ws://mock-y/v1/sync`);
+    await waitReady(s.page);
+    await s.page.locator('#session-nodes-keep').press('Enter');
+    const saved = await s.page.evaluate(() => JSON.parse(localStorage.getItem('perch.settings.v1')).nodes);
+    check('Keep saves the session node', JSON.stringify(saved) === JSON.stringify(['ws://mock-a/v1/sync', 'ws://mock-y/v1/sync']), JSON.stringify(saved));
+    await s.ctx.close();
+  }
+
+  // Audit #4: a node that claims records it does not send blocks publishing
+  // until the user stops using it. Retry keeps it blocked.
+  {
+    const g = await newPage('light', { nodes: ['ws://mock-a/v1/sync', 'ws://mock-withhold/v1/sync'], claimTimeoutMs: 1500 });
+    await g.page.goto(`${url}/?mock=1#/keys`);
+    await waitReady(g.page);
+    await g.page.waitForTimeout(500);
+    await g.page.locator('#generate-key').click();
+    await g.page.waitForSelector('#my-author');
+    await g.page.locator('#backup-ok').check();
+    await go(g.page, '#/publish?kind=profile');
+    await g.page.waitForSelector('#form-profile');
+    const gate = g.page.locator('.screen-publish > .notice-warn');
+    check('withholding node: publishing waits', (await gate.textContent()).includes('Waiting for the node to send the records'));
+    await g.page.waitForSelector('.screen-publish > .notice-warn [data-action=stop]', { timeout: 8000 });
+    const text = await gate.textContent();
+    check('after the timeout the node is named with Retry and Stop', text.includes('mock-withhold') && text.includes('Retry, or stop using this node') && (await gate.locator('[data-action=retry]').count()) === 1);
+    await gate.locator('[data-action=retry]').press('Enter');
+    await g.page.waitForTimeout(300);
+    check('Retry keeps publishing paused', (await g.page.locator('.screen-publish > .notice-warn').count()) === 1 && (await g.page.locator('.screen-publish > .notice-warn [data-action=stop]').count()) === 0);
+    await g.page.fill('#f-name', 'Guard test');
+    await g.page.locator('#form-profile button[type=submit]').press('Enter');
+    await g.page.waitForSelector('#form-profile .form-status .notice');
+    check('submit while paused does not publish', (await g.page.locator('#form-profile .notice-good').count()) === 0);
+    await g.page.waitForSelector('.screen-publish > .notice-warn [data-action=stop]', { timeout: 8000 });
+    await g.page.locator('.screen-publish > .notice-warn [data-action=stop]').press('Enter');
+    await g.page.waitForFunction(() => !document.querySelector('.screen-publish > .notice-warn'), null, { timeout: 5000 });
+    const savedNodes = await g.page.evaluate(() => JSON.parse(localStorage.getItem('perch.settings.v1')).nodes);
+    check('Stop using this node unblocks and removes it', JSON.stringify(savedNodes) === JSON.stringify(['ws://mock-a/v1/sync']), JSON.stringify(savedNodes));
+    await g.page.fill('#f-name', 'Guard test');
+    await g.page.locator('#form-profile button[type=submit]').press('Enter');
+    await g.page.locator('#form-profile-sign').press('Enter');
+    await g.page.waitForSelector('#form-profile .notice-good');
+    check('publishing works after stopping the node', true);
+    await g.ctx.close();
+  }
+
+  // Audit #11: an invalid saved policy falls back with a notice.
+  {
+    const p = await newPage('light', { nodes: ['ws://mock-a/v1/sync'] });
+    await p.ctx.addInitScript(() => {
+      try {
+        localStorage.setItem('perch.policy.v1.mock', JSON.stringify({ flag_threshold: 2 ** 60, trusted_attestors: [] }));
+      } catch {
+        // ignore
+      }
+    });
+    await p.page.goto(`${url}/?mock=1#/policy`);
+    await waitReady(p.page);
+    const warn = p.page.locator('#banner .banner-warn');
+    check('invalid saved policy falls back with a notice', (await warn.count()) === 1 && (await warn.textContent()).includes('bundled policy'));
+    await p.page.fill('#p-flag_threshold', '9007199254740992');
+    await p.page.locator('#policy-form button[type=submit]').click();
+    check('policy screen refuses integers above 2^53 - 1', ((await p.page.locator('#policy-form [role=status] .notice-bad').textContent()) || '').includes('9007199254740991'));
+    await p.page.fill('#p-flag_threshold', '3');
+    if ((await p.page.locator('.attestor-row').count()) === 0) await p.page.getByRole('button', { name: 'Add attestor' }).click();
+    await p.page.locator('.attestor-row [name=att-author]').first().fill('ab'.repeat(32));
+    await p.page.locator('.attestor-row [name=att-cutoff]').first().fill('9007199254740993');
+    await p.page.locator('#policy-form button[type=submit]').click();
+    check('policy screen refuses a cutoff above 2^53 - 1', ((await p.page.locator('#policy-form [role=status] .notice-bad').textContent()) || '').includes('Ignore records after #'));
+    await p.ctx.close();
+  }
 } catch (e) {
   check('smoke test ran to completion', false, e.message);
 } finally {

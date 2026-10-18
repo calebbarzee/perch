@@ -133,8 +133,18 @@ async function main() {
   // The app is also served by a plain static server, so the test covers
   // "served by any host". Node A serves it too (--web), checked in case i.
   const webServer = await startStaticServer(web);
-  const appA = `${webServer.url}/?nodes=${encodeURIComponent(nodeA.ws)}`;
-  const appB = `${webServer.url}/?nodes=${encodeURIComponent(nodeB.ws)}`;
+  // Each browser context saves its node list as a user would; ?nodes= only
+  // adds session nodes (ARCHITECTURE 10).
+  const appA = `${webServer.url}/`;
+  const appB = `${webServer.url}/`;
+  const saveNodes = (ctx, nodes) =>
+    ctx.addInitScript(({ nodes, origin }) => {
+      try {
+        if (location.origin === origin && !localStorage.getItem('perch.settings.v1')) localStorage.setItem('perch.settings.v1', JSON.stringify({ nodes }));
+      } catch {
+        // no storage
+      }
+    }, { nodes, origin: webServer.url });
 
   const browser = await chromium.launch();
   const errors = [];
@@ -148,6 +158,7 @@ async function main() {
   // Context 1: connected to node A. A persistent profile dir is not needed:
   // IndexedDB survives reloads within one context.
   const ctx1 = await browser.newContext({ viewport: { width: 1200, height: 900 } });
+  await saveNodes(ctx1, [nodeA.ws]);
   const page = await ctx1.newPage();
   watch(page, 'ctx1');
   await page.goto(appA);
@@ -313,12 +324,63 @@ async function main() {
     assert(title === 'Hidden by moderation', `notice title: ${title}`);
     const text = await card.locator('[data-status=hidden]').innerText();
     assert(/flagged this listing/.test(text) && /Reasons:/.test(text), 'notice lacks the flag count or reasons');
+    // ux-review M1: the notice comes first; title, price, and link collapse.
+    const first = await card.evaluate((li) => li.firstElementChild?.dataset.status);
+    assert(first === 'hidden', 'the moderation notice is not first');
+    assert(!(await card.locator('.listing-hidden-body').isVisible()), 'hidden listing body is not collapsed');
+  }, page);
+
+  await test('k', 'listings in the price summary lead the list and the default chart (ux-review B1)', async () => {
+    let target = null;
+    for (const k of keys) {
+      const v = await nodeA.get(`/v1/products/${encodeURIComponent(k)}`);
+      if (v.listings.some((l) => l.feeds_prices) && v.listings.some((l) => !l.feeds_prices && l.status === 'visible')) {
+        target = v;
+        break;
+      }
+    }
+    assert(target, 'the demo data has no product with both kinds of listings');
+    await go(page, `#/product/${encodeURIComponent(target.key)}`);
+    await page.waitForSelector('.listing');
+    const feeds = await page.locator('.listing').evaluateAll((els) => els.map((e) => e.dataset.feeds));
+    const firstOther = feeds.indexOf('false');
+    assert(feeds[0] === 'true' && !feeds.slice(firstOther).includes('true'), `listing order by feeds_prices: ${feeds.join(',')}`);
+    const expected = target.listings.filter((l) => l.feeds_prices).length;
+    assert(feeds.filter((f) => f === 'true').length === expected, `feeding listings shown ${feeds.filter((f) => f === 'true').length}, view ${expected}`);
+    const chooser = page.locator('.chart-chooser').first();
+    if (await chooser.count()) {
+      const labels = await chooser.locator('li:has(input:checked) label').allTextContents();
+      assert(labels.every((t) => !t.includes('not in price summary')), `default chart includes listings outside the price summary: ${labels.join('; ')}`);
+    }
+    return `${target.key}: ${expected} of ${target.listings.length} in the price summary`;
+  }, page);
+
+  await test('l', 'flags and appeals on records that are not hidden are shown (ux-review M5)', async () => {
+    let target = null;
+    for (const k of keys) {
+      const v = await nodeA.get(`/v1/products/${encodeURIComponent(k)}`);
+      const l = v.listings.find((x) => x.status === 'visible' && (x.flags.count > 0 || x.appeal));
+      const r = v.reviews.find((x) => x.status === 'visible' && (x.flags.count > 0 || x.appeal));
+      if (l || r) {
+        target = { key: k, sel: l ? `.listing[data-listing="${l.id}"]` : `.review[data-review="${r.id}"]`, view: l || r };
+        break;
+      }
+    }
+    if (!target) return 'skipped: the demo data has no flagged record that is not hidden';
+    await go(page, `#/product/${encodeURIComponent(target.key)}`);
+    const summary = page.locator(`${target.sel} [data-testid=flag-summary]`);
+    await summary.waitFor();
+    const text = await summary.innerText();
+    if (target.view.flags.count) assert(text.includes(`${target.view.flags.count} flag`), `flag summary: ${text}`);
+    if (target.view.appeal) assert(text.includes(target.view.appeal.note.slice(0, 20)), 'appeal note missing');
+    return target.sel;
   }, page);
 
   let myAuthor = null;
   let reviewId = null;
   let reviewKey = null;
   const ctx2 = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+  await saveNodes(ctx2, [nodeB.ws]);
   const page2 = await ctx2.newPage();
   watch(page2, 'ctx2');
 
@@ -335,6 +397,8 @@ async function main() {
     const text = `Browser test review ${Date.now()}.`;
     await page.fill('#f-text', text);
     await page.click('#form-review button[type=submit]');
+    // The review step shows what becomes public before signing (ux M10).
+    await page.click('#form-review-sign');
     await page.waitForSelector('#form-review .notice-good', { timeout: 10000 });
     reviewId = await page.locator('#form-review .notice-good .record-link').first().evaluate((a) => a.getAttribute('href').split('/').pop());
     assert(/^[0-9a-f]{64}$/.test(reviewId), `record id ${reviewId}`);
@@ -388,6 +452,25 @@ async function main() {
     const mode = await p3.evaluate(() => document.documentElement.dataset.client);
     await p3.close();
     assert(mode === 'wasm', `client mode ${mode}`);
+  }, page);
+
+  await test('j', 'wasm ingest parses JSON arrays strictly (duplicate keys rejected)', async () => {
+    const line = await clientEval(page, (c, id) => JSON.stringify(c.record(id)), reviewId);
+    const dup = line.replace('{"author":', '{"v":1,"author":');
+    const out = await clientEval(page, (c, texts) => {
+      const res = {};
+      try {
+        res.array = c.ingest(`[${texts[0]}]`);
+      } catch (e) {
+        res.arrayError = e.message;
+      }
+      res.line = c.ingest(texts[0]);
+      res.ok = c.ingest(`[${texts[1]}]`);
+      return res;
+    }, [dup, line]);
+    assert(/duplicate/.test(out.arrayError || ''), `array with a duplicate key: ${JSON.stringify(out.array ?? out.arrayError)}`);
+    assert(out.line.rejected === 1, `JSONL line with a duplicate key: ${JSON.stringify(out.line)}`);
+    assert(out.ok.duplicate === 1 && out.ok.rejected === 0, `valid array: ${JSON.stringify(out.ok)}`);
   }, page);
 
   record('-', 'no page errors', errors.length === 0, errors.slice(0, 4).join(' | '));

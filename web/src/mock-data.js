@@ -76,6 +76,7 @@ export function buildMockDataset() {
     harbor: { name: 'Harbor Outfitters', domain: 'harbor-outfitters.example', verified: true, domainVerified: true },
     cedar: { name: 'Cedar Home Goods', domain: 'cedarhome.example', verified: true, domainVerified: false },
     quickdeals: { name: 'QuickDeals Online', domain: 'quickdeals.example', verified: false, domainVerified: false },
+    tomorrow: { name: 'Tomorrow Deals', domain: 'tomorrow-deals.example', verified: false, domainVerified: false },
   };
   const verifiedBuyers = ['ana', 'ben', 'chloe', 'dev', 'emma', 'farid', 'grace', 'hiro', 'ines', 'jonas', 'mo', 'noor'];
   const unverifiedBuyers = ['kai', 'lena', 'omar', 'priya'];
@@ -149,6 +150,9 @@ export function buildMockDataset() {
 
   listing('brightline', 'kettle', [[8, 5999], [40, 5499], [95, 5999], [150, 4999]], { title: 'Kestrel K2 kettle, brushed steel' });
   listing('cedar', 'kettle', [[10, 5799], [80, 5299], [160, 5199]]);
+  // A cheap listing on an unverified shop domain: it must not lead the
+  // listings or the default price chart (docs/ux-review.md B1).
+  listing('tomorrow', 'kettle', [[20, 1999]], { title: 'Kestrel K2 kettle 60% OFF TODAY' });
   listing('brightline', 'earbuds', [[9, 12900], [70, 11900], [140, 10900]]);
   listing('quickdeals', 'earbuds', [[12, 4900], [60, 4500]], { title: 'Aster A40 earbuds ORIGINAL best price' });
   listing('harbor', 'backpack', [[9, 21900], [120, 19900], [170, 18900]]);
@@ -253,6 +257,9 @@ export function buildMockDataset() {
   flag(58, 'grace', 'l-quickdeals-earbuds', 'fraud', 'Price is 60 percent below every other seller.');
   flag(59, 'kai', 'l-quickdeals-earbuds', 'counterfeit');
   ev(64, 'quickdeals', 'appeal', (r) => ({ target: r.root('l-quickdeals-earbuds'), note: 'Our units come from an authorized distributor in Poland. We can show the invoice to any attestor.' }));
+  // One flag and an appeal on a visible listing (docs/ux-review.md M5).
+  flag(100, 'omar', 'l-cedar-coffee', 'misleading', 'The photo shows a different model.');
+  ev(102, 'cedar', 'appeal', (r) => ({ target: r.root('l-cedar-coffee'), note: 'The photo shows the current model. The box design changed in 2026.' }));
   flag(90, 'chloe', 'r-omar-monitor', 'spam');
   flag(91, 'dev', 'r-omar-monitor', 'spam');
   flag(92, 'emma', 'r-omar-monitor', 'spam');

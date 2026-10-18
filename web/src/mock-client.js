@@ -43,6 +43,10 @@ function parseInput(recordsOrJsonl) {
   return [recordsOrJsonl];
 }
 
+// How long a node may take to send the records for a head it claims
+// (guard.rs CLAIM_TIMEOUT_MS). Tests may shorten it.
+const claimTimeoutMs = () => globalThis.PERCH_MOCK_CLAIM_TIMEOUT_MS ?? 60000;
+
 export class PerchClient {
   static async create(options = {}) {
     return new PerchClient(options);
@@ -67,6 +71,10 @@ export class PerchClient {
     this.secret = randomHex(32);
     this.ownHead = null;
     this.needsSync = false;
+    for (const p of this.peerMap.values()) {
+      p.claim = null;
+      if (p.state === 'live') this.noteClaim(p);
+    }
     this.emit('key');
     return this.author();
   }
@@ -97,7 +105,10 @@ export class PerchClient {
     this.ownHead = head;
     this.needsSync = true;
     this.refreshOwnHead();
-    for (const p of this.peerMap.values()) p.syncedSinceImport = false;
+    for (const p of this.peerMap.values()) {
+      p.syncedSinceImport = false;
+      p.claim = null;
+    }
     // Peers that are already live sync the imported author again.
     for (const p of this.peerMap.values()) if (p.state === 'live') this.simulateSync(p);
     this.emit('key');
@@ -135,12 +146,44 @@ export class PerchClient {
     if (this.ownHead && (!local || local.seq < this.ownHead.seq)) {
       return `Your log has ${this.ownHead.seq} records, but this device holds ${local ? local.seq : 0}. Sync the missing records from a node first.`;
     }
+    // A node URL containing "withhold" simulates a node that claims more
+    // records of the user's log than it sends (guard.rs).
+    const localSeq = local ? local.seq : 0;
+    const claims = [...this.peerMap.values()].filter((p) => p.claim && p.claim.head.seq > localSeq);
+    claims.sort((x, y) => Number(this.unproven(y)) - Number(this.unproven(x)));
+    if (claims.length) {
+      const c = claims[0];
+      const host = new URL(c.url).host;
+      const what = `${c.claim.head.seq} records in your log; this device holds ${localSeq}`;
+      return this.unproven(c)
+        ? `Node ${host} claims ${what}. It did not send the records in ${Math.round(claimTimeoutMs() / 1000)} s. Retry, or stop using this node.`
+        : `Node ${host} claims ${what}. Waiting for the node to send the records.`;
+    }
     return null;
+  }
+
+  unproven(peer) {
+    return Boolean(peer.claim) && Date.now() - peer.claim.since >= claimTimeoutMs();
+  }
+
+  noteClaim(peer) {
+    const a = this.author();
+    if (!a || !peer.url.includes('withhold') || peer.claim) return;
+    const local = this.store.head(a);
+    peer.claim = { head: { seq: (local?.seq ?? 0) + 3, id: 'f'.repeat(64) }, since: Date.now() };
+  }
+
+  // Non-contract helper, as in the wasm client.
+  retryNode(wsUrl) {
+    const p = this.peerMap.get(wsUrl);
+    if (p?.claim) p.claim.since = Date.now();
+    this.emit('peers');
   }
 
   publishStatus() {
     const reason = this.publishBlocker();
     const a = this.author();
+    const local = a ? this.store.head(a) : null;
     const nodes = [...this.peerMap.values()].map((p) => {
       let head = null;
       if (a && p.state === 'live') {
@@ -148,7 +191,9 @@ export class PerchClient {
           if (r.author === a && (!head || r.seq > head.seq)) head = { seq: r.seq, id: this.store.idOf(r) };
         }
       }
-      return { url: p.url, head, checked: this.needsSync ? p.syncedSinceImport : p.state === 'live' };
+      const claimed = p.claim && p.claim.head.seq > (local?.seq ?? 0);
+      if (claimed) head = p.claim.head;
+      return { url: p.url, head, checked: this.needsSync ? p.syncedSinceImport : p.state === 'live', unproven: Boolean(claimed && this.unproven(p)) };
     });
     return { ready: reason === null, reason, local_head: a ? this.store.head(a) : null, nodes };
   }
@@ -396,6 +441,7 @@ export class PerchClient {
     peer.state = 'live';
     peer.syncedSinceImport = true;
     this.refreshOwnHead();
+    this.noteClaim(peer);
     this.emit('peers');
   }
 

@@ -33,12 +33,62 @@ export function saveSettings(patch) {
   }
 }
 
-// Nodes from ?nodes=ws://a,ws://b override stored ones for this page load.
+// Nodes from ?nodes=ws://a,ws://b. They never replace the configured nodes
+// (ARCHITECTURE 10): they are added for this page session only, and the app
+// shows a banner where the user keeps (saves) or discards them.
 export function urlNodes() {
   const params = new URLSearchParams(location.search);
   if (!params.has('nodes')) return null;
   const v = params.get('nodes') || '';
-  return v.split(',').map((s) => s.trim()).filter(Boolean);
+  return [...new Set(v.split(',').map((s) => s.trim()).filter(validNodeUrl))];
+}
+
+let session = null; // nodes added for this session, not saved
+
+// Nodes from the address that are not configured yet.
+export function sessionNodes() {
+  if (session === null) {
+    const configured = configuredNodes();
+    session = (urlNodes() || []).filter((u) => !configured.includes(u));
+  }
+  return session;
+}
+
+// Saves the session nodes to the configured list.
+export function keepSessionNodes() {
+  const add = sessionNodes();
+  const list = configuredNodes();
+  saveSettings({ nodes: [...list, ...add.filter((u) => !list.includes(u))] });
+  session = [];
+  dropNodesParam();
+}
+
+// Forgets the session nodes; returns them so the caller can disconnect.
+export function discardSessionNodes() {
+  const dropped = sessionNodes();
+  session = [];
+  dropNodesParam();
+  return dropped;
+}
+
+// "Stop using this node": removes it from the session or the saved list.
+export function forgetNode(url) {
+  if (sessionNodes().includes(url)) {
+    session = session.filter((u) => u !== url);
+    return;
+  }
+  saveSettings({ nodes: configuredNodes().filter((u) => u !== url) });
+}
+
+function dropNodesParam() {
+  try {
+    const u = new URL(location.href);
+    if (!u.searchParams.has('nodes')) return;
+    u.searchParams.delete('nodes');
+    history.replaceState(history.state, '', u.href);
+  } catch {
+    // ignore
+  }
 }
 
 // Release configuration from web/config.json (set by the app at boot).
@@ -68,8 +118,14 @@ export function defaultNodes() {
   return [...new Set(out)];
 }
 
+// The saved node list, or the release default.
 export function configuredNodes() {
-  return urlNodes() ?? settings().nodes ?? defaultNodes();
+  return settings().nodes ?? defaultNodes();
+}
+
+// Every node this page connects to: configured plus session nodes.
+export function activeNodes() {
+  return [...configuredNodes(), ...sessionNodes()];
 }
 
 export function validNodeUrl(url) {

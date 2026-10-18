@@ -464,22 +464,41 @@ export function computeState(store, policy) {
     if (!listingsBySeller.has(sk)) listingsBySeller.set(sk, []);
     listingsBySeller.get(sk).push(view);
   }
-  // Restriction per person key.
+  // Restriction per person key. AuthorView.restriction is set when the
+  // person is restricted or has hidden listings; its reason says which rule
+  // applies (views.md 6).
   const restrictedPersons = new Set();
-  const restrictionOf = new Map(); // person key -> { hidden_listings, distinct_flaggers }
+  const byListings = new Set();
+  const counts = new Map(); // person key -> { hidden_listings, distinct_flaggers }
   for (const [sk, list] of listingsBySeller) {
     const hidden = list.filter((l) => l.status === 'hidden');
     const flaggers = new Set();
     for (const l of hidden) for (const p of l._flaggers) flaggers.add(p);
+    counts.set(sk, { hidden_listings: hidden.length, distinct_flaggers: flaggers.size });
     if (hidden.length >= (policy.seller_hidden_listing_limit ?? 3) && flaggers.size >= (policy.seller_min_distinct_flaggers ?? 9)) {
       restrictedPersons.add(sk);
-      restrictionOf.set(sk, { hidden_listings: hidden.length, distinct_flaggers: flaggers.size });
+      byListings.add(sk);
     }
   }
   for (const author of store.forkSeq.keys()) if (identity.has(author) && !revoked.has(author)) restrictedPersons.add(personKey(author));
+  const restrictionOf = new Map();
+  for (const sk of new Set([...restrictedPersons, ...counts.keys()])) {
+    const c = counts.get(sk) ?? { hidden_listings: 0, distinct_flaggers: 0 };
+    if (!restrictedPersons.has(sk) && !c.hidden_listings) continue;
+    restrictionOf.set(sk, { reason: restrictedPersons.has(sk) && !byListings.has(sk) ? 'forked_key' : 'hidden_listings', ...c });
+  }
   const isRestricted = (a) => restrictedPersons.has(personKey(a));
   for (const l of listingViews.values()) {
     l.seller_restricted = isRestricted(l.seller);
+    // The first price-feed rule the listing fails (views.md 8.3).
+    let reason = null;
+    if (l.status !== 'visible') reason = l.status;
+    else if (!l.price) reason = 'unavailable';
+    else if (l.availability !== 'in_stock' && l.availability !== 'preorder') reason = 'availability';
+    else if (l.seller_restricted) reason = 'seller_restricted';
+    else if (policy.price_requires_domain_verified && !l.domain_verified) reason = 'domain_unverified';
+    l.feeds_prices = reason === null;
+    l.price_excluded_reason = reason;
     delete l._flaggers;
   }
 
@@ -551,7 +570,9 @@ export function computeState(store, policy) {
   for (const k of allKeys) {
     const prods = products.get(k) || [];
     const listings = [...listingViews.values()].filter((l) => l.product === k);
-    listings.sort((a, b) => CMP(a.status === 'visible' ? 0 : 1, b.status === 'visible' ? 0 : 1) || (a.price?.amount ?? 0) - (b.price?.amount ?? 0) || CMP(a.id, b.id));
+    // Listings that feed prices first (views.md 8.4).
+    const rank = { visible: 0, hidden: 1, retracted: 2, unavailable: 3 };
+    listings.sort((a, b) => Number(!a.feeds_prices) - Number(!b.feeds_prices) || (rank[a.status] ?? 4) - (rank[b.status] ?? 4) || CMP(a.price?.currency ?? '', b.price?.currency ?? '') || (a.price?.amount ?? 0) - (b.price?.amount ?? 0) || CMP(a.id, b.id));
     const sellers = sellersOf(k);
     const reviews = reviewsByProduct.get(k) || [];
     // Latest per (author, product).
@@ -600,12 +621,11 @@ export function computeState(store, policy) {
 
     const priceRange = {};
     for (const l of listings) {
-      // Hidden listings and listings not for sale do not feed price figures.
-      if (l.status !== 'visible' || !l.price) continue;
-      if (l.availability !== 'in_stock' && l.availability !== 'preorder') continue;
+      // Only listings that feed prices count; unverified domains are counted.
+      if (!l.feeds_prices && l.price_excluded_reason !== 'domain_unverified') continue;
       const c = l.price.currency;
       priceRange[c] ??= { amounts: [], excluded_unverified_domain: 0 };
-      if (policy.price_requires_domain_verified && !l.domain_verified) {
+      if (!l.feeds_prices) {
         priceRange[c].excluded_unverified_domain++;
         continue;
       }

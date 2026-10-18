@@ -1,6 +1,7 @@
 import { h, announce, downloadText, copyText, field } from '../dom.js';
 import * as fmt from '../format.js';
-import { notice, hex, authorChip, routes } from '../components.js';
+import { notice, hex, authorChip, routes, urlLink } from '../components.js';
+import { claimActions, unprovenNodes } from '../nodes.js';
 import { fingerprint } from '../fingerprint.js';
 import { settings, saveSettings } from '../settings.js';
 import { persistKey, setKeepKey } from '../app.js';
@@ -56,7 +57,7 @@ export default {
         h('h2', { text: 'Storage' }),
         h('div', { class: 'check' }, keep, h('label', { for: 'keep-key', text: 'Keep my key on this device' })),
         h('p', { class: 'hint', text: app.keepKey
-          ? 'The key is stored unencrypted in this browser’s IndexedDB. Other people who use this browser profile can use it.'
+          ? `The key is stored unencrypted in this browser for ${location.origin}. Other people who use this browser profile can use it.`
           : 'The key is held in memory only. Reloading the page loses it unless you import your backup.' }),
       ),
     );
@@ -91,9 +92,13 @@ export default {
     );
     section.append(backupPanel);
 
-    // Publish readiness from the client guard.
+    // Publish readiness from the client guard, with the node actions.
     const blocker = publishBlocker(client);
-    if (blocker) section.append(notice('warn', 'Publishing is paused', h('p', { text: blocker })));
+    if (blocker) {
+      section.append(notice('warn', 'Publishing is paused', h('p', { text: blocker }), ...unprovenNodes(client).map((n) => claimActions(client, n.url, () => ctx.refresh()))));
+    }
+
+    section.append(getVerifiedPanel(ctx, author));
 
     // Danger zone.
     section.append(
@@ -126,6 +131,63 @@ export function publishBlocker(client) {
   return null;
 }
 
+const KIND_TEXT = { 'attest.identity': 'Identity', 'attest.domain': 'Shop domains', 'attest.revoke': 'Revocations' };
+
+// "Get verified" (docs/ux.md 8.6.6, identity.md 3.4): the attestors in the
+// active policy, and both domain proofs with the user's key filled in.
+function getVerifiedPanel(ctx, author) {
+  const { client } = ctx;
+  const attestors = client.policy().trusted_attestors || [];
+  const panel = h('section', { class: 'panel', id: 'get-verified', 'aria-labelledby': 'h-verify' },
+    h('h2', { id: 'h-verify', text: 'Get verified' }),
+    h('p', { text: 'An identity attestor checks who you are, off Perch, and publishes an attestation for your key. Attestors in your policy:' }),
+    attestors.length
+      ? h('ul', { class: 'plain attestor-list' },
+          attestors.map((a) => {
+            const v = client.authorView(a.author);
+            return h('li', {},
+              authorChip(a.author, v?.name ?? null),
+              ' ',
+              h('span', { class: 'muted', text: (a.kinds || []).map((k) => KIND_TEXT[k] || k).join(', ') }),
+              v?.url ? [' ', urlLink(v.url, 'Website')] : null,
+            );
+          }),
+        )
+      : h('p', { class: 'muted', text: 'Your policy lists no attestors. Add them on the Policy screen.' }),
+  );
+  const domainIn = h('input', { id: 'verify-domain', name: 'domain', placeholder: 'shop.example', spellcheck: 'false', autocomplete: 'off', inputmode: 'url' });
+  const proofs = h('div', { class: 'proofs', 'aria-live': 'polite' });
+  const json = `{ "perch": 1, "authors": ["${author}"] }`;
+  const render = () => {
+    const raw = domainIn.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    const domain = /^[a-z0-9.-]+\.[a-z]{2,}$/.test(raw) ? raw : null;
+    if (!domain) {
+      proofs.replaceChildren(raw ? h('p', { class: 'warn-text', text: 'Enter a domain name such as shop.example.' }) : null);
+      return;
+    }
+    const txt = `perch-author=${author}`;
+    proofs.replaceChildren(
+      h('h3', { text: 'Either: a file on your web server' }),
+      h('p', {}, 'Serve this content at ', h('code', { text: `https://${domain}/.well-known/perch.json` }), ' over HTTPS, with no redirect to another host.'),
+      h('pre', { class: 'json', id: 'proof-json', tabindex: '0', text: json }),
+      h('p', {}, h('button', { type: 'button', class: 'button small', on: { click: () => copyText(json) } }, 'Copy file content')),
+      h('h3', { text: 'Or: a DNS TXT record' }),
+      h('p', {}, 'Name ', h('code', { text: `_perch.${domain}` }), ', type TXT, value:'),
+      h('pre', { class: 'json', id: 'proof-txt', tabindex: '0', text: txt }),
+      h('p', {}, h('button', { type: 'button', class: 'button small', on: { click: () => copyText(txt) } }, 'Copy TXT value')),
+      h('p', { text: 'Then ask a domain attestor in your policy to check it. Verification lasts at most 90 days and is renewed while the proof stays in place.' }),
+    );
+  };
+  domainIn.addEventListener('input', render);
+  panel.append(
+    h('h3', { text: 'Shop domain (sellers)' }),
+    field({ id: 'verify-domain', label: "Your shop's domain", hint: 'The app shows both proofs with your key filled in.', control: domainIn }),
+    proofs,
+    h('p', { class: 'hint', text: 'Listings on marketplaces such as amazon.com cannot be domain verified by sellers.' }),
+  );
+  return panel;
+}
+
 function createKeyPanel(ctx) {
   const { client, app } = ctx;
   const keep = h('input', { type: 'checkbox', id: 'new-keep-key', checked: true });
@@ -133,7 +195,7 @@ function createKeyPanel(ctx) {
     h('h2', { text: 'Create a key' }),
     h('p', { text: 'You need a key to publish reviews, listings, or flags. Reading needs no key.' }),
     h('div', { class: 'check' }, keep, h('label', { for: 'new-keep-key', text: 'Keep my key on this device' })),
-    h('p', { class: 'hint', text: 'Stored in this browser’s IndexedDB, unencrypted. Turn this off on a shared computer.' }),
+    h('p', { class: 'hint', text: `Stored unencrypted in this browser for ${location.origin}. Turn this off on a shared computer.` }),
     h('button', {
       type: 'button',
       class: 'button primary',

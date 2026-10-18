@@ -3,8 +3,9 @@ import { checksumNote } from '../app.js';
 import { APP_VERSION } from '../client.js';
 import * as fmt from '../format.js';
 import { notice } from '../components.js';
-import { configuredNodes, saveSettings, urlNodes, validNodeUrl, defaultNodes } from '../settings.js';
+import { configuredNodes, saveSettings, sessionNodes, validNodeUrl, defaultNodes } from '../settings.js';
 import { httpBaseFor } from '../client.js';
+import { claimActions, stopUsingNode, unprovenNodes, hostOf } from '../nodes.js';
 
 const STATE_TEXT = {
   connecting: 'Connecting',
@@ -17,11 +18,12 @@ const STATE_TEXT = {
 
 export default {
   id: 'network',
-  live: (ctx) => JSON.stringify(ctx.client.peers()),
+  live: (ctx) => JSON.stringify([ctx.client.peers(), unprovenNodes(ctx.client).map((n) => n.url)]),
   render(ctx) {
     const { client } = ctx;
     const peers = client.peers();
-    const nodes = configuredNodes();
+    const nodes = [...configuredNodes(), ...sessionNodes()];
+    const session = sessionNodes();
     const section = h('section', { class: 'screen screen-network' }, h('h1', { text: 'Network' }));
     section.append(
       h('p', { class: 'lede', text: 'This device syncs signed records from the nodes below and checks every record itself. A node can withhold records, so connecting to several nodes and comparing them protects you from a node that hides data.' }),
@@ -31,15 +33,20 @@ export default {
     if (nodes.length < 3) {
       section.append(notice('info', `Connected to ${fmt.plural(nodes.length, 'node')}`, h('p', { text: 'Add at least 3 independent nodes so one node cannot hide records from you unnoticed.' })));
     }
-    const pubStatus = typeof client.publishStatus === 'function' ? client.publishStatus() : null;
-    const unproven = (pubStatus?.nodes || []).filter((n) => n.unproven);
-    if (unproven.length) {
+    const unproven = unprovenNodes(client);
+    for (const n of unproven) {
       section.append(
-        notice('warn', 'A node claims records it cannot prove',
-          h('p', { text: `${unproven.map((n) => n.url).join(', ')} ${unproven.length === 1 ? 'claims' : 'claim'} a newer head for your log but did not send the signed records. The claim is ignored.` }),
+        notice('warn', `${hostOf(n.url)} claims records it did not send`,
+          h('p', { text: `The node says your log has ${fmt.plural(n.head.seq, 'record')}, but it did not send the signed records within 60 s. Publishing is paused, because publishing below a real record would fork your log. Retry if the node may be slow. Stop using it if you do not trust it.` }),
+          claimActions(client, n.url, () => ctx.refresh()),
         ),
       );
     }
+    // The claim turns unproven after 60 s without a client event.
+    const timer = setInterval(() => {
+      if (unprovenNodes(client).length !== unproven.length) ctx.refresh();
+    }, 2000);
+    ctx.signal.addEventListener('abort', () => clearInterval(timer));
     const disagreeing = live.filter((p) => p.behind || p.ahead);
     if (disagreeing.length) {
       section.append(
@@ -63,7 +70,7 @@ export default {
       h('tbody', {},
         peers.map((p) =>
           h('tr', { dataset: { url: p.url, state: p.state } },
-            h('td', {}, h('code', { text: p.url })),
+            h('td', {}, h('code', { text: p.url }), session.includes(p.url) ? h('span', { class: 'badge badge-muted session-badge', text: 'this session only' }) : null),
             h('td', {}, h('span', { class: `state state-${p.state}`, text: STATE_TEXT[p.state] || p.state })),
             h('td', { class: 'num', text: fmt.number(p.received) }),
             h('td', { class: 'num', text: fmt.number(p.sent) }),
@@ -75,9 +82,7 @@ export default {
                 class: 'button small',
                 on: {
                   click: async () => {
-                    await client.disconnect(p.url);
-                    saveSettings({ nodes: configuredNodes().filter((u) => u !== p.url) });
-                    announce(`Removed ${p.url}`);
+                    await stopUsingNode(client, p.url);
                     ctx.refresh();
                   },
                 },
@@ -116,6 +121,7 @@ export default {
       }
       const list = configuredNodes();
       if (!list.includes(url)) saveSettings({ nodes: [...list, url] });
+      if (session.includes(url)) session.splice(session.indexOf(url), 1);
       client.connect(url).catch((e) => status.replaceChildren(notice('bad', 'Connection failed', h('p', { text: String(e.message || e) }))));
       announce(`Connecting to ${url}`);
       ctx.refresh();
@@ -146,9 +152,6 @@ export default {
       ),
     );
 
-    if (urlNodes()) {
-      section.append(h('p', { class: 'hint', text: 'The page address sets the node list (?nodes=). Changes here apply after you remove that part of the address.' }));
-    }
     section.append(
       h('p', {},
         h('button', {

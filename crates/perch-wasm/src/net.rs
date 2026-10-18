@@ -101,7 +101,9 @@ pub fn start_refresh_timer(inner: &Rc<RefCell<Inner>>) {
             }
             return;
         };
-        inner.borrow_mut().client.backend.refresh();
+        if let Ok(mut me) = inner.try_borrow_mut() {
+            me.client.backend.refresh();
+        }
         flush(&inner);
     });
     let global = js_sys::global();
@@ -168,7 +170,7 @@ pub fn open(inner: &Rc<RefCell<Inner>>, url: &str) {
     ws.set_onmessage(Some(on_message.as_ref().unchecked_ref()));
     ws.set_onclose(Some(on_close.as_ref().unchecked_ref()));
 
-    let mut me = inner.borrow_mut();
+    let Ok(mut me) = inner.try_borrow_mut() else { return };
     if let Some(p) = me.peers.get_mut(url) {
         p.state = PeerState::Connecting;
         p.socket = Some(ws);
@@ -178,7 +180,7 @@ pub fn open(inner: &Rc<RefCell<Inner>>, url: &str) {
 
 fn on_open(inner: &Rc<RefCell<Inner>>, url: &str) {
     {
-        let mut guard = inner.borrow_mut();
+        let Ok(mut guard) = inner.try_borrow_mut() else { return };
         let me = &mut *guard;
         let sid = me.client.backend.open_session(url);
         me.session_urls.insert(sid, url.to_string());
@@ -198,7 +200,7 @@ fn on_open(inner: &Rc<RefCell<Inner>>, url: &str) {
 
 fn on_frame(inner: &Rc<RefCell<Inner>>, url: &str, text: &str) {
     let changed = {
-        let mut guard = inner.borrow_mut();
+        let Ok(mut guard) = inner.try_borrow_mut() else { return };
         let me = &mut *guard;
         let Some(sid) = me.peers.get(url).and_then(|p| p.session) else { return };
         let (records, changed) = me.client.backend.on_message(sid, text);
@@ -222,7 +224,7 @@ fn on_frame(inner: &Rc<RefCell<Inner>>, url: &str, text: &str) {
 
 fn on_closed(inner: &Rc<RefCell<Inner>>, url: &str, reason: &str) {
     {
-        let mut guard = inner.borrow_mut();
+        let Ok(mut guard) = inner.try_borrow_mut() else { return };
         let me = &mut *guard;
         if let Some(p) = me.peers.get_mut(url) {
             if let Some(sid) = p.session.take() {
@@ -239,7 +241,7 @@ fn on_closed(inner: &Rc<RefCell<Inner>>, url: &str, reason: &str) {
 
 fn fail_and_retry(inner: &Rc<RefCell<Inner>>, url: &str, reason: &str) {
     let (wanted, attempt) = {
-        let mut me = inner.borrow_mut();
+        let Ok(mut me) = inner.try_borrow_mut() else { return };
         let Some(p) = me.peers.get_mut(url) else { return };
         p.last_error = Some(reason.to_string());
         for (_, reject) in p.waiters.drain(..) {
@@ -264,7 +266,7 @@ fn fail_and_retry(inner: &Rc<RefCell<Inner>>, url: &str, reason: &str) {
     let u = url.to_string();
     let cb = Closure::<dyn FnMut()>::once(move || {
         if let Some(inner) = weak.upgrade() {
-            let still = inner.borrow().peers.get(&u).is_some_and(|p| p.wanted);
+            let still = inner.try_borrow().is_ok_and(|me| me.peers.get(&u).is_some_and(|p| p.wanted && p.socket.is_none()));
             if still {
                 open(&inner, &u);
             }
@@ -272,21 +274,23 @@ fn fail_and_retry(inner: &Rc<RefCell<Inner>>, url: &str, reason: &str) {
     });
     let id = set_timeout(&cb, ms);
     cb.forget();
-    if let Some(p) = inner.borrow_mut().peers.get_mut(url) {
-        p.timer = Some(id);
+    if let Ok(mut me) = inner.try_borrow_mut() {
+        if let Some(p) = me.peers.get_mut(url) {
+            p.timer = Some(id);
+        }
     }
 }
 
 /// Sends every queued frame and applies close requests.
 pub fn flush(inner: &Rc<RefCell<Inner>>) {
     let (out, closes) = {
-        let mut guard = inner.borrow_mut();
+        let Ok(mut guard) = inner.try_borrow_mut() else { return };
         let me = &mut *guard;
         me.client.backend.take_outgoing()
     };
     let mut to_close = Vec::new();
     {
-        let mut me = inner.borrow_mut();
+        let Ok(mut me) = inner.try_borrow_mut() else { return };
         for o in out {
             let Some(url) = me.session_urls.get(&o.session).cloned() else { continue };
             if let Some(p) = me.peers.get_mut(&url) {
@@ -304,7 +308,7 @@ pub fn flush(inner: &Rc<RefCell<Inner>>) {
         }
     }
     for (url, reason) in to_close {
-        let ws = inner.borrow().peers.get(&url).and_then(|p| p.socket.clone());
+        let ws = inner.try_borrow().ok().and_then(|me| me.peers.get(&url).and_then(|p| p.socket.clone()));
         if let Some(ws) = ws {
             let _ = ws.close_with_code_and_reason(1000, &reason.chars().take(100).collect::<String>());
         }
@@ -314,7 +318,7 @@ pub fn flush(inner: &Rc<RefCell<Inner>>) {
 /// Stops reconnecting and closes the socket.
 pub fn close(inner: &Rc<RefCell<Inner>>, url: &str) {
     let (ws, timer, sid) = {
-        let mut me = inner.borrow_mut();
+        let Ok(mut me) = inner.try_borrow_mut() else { return };
         let Some(p) = me.peers.get_mut(url) else { return };
         p.wanted = false;
         p.state = PeerState::Closed;
@@ -329,7 +333,7 @@ pub fn close(inner: &Rc<RefCell<Inner>>, url: &str) {
         ws.set_onopen(None);
         let _ = ws.close();
     }
-    let mut guard = inner.borrow_mut();
+    let Ok(mut guard) = inner.try_borrow_mut() else { return };
     let me = &mut *guard;
     if let Some(sid) = sid {
         me.client.backend.on_closed(sid);
@@ -338,8 +342,28 @@ pub fn close(inner: &Rc<RefCell<Inner>>, url: &str) {
     me.peers.remove(url);
 }
 
+/// Reconnects now when the peer is waiting out a backoff.
+pub fn retry_now(inner: &Rc<RefCell<Inner>>, url: &str) {
+    let timer = {
+        let Ok(mut me) = inner.try_borrow_mut() else { return };
+        let Some(p) = me.peers.get_mut(url) else { return };
+        if !p.wanted || p.socket.is_some() {
+            return;
+        }
+        p.attempt = 0;
+        p.timer.take()
+    };
+    if let Some(t) = timer {
+        clear_timeout(t);
+    }
+    open(inner, url);
+}
+
 pub fn add_waiter(inner: &Rc<RefCell<Inner>>, url: &str, resolve: js_sys::Function, reject: js_sys::Function) {
-    let mut me = inner.borrow_mut();
+    let Ok(mut me) = inner.try_borrow_mut() else {
+        let _ = reject.call1(&JsValue::NULL, &JsValue::from_str(crate::wasm_stopped()));
+        return;
+    };
     match me.peers.get_mut(url) {
         Some(p) if p.state == PeerState::Syncing || p.state == PeerState::Live => {
             let _ = resolve.call0(&JsValue::NULL);

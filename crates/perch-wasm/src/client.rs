@@ -2,7 +2,7 @@
 //! guard, ingest, policy, and views. No JavaScript types, so it is tested
 //! natively. `lib.rs` adds the JavaScript bindings and `net.rs` the sockets.
 
-use crate::backend::{Backend, Ingested, Signed};
+use crate::backend::{Backend, Ingested, RecordInput, Signed, parse_strict};
 use crate::backup;
 use crate::guard::{Guard, HeadRef, PublishStatus};
 use serde_json::{Value, json};
@@ -55,17 +55,18 @@ pub fn default_policy() -> Value {
     })
 }
 
-/// Splits `ingest()` input text into record lines: JSONL, or one JSON array.
-pub fn split_records(text: &str) -> Result<Vec<String>, String> {
+/// Splits `ingest()` input text into records: JSONL lines, or the elements
+/// of one JSON array. The array is parsed with the strict parser, which
+/// rejects duplicate keys anywhere in it; each element is then checked
+/// against the per-record size limit and verified (backend.rs).
+pub fn split_records(text: &str) -> Result<Vec<RecordInput>, String> {
     let trimmed = text.trim_start();
     if trimmed.starts_with('[') {
-        let v: Value = serde_json::from_str(trimmed).map_err(|e| format!("Not a JSON array: {e}"))?;
-        let arr = v.as_array().ok_or("Not a JSON array")?;
-        // Re-serializing is safe here: the store parses strictly and
-        // normalizes every record to its canonical wire form.
-        return Ok(arr.iter().map(|r| r.to_string()).collect());
+        let v = parse_strict(trimmed).map_err(|e| format!("Not a valid JSON array: {e}"))?;
+        let Value::Array(arr) = v else { return Err("Not a valid JSON array".into()) };
+        return Ok(arr.into_iter().map(RecordInput::Value).collect());
     }
-    Ok(text.lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect())
+    Ok(text.lines().map(str::trim).filter(|l| !l.is_empty()).map(|l| RecordInput::Text(l.to_string())).collect())
 }
 
 impl Client {
@@ -170,8 +171,13 @@ impl Client {
     // Records.
 
     pub fn ingest_lines(&mut self, lines: &[String]) -> IngestReport {
+        let inputs: Vec<RecordInput> = lines.iter().cloned().map(RecordInput::Text).collect();
+        self.ingest(&inputs)
+    }
+
+    pub fn ingest(&mut self, inputs: &[RecordInput]) -> IngestReport {
         let mut r = IngestReport::default();
-        for (index, outcome) in self.backend.insert_many(lines).into_iter().enumerate() {
+        for (index, outcome) in self.backend.insert_inputs(inputs).into_iter().enumerate() {
             match outcome {
                 Ingested::Inserted => r.inserted += 1,
                 Ingested::Duplicate => r.duplicate += 1,
@@ -229,11 +235,28 @@ impl Client {
 mod tests {
     use super::*;
 
+    fn texts(v: Vec<RecordInput>) -> Vec<String> {
+        v.into_iter()
+            .map(|i| match i {
+                RecordInput::Text(t) => t,
+                RecordInput::Value(v) => v.to_string(),
+            })
+            .collect()
+    }
+
     #[test]
     fn split_jsonl_and_array() {
-        assert_eq!(split_records("{\"a\":1}\n\n {\"b\":2}\n").unwrap(), vec!["{\"a\":1}", "{\"b\":2}"]);
-        assert_eq!(split_records("[{\"a\":1},{\"b\":2}]").unwrap(), vec!["{\"a\":1}", "{\"b\":2}"]);
+        assert_eq!(texts(split_records("{\"a\":1}\n\n {\"b\":2}\n").unwrap()), vec!["{\"a\":1}", "{\"b\":2}"]);
+        assert_eq!(texts(split_records("[{\"a\":1},{\"b\":2}]").unwrap()), vec!["{\"a\":1}", "{\"b\":2}"]);
         assert!(split_records("[1,").is_err());
+    }
+
+    #[test]
+    fn array_with_duplicate_keys_or_floats_is_rejected() {
+        let e = split_records("[{\"a\":1,\"a\":2}]").err().unwrap();
+        assert!(e.contains("duplicate"), "{e}");
+        assert!(split_records("[{\"a\":1.5}]").is_err());
+        assert!(split_records("[{\"a\":9007199254740992}]").is_err());
     }
 
     #[test]

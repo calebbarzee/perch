@@ -9,11 +9,13 @@
 //!    exchange since the import;
 //! 3. no node claims a higher head that is still pending.
 //!
-//! A node's head claim is not proof: a malicious node could claim a huge seq
-//! and block publishing forever. A claim above the local head is pending
-//! while sync requests the records. Verified records raise the local head
-//! and settle the claim. A claim that is not proven within
-//! [`CLAIM_TIMEOUT_MS`] is ignored, and the status names the node.
+//! A node's head claim is not proof, but it may be true: the user may have
+//! published from another device. Publishing below a true head forks the
+//! user's log, so a claim above the local head always blocks. Verified
+//! records raise the local head and settle the claim. A claim that is not
+//! proven within [`CLAIM_TIMEOUT_MS`] is marked `unproven`, and the reason
+//! names the node. Only the user unblocks it: [`Guard::retry`] restarts the
+//! timer, and [`Guard::remove_node`] (stop using the node) drops the claim.
 //!
 //! Pure logic: the caller passes the clock. Tested natively.
 
@@ -39,15 +41,15 @@ pub struct NodeHead {
     pub checked: bool,
     /// When the current claim was first seen, in ms.
     pub claim_since: Option<u64>,
-    /// The claim is above the local head and was not proven in time.
+    /// The claim is above the local head and was not proven in time. It
+    /// blocks until the user retries or stops using the node.
     pub unproven: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PublishStatus {
     pub ready: bool,
-    /// Why publishing is blocked, or, when `ready`, a warning about an
-    /// ignored claim.
+    /// Why publishing is blocked.
     pub reason: Option<String>,
     pub local_head: Option<HeadRef>,
     pub nodes: Vec<NodeHead>,
@@ -120,8 +122,20 @@ impl Guard {
         });
     }
 
+    /// The user stopped using the node: its claim no longer counts.
     pub fn remove_node(&mut self, url: &str) {
         self.nodes.remove(url);
+    }
+
+    /// The user asked to retry a node: its claim gets another
+    /// [`CLAIM_TIMEOUT_MS`] to be proven. The claim keeps blocking.
+    pub fn retry(&mut self, url: &str, now_ms: u64) {
+        if let Some(n) = self.nodes.get_mut(url) {
+            if n.head.is_some() {
+                n.claim_since = Some(now_ms);
+            }
+            n.unproven = false;
+        }
     }
 
     /// A node advertised a head for the author. Unverified: recorded as a claim.
@@ -150,9 +164,8 @@ impl Guard {
         let local_seq = local_head.as_ref().map_or(0, |h| h.seq);
         let local_id = local_head.as_ref().map(|h| h.id.as_str());
 
-        // Settle or expire node claims.
+        // Settle node claims; mark old unsettled claims unproven.
         let mut pending = Vec::new();
-        let mut ignored = Vec::new();
         for n in self.nodes.values_mut() {
             let Some(claim) = &n.head else {
                 n.unproven = false;
@@ -164,30 +177,18 @@ impl Guard {
                 continue;
             }
             let since = n.claim_since.unwrap_or(now_ms);
-            if now_ms.saturating_sub(since) >= CLAIM_TIMEOUT_MS {
-                n.unproven = true;
-                ignored.push(host_of(&n.url).to_string());
-            } else {
-                pending.push((host_of(&n.url).to_string(), claim.seq));
-            }
+            n.unproven = now_ms.saturating_sub(since) >= CLAIM_TIMEOUT_MS;
+            pending.push(Claim { host: host_of(&n.url).to_string(), seq: claim.seq, unproven: n.unproven });
         }
+        // Claims that need the user's action come first.
+        pending.sort_by_key(|c| !c.unproven);
 
         let nodes: Vec<NodeHead> = self.nodes.values().cloned().collect();
-        let blocker = self.blocker(has_key, local_head.as_ref(), &pending);
-        let reason = match (&blocker, ignored.is_empty()) {
-            (Some(b), _) => Some(b.clone()),
-            (None, false) => Some(format!(
-                "Ignored: {} {} a newer head for your log that {} cannot prove.",
-                ignored.join(", "),
-                if ignored.len() == 1 { "claims" } else { "claim" },
-                if ignored.len() == 1 { "it" } else { "they" },
-            )),
-            (None, true) => None,
-        };
-        PublishStatus { ready: blocker.is_none(), reason, local_head, nodes }
+        let reason = self.blocker(has_key, local_head.as_ref(), &pending);
+        PublishStatus { ready: reason.is_none(), reason, local_head, nodes }
     }
 
-    fn blocker(&self, has_key: bool, local: Option<&HeadRef>, pending: &[(String, u64)]) -> Option<String> {
+    fn blocker(&self, has_key: bool, local: Option<&HeadRef>, pending: &[Claim]) -> Option<String> {
         if self.sparse {
             return Some("This client has a sparse store and cannot publish.".into());
         }
@@ -219,13 +220,31 @@ impl Guard {
                 ));
             }
         }
-        if let Some((host, seq)) = pending.first() {
-            return Some(format!(
-                "Node {host} reports {seq} records in your log; this device holds {local_seq}. Waiting for the node to send them."
-            ));
+        if let Some(c) = pending.first() {
+            let (host, seq) = (&c.host, c.seq);
+            let what = if seq == local_seq {
+                format!("a different record {seq} in your log than this device holds")
+            } else {
+                format!("{seq} records in your log; this device holds {local_seq}")
+            };
+            return Some(if c.unproven {
+                format!(
+                    "Node {host} claims {what}. It did not send the records in {} s. Retry, or stop using this node.",
+                    CLAIM_TIMEOUT_MS / 1000
+                )
+            } else {
+                format!("Node {host} claims {what}. Waiting for the node to send the records.")
+            });
         }
         None
     }
+}
+
+/// A node claim above the local head.
+struct Claim {
+    host: String,
+    seq: u64,
+    unproven: bool,
 }
 
 #[cfg(test)]
@@ -271,7 +290,7 @@ mod tests {
         // Node a claims 3 records the device lacks: pending.
         let s = g.status(true, None, 1000);
         assert!(!s.ready);
-        assert!(s.reason.unwrap().contains("Node a reports 3 records"));
+        assert!(s.reason.unwrap().contains("Node a claims 3 records"));
         // The records arrive and verify: the local head reaches 3.
         assert!(g.status(true, Some(h(3, "x3")), 2000).ready);
     }
@@ -322,8 +341,8 @@ mod tests {
     }
 
     #[test]
-    fn fake_head_claim_blocks_only_until_timeout() {
-        // A malicious node claims seq 1,000,000 for the user's log.
+    fn unproven_claim_blocks_until_the_user_stops_using_the_node() {
+        // A node claims seq 1,000,000 for the user's log and sends nothing.
         let mut g = Guard::new(false);
         g.add_node("ws://evil.example/v1/sync");
         g.add_node("ws://good.example/v1/sync");
@@ -333,26 +352,54 @@ mod tests {
         g.node_reported("ws://good.example/v1/sync", Some(h(2, "x2")), 10_000);
         let s = g.status(true, Some(h(2, "x2")), 10_000);
         assert!(!s.ready);
-        assert!(s.reason.unwrap().contains("evil.example"));
-        // The claim never becomes proven head: known stays at 2.
-        assert_eq!(g.known().unwrap().seq, 2);
-        // After the timeout the claim is ignored and named.
-        let s = g.status(true, Some(h(2, "x2")), 10_000 + CLAIM_TIMEOUT_MS);
-        assert!(s.ready, "{s:?}");
         let r = s.reason.unwrap();
-        assert!(r.contains("evil.example") && r.contains("cannot prove"), "{r}");
-        assert!(s.nodes.iter().any(|n| n.url.contains("evil") && n.unproven));
-        assert!(s.nodes.iter().any(|n| n.url.contains("good") && !n.unproven));
+        assert!(r.contains("evil.example") && r.contains("Waiting"), "{r}");
+        assert!(s.nodes.iter().all(|n| !n.unproven));
+        // The claim never becomes the proven head: known stays at 2.
+        assert_eq!(g.known().unwrap().seq, 2);
+        // After the timeout the claim still blocks, names the node, and asks
+        // the user to act.
+        for t in [CLAIM_TIMEOUT_MS, 10 * CLAIM_TIMEOUT_MS, 1000 * CLAIM_TIMEOUT_MS] {
+            let s = g.status(true, Some(h(2, "x2")), 10_000 + t);
+            assert!(!s.ready, "{s:?}");
+            let r = s.reason.unwrap();
+            assert!(r.contains("evil.example") && r.contains("Retry, or stop using this node"), "{r}");
+            assert!(s.nodes.iter().any(|n| n.url.contains("evil") && n.unproven));
+            assert!(s.nodes.iter().any(|n| n.url.contains("good") && !n.unproven));
+        }
+        // Only stopping use of the node unblocks.
+        g.remove_node("ws://evil.example/v1/sync");
+        let s = g.status(true, Some(h(2, "x2")), 2000 * CLAIM_TIMEOUT_MS);
+        assert!(s.ready && s.reason.is_none(), "{s:?}");
     }
 
     #[test]
-    fn fake_same_seq_claim_is_ignored_after_timeout() {
+    fn retry_restarts_the_timer_and_keeps_blocking() {
+        let mut g = Guard::new(false);
+        g.add_node("ws://n");
+        g.reset_for_new_key();
+        g.node_reported("ws://n", Some(h(5, "a")), 0);
+        assert!(g.status(true, None, CLAIM_TIMEOUT_MS).nodes[0].unproven);
+        g.retry("ws://n", CLAIM_TIMEOUT_MS + 1);
+        let s = g.status(true, None, CLAIM_TIMEOUT_MS + 2);
+        assert!(!s.ready && !s.nodes[0].unproven);
+        assert!(s.reason.unwrap().contains("Waiting"));
+        let s = g.status(true, None, 2 * CLAIM_TIMEOUT_MS + 1);
+        assert!(!s.ready && s.nodes[0].unproven);
+        // The records arrive and verify: the claim settles.
+        assert!(g.status(true, Some(h(5, "a")), 2 * CLAIM_TIMEOUT_MS + 2).ready);
+    }
+
+    #[test]
+    fn same_seq_claim_with_another_id_keeps_blocking() {
         let mut g = Guard::new(false);
         g.add_node("ws://n");
         g.reset_for_new_key();
         g.node_reported("ws://n", Some(h(1, "other")), 0);
         assert!(!g.status(true, Some(h(1, "mine")), 1).ready);
-        assert!(g.status(true, Some(h(1, "mine")), CLAIM_TIMEOUT_MS).ready);
+        let s = g.status(true, Some(h(1, "mine")), CLAIM_TIMEOUT_MS);
+        assert!(!s.ready);
+        assert!(s.reason.unwrap().contains("a different record 1"));
     }
 
     #[test]
@@ -361,9 +408,10 @@ mod tests {
         g.add_node("ws://n");
         g.reset_for_new_key();
         g.node_reported("ws://n", Some(h(5, "a")), 0);
-        assert!(g.status(true, None, CLAIM_TIMEOUT_MS).ready);
+        assert!(g.status(true, None, CLAIM_TIMEOUT_MS).nodes[0].unproven);
         g.node_reported("ws://n", Some(h(6, "b")), CLAIM_TIMEOUT_MS + 1);
-        assert!(!g.status(true, None, CLAIM_TIMEOUT_MS + 2).ready);
+        let s = g.status(true, None, CLAIM_TIMEOUT_MS + 2);
+        assert!(!s.ready && !s.nodes[0].unproven);
     }
 
     #[test]

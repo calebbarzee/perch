@@ -67,9 +67,44 @@ export async function loadClient(options = {}) {
     }
   }
   if (!Impl) Impl = await loadMock();
-  const client = await Impl.create(options);
+  let client = await Impl.create(options);
+  if (mode === 'wasm') client = guardTraps(client);
   loaded = { client, mode, reason };
   return loaded;
+}
+
+// The wasm module aborts on a Rust panic, which throws a
+// WebAssembly.RuntimeError. Read-only calls still work afterwards (lib.rs),
+// so a trap becomes an ordinary Error for the screen to show, plus a
+// "perch-internal-error" event for the app banner.
+export const STOPPED = 'The Perch client stopped after an internal error. Reload the page.';
+
+function guardTraps(client) {
+  const report = (error) => window.dispatchEvent(new CustomEvent('perch-internal-error', { detail: { error } }));
+  const convert = (e) => {
+    if (e instanceof WebAssembly.RuntimeError) {
+      const err = new Error(`Internal error in the Perch client (${e.message}). This view is not available.`);
+      err.internal = true;
+      report(err);
+      return err;
+    }
+    if (e?.message === STOPPED) report(e);
+    return e;
+  };
+  return new Proxy(client, {
+    get(target, prop) {
+      const v = Reflect.get(target, prop, target);
+      if (typeof v !== 'function') return v;
+      return (...args) => {
+        try {
+          const out = v.apply(target, args);
+          return out instanceof Promise ? out.catch((e) => Promise.reject(convert(e))) : out;
+        } catch (e) {
+          throw convert(e);
+        }
+      };
+    },
+  });
 }
 
 export function getClient() {

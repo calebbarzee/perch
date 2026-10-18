@@ -24,13 +24,8 @@
         </svg>
         <span>Perch</span>
       </a>
-      <form class="topbar-search" role="search" id="topbar-search">
-        <label class="visually-hidden" for="topbar-q">Search products</label>
-        <input id="topbar-q" name="q" type="search" placeholder="Search products, brands, or GTIN" autocomplete="off" spellcheck="false">
-        <button type="submit" class="button">Search</button>
-      </form>
       <nav class="topnav" aria-label="Main" id="topnav">
-        <button type="button" class="menu-button" id="menu-button" aria-expanded="false" aria-controls="topnav-list">Menu <span class="nav-status" id="nav-net-menu" aria-hidden="true"></span></button>
+        <button type="button" class="menu-button" id="menu-button" aria-expanded="false" aria-controls="topnav-list">Menu <span class="nav-dot" id="nav-net-menu" aria-hidden="true"></span><span class="visually-hidden" id="nav-net-menu-text"></span></button>
         <ul id="topnav-list">
           <li><a href="#/search" data-nav="search">Search</a></li>
           <li><a href="#/publish" data-nav="publish">Publish</a></li>
@@ -40,6 +35,11 @@
           <li><a href="#/data" data-nav="data">Data</a></li>
         </ul>
       </nav>
+      <form class="topbar-search" role="search" id="topbar-search">
+        <label class="visually-hidden" for="topbar-q">Search products</label>
+        <input id="topbar-q" name="q" type="search" placeholder="Search products, brands, or GTIN" autocomplete="off" spellcheck="false">
+        <button type="submit" class="button">Search</button>
+      </form>
     </div>
   </header>
   <div id="banner" class="banner-slot"></div>

@@ -107,14 +107,25 @@ export class PerchNode {
     await waitFor(() => this.exited, { timeout: 5000, what: `${this.name} exit` }).catch(() => this.proc.kill('SIGKILL'));
   }
 
+  // GET with retries on 429 and 503: the node rate-limits view requests per
+  // address and runs at most 4 heavy views at a time (docs/api.md).
+  async fetchView(p) {
+    for (let attempt = 0; ; attempt++) {
+      const r = await fetch(`${this.http}${p}`);
+      if ((r.status !== 429 && r.status !== 503) || attempt >= 60) return r;
+      const after = Number(r.headers.get('retry-after'));
+      await new Promise((res) => setTimeout(res, Number.isFinite(after) && after > 0 ? after * 1000 : 500));
+    }
+  }
+
   async get(p, { json = true } = {}) {
-    const r = await fetch(`${this.http}${p}`);
+    const r = await this.fetchView(p);
     if (!r.ok) throw new Error(`GET ${p}: HTTP ${r.status}`);
     return json ? r.json() : r.text();
   }
 
   async getWithHeaders(p) {
-    const r = await fetch(`${this.http}${p}`);
+    const r = await this.fetchView(p);
     if (!r.ok) throw new Error(`GET ${p}: HTTP ${r.status}`);
     return { body: await r.json(), headers: r.headers };
   }

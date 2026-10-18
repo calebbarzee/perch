@@ -53,11 +53,9 @@ export default {
     // Currencies present in the results, for the price sort.
     const resultCurrencies = [...new Set(hits.filter((x) => x.min_price).map((x) => x.min_price.currency))].sort();
 
-    const form = h('form', { class: 'search-form', role: 'search' },
-      h('div', { class: 'field grow' },
-        h('label', { for: 'search-q', text: 'Search products' }),
-        h('input', { id: 'search-q', name: 'q', type: 'search', value: q, autocomplete: 'off', spellcheck: 'false', placeholder: 'Name, brand, category, or GTIN' }),
-      ),
+    // The header search box is the only query field (docs/ux.md 5.2); this
+    // form holds the controls for the current query.
+    const form = h('form', { class: 'search-form', 'aria-label': 'Sort and currency' },
       h('div', { class: 'field' },
         h('label', { for: 'search-sort', text: 'Sort by' }),
         h('select', { id: 'search-sort', name: 'sort' }, SORTS.map(([v, label]) => h('option', { value: v, selected: v === sort, text: label }))),
@@ -71,10 +69,9 @@ export default {
             ),
           )
         : null,
-      h('button', { type: 'submit', class: 'button primary', text: 'Search' }),
     );
     const submit = () => {
-      let hash = routes.search(form.elements.q.value.trim(), form.elements.sort.value);
+      let hash = routes.search(q.trim(), form.elements.sort.value);
       const cur = form.elements.currency?.value;
       if (cur) hash += (hash.includes('?') ? '&' : '?') + `currency=${encodeURIComponent(cur)}`;
       location.hash = hash;
@@ -92,7 +89,7 @@ export default {
         `${fmt.plural(stats.products, 'product')} from ${fmt.plural(stats.records, 'signed record')} by ${fmt.plural(stats.authors, 'author')}, checked on this device. `,
         'Ratings count identity-verified reviewers only.',
       ),
-      form,
+      q.trim() ? form : null,
     );
 
     if (!stats.records) {
@@ -116,6 +113,12 @@ export default {
       return section;
     }
 
+    // A GTIN with a wrong check digit (m8).
+    const expected = /^(\d{8}|\d{12,14})$/.test(q.trim()) ? gtinCheckDigit(q.trim()) : null;
+    if (expected !== null) {
+      section.append(h('p', { class: 'warn-text', id: 'gtin-hint', text: `This is not a valid GTIN: the last digit should be ${expected}.` }));
+    }
+
     if (!hits.length) {
       section.append(emptyState(`No products match “${q}”.`, `Check the spelling, search by brand, or search by GTIN. This device holds records about ${fmt.plural(stats.products, 'product')}; connect more nodes to search more data.`));
       return section;
@@ -129,7 +132,7 @@ export default {
         visible.length
           ? `${fmt.plural(visible.length, 'product')} ${visible.length === 1 ? 'matches' : 'match'}${q ? ` “${q}”` : ''}. ${SORT_TEXT[sort]}`
           : 'No visible products match.',
-        /^\d{8}$|^\d{12,14}$/.test(q.trim()) ? ' Searching by GTIN.' : '',
+        /^\d{8}$|^\d{12,14}$/.test(q.trim()) && gtinCheckDigit(q.trim()) === null ? ' Searching by GTIN.' : '',
       ),
       h('details', { class: 'computed' },
         h('summary', { text: 'How relevance works' }),
@@ -151,6 +154,18 @@ export default {
     return section;
   },
 };
+
+// The correct last digit when it is wrong, else null.
+function gtinCheckDigit(g) {
+  const digits = g.split('').map(Number);
+  const check = digits.pop();
+  let sum = 0;
+  digits.reverse().forEach((d, i) => {
+    sum += d * (i % 2 === 0 ? 3 : 1);
+  });
+  const want = (10 - (sum % 10)) % 10;
+  return want === check ? null : want;
+}
 
 function rawToggle(why) {
   const raw = h('pre', { class: 'json small', hidden: true, text: why.join('\n') });
