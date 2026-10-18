@@ -172,6 +172,7 @@ Records with a non-replaceable kind cannot carry `replaces` and cannot be replac
 - A **chain** is a record plus all records that replace it, directly or transitively. Its **root ID** is the ID of the first record.
 - The **latest version** of a chain is its semantically valid record with the highest `seq`.
 - A replacement that changes a field marked "fixed" in 4.5 is semantically invalid.
+- Fixed fields and product keys of a chain always come from its root record. If the root has no body, the chain is unavailable until the root's body arrives. A later body arrival therefore cannot move a chain to another product or change its fixed fields.
 - Every reference field (`target`, `listing`, `receipt.listing`) is resolved to the root ID of the referenced record's chain. Flags, appeals, retractions, and reviews therefore apply to the whole chain, not to one version.
 - `retract` applies to the chain of its target's root and is valid only if the retracting author authored that chain and the `retract` has a higher seq than its target.
 - A retraction is final. Replacements of a retracted chain are ignored, including ones with a higher seq than the `retract`.
@@ -329,6 +330,7 @@ Only the latest review per (author, product) counts. Reviews by a product's sell
 
 ### 7.6 Moderation
 
+- A **product key** is hidden when at least one of its product chains is hidden and none of its visible product chains has a verified author. Product facts come from visible chains only. A new key cannot un-hide a product by publishing a fresh product record.
 - A record chain of kind `listing`, `review`, `product`, or `profile` is **hidden** when distinct, unretracted flags on its root reach the threshold for its kind. If `flags_require_verified` is true, only flags from verified authors count, once per person key. A flag never counts if its author's person (7.3) equals the person of the target's author, or, for reviews, the person of any author of a listing for the reviewed product.
 - Hiding affects display only, never semantics. A hidden record still counts for every rule that is not display: a hidden flag still counts, a hidden profile's author is still verified, and a hidden listing still anchors receipts. Flags on other kinds are recorded but hide nothing in v1. This also prevents cycles of flags hiding flags.
 - Display-only in practice: hidden reviews still count in ratings (otherwise a few hired flaggers could delete negative ratings); hidden listings do not feed `price_range` or `min_price`, because those show a listing's price. Only listings that are `in_stock` or `preorder` feed price figures.
@@ -425,7 +427,7 @@ The canonical form of a view result is its RFC 8785 serialization (`perch_views:
 
 `mean` and `score` may be fractional numbers per 7.7. All other numbers are integers.
 
-Ranking inputs use only sybil-resistant signals. `SearchHit.rating_mean`, `SearchHit.rating_count`, and the rating part of `score` come from `verified_identity` reviews only. `RatingSummary.count`, `mean`, and `histogram` cover all counted reviews and are shown as secondary information. Creating keys therefore cannot change ranking.
+Ranking inputs use only sybil-resistant signals. `SearchHit.rating_mean`, `SearchHit.rating_count`, and the rating part of `score` come from `verified_identity` reviews only. `RatingSummary.count`, `mean`, and `histogram` cover all counted reviews and are shown as secondary information. Creating keys therefore cannot change ranking. Search matches a query against every candidate value of a product's name, brand, and category from visible chains, not only the displayed value, so unverified keys cannot hide a product from search by renaming it.
 
 ## 8. Interfaces
 
@@ -525,7 +527,7 @@ Admission uses three tiers, computed from records plus the node's admission atte
 | 2 | Unverified authors referenced by tier-1 records (flag or appeal targets, receipt sellers, listing sellers reviewed by tier-1 authors) | Up to 1,000 records or 16 MiB per author |
 | 3 | All others | Up to 100 records or 1 MiB per author, within a node-wide budget (default 1 GiB). Authors are admitted in ascending `sha256(author ‖ floor(day / 30))` order until the budget is reached. Logs are kept or dropped as whole prefixes. |
 
-Honest nodes with the same admission set converge on tiers 1 and 2. Every counted flag, ranking input, and verified-purchase input comes from those tiers. Tier 3 can differ between nodes; it affects only the all-reviews `RatingSummary` numbers, which the app labels as best effort. Detail: [`docs/threat-model.md`](docs/threat-model.md) T15a.
+Honest nodes with the same admission set converge on tiers 1 and 2. Every counted flag, ranking input, and verified-purchase input comes from those tiers. Tier 3 can differ between nodes; it affects the all-reviews `RatingSummary` numbers, which the app labels as best effort, and product facts from unverified authors, which the app labels as unverified. A product whose only sources are unverified authors can be evicted from nodes that are short of space (residual risk R15 in the threat model). Detail: [`docs/threat-model.md`](docs/threat-model.md) T15a.
 
 ## 10. Client requirements
 
@@ -533,7 +535,8 @@ These apply to the official web app and extension.
 
 - Text from records is inserted with `textContent` only, never as HTML. User text is isolated for bidirectional rendering (`dir="auto"` or `<bdi>`).
 - Images from unverified authors are not loaded automatically, because loading reveals the viewer's IP address to the image host.
-- A client stores its own latest head locally and never publishes at or below it. With an imported key, it publishes only after syncing that author's log from every configured node (at least 2 when available) and taking the highest head. One node hiding the user's last record therefore cannot make the user fork their own log. The extension never holds a key.
+- A client stores its own latest head locally and never publishes at or below it. With an imported key, it publishes only after syncing that author's log from every configured node (at least 2 when available) and taking the highest head. One node hiding the user's last record therefore cannot make the user fork their own log. If a node claims a higher head for the user's key and does not deliver the records, the client does not publish. After 60 s it names the node and asks the user to retry or to stop using that node; only that explicit action unblocks publishing. The extension never holds a key.
+- URL parameters may add nodes for one session, shown in a banner, but never silently replace the configured nodes.
 - The app uses the default policy bundled in its release as the static file `web/default-policy.json`, so anyone can read it. It never adopts a node's `/v1/policy` or attestor list without the user's explicit action.
 - The app shows the active policy hash, the app version, and the SHA-256 of the running wasm module.
 - The app connects to several nodes when configured and shows head disagreements between them.
